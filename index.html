@@ -476,7 +476,7 @@
         <div><kbd>J</kbd>journal</div>
         <div><kbd>H</kbd>photo mode</div>
       </div>
-      <p class="lede">Click the town to steer with your mouse; Esc frees the cursor. Flying drains your wing meter, so land anywhere (rooftops count) to refill it. Hold S in the air to slow down and use the ring under you to line up a landing. Townsfolk with a teal marker have a favour to ask: walk up and press E to chat. A few shops have their doors open, too. Careful: plenty of people don't like pigeons. Watch for the red "!" and fly off before they kick. The tram stops at seven shelters around the park: hop on when the doors open for a free ride. Roost Court, the brick apartment block east of the park, is open floor to floor: take the stairs, or find an open window. Traffic stops at red lights, and drivers will brake and honk if you sit in the road. Beyond the old centre lie Old Town, the Harbour, the Market Quarter, the West End and Sparrow Hill. Under the streets, the Crumb Line links four stations: look for the yellow ring signs and the stairs going down. The River Quill runs along the south of the city, with a Riverbus between three piers, and the coast road leads to the beach at Gull Bay. Stand on any boat and it carries you along. Some of the people you pass have names and plenty to say: press E to chat. Featherstone Zoo is in the far north-west. Tap or click the minimap (or press N) for a bigger map, then tap it again to drop a waypoint. North of Old Town, Featherstone Central station has steam trains to Westgate and Eastgate. And down by the pond, a lilac-necked pigeon called Plume might just catch your eye. Every couple of minutes something happens in town (a parade, a robbery, a wedding...): watch the purple star on the map and the card under your quest. Streets have names now, too. Hop off the train at the new <b>Featherland</b> halt for a theme park: ride everything, hug Captain Coo, and stay for the fireworks. Land on someone's head for a ride (and peck their hat off), peck the street furniture, play the floor piano on the Market Quarter plaza, and try the playground in the Harbour green. Glints on rooftops and in bins are loot: open your <b>Bag</b> (I) to look at it, use it, and read the clues you've found. Four new shops have puzzles to solve, and the wind now blows: ride the swirling-leaf updrafts. Open the <b>Map</b> (N, or tap the minimap) to set waypoints and fly back to places you've visited, and the Journal (J) has tabs for favours, places, stats and a log.</p>
+      <p class="lede">Click the town to steer with your mouse; Esc frees the cursor. Flying drains your wing meter, so land anywhere (rooftops count) to refill it. Hold S in the air to slow down and use the ring under you to line up a landing. Townsfolk with a teal marker have a favour to ask: walk up and press E to chat. A few shops have their doors open, too. Careful: plenty of people don't like pigeons. Watch for the red "!" and fly off before they kick. The tram stops at seven shelters around the park: hop on when the doors open for a free ride. Roost Court, the brick apartment block east of the park, is open floor to floor: take the stairs, or find an open window. Traffic stops at red lights, and drivers will brake and honk if you sit in the road. Beyond the old centre lie Old Town, the Harbour, the Market Quarter, the West End and Sparrow Hill. Under the streets, the Crumb Line links four stations: look for the yellow ring signs and the stairs going down. The River Quill runs along the south of the city, with a Riverbus between three piers, and the coast road leads to the beach at Gull Bay. Stand on any boat and it carries you along. Some of the people you pass have names and plenty to say: press E to chat. Featherstone Zoo is in the far north-west. Tap or click the minimap (or press N) for a bigger map, then tap it again to drop a waypoint. North of Old Town, Featherstone Central station has steam trains to Westgate and Eastgate. And down by the pond, a lilac-necked pigeon called Plume might just catch your eye. Every couple of minutes something happens in town (a parade, a robbery, a wedding...): watch the purple star on the map and the card under your quest. Streets have names now, too. Hop off the train at the new <b>Featherland</b> halt for a theme park: ride everything, hug Captain Coo, and stay for the fireworks. Land on someone's head for a ride (and peck their hat off), peck the street furniture, play the floor piano on the Market Quarter plaza, and try the playground in the Harbour green. Glints on rooftops and in bins are loot: open your <b>Bag</b> (I) to look at it, use it, and read the clues you've found. Four new shops have puzzles to solve, and the wind now blows: ride the swirling-leaf updrafts. The city is much bigger now: Uptown to the west (Midtown skyscrapers, Pigeon Park, the Museum of Natural History, the Empire Feather Building), Maple Grove across the river to the south, and an airport in the north (take the train to Airport Parkway). Open the <b>Map</b> (N, or tap the minimap) to set waypoints and fly back to places you've visited, and the Journal (J) has tabs for favours, places, stats and a log.</p>
       <div class="settings">
         <label class="set"><span>Mouse sensitivity</span><input type="range" id="setSens" min="0.3" max="2.5" step="0.1" value="1"></label>
         <label class="set"><span>Music</span><input type="range" id="setMusic" min="0" max="1" step="0.05" value="0.6"></label>
@@ -531,6 +531,14 @@
           <button class="warp" type="button" data-warp="number7">Number Seven</button>
           <button class="warp" type="button" data-warp="music">Tune Town</button>
           <button class="warp" type="button" data-warp="gazette">The Gazette</button>
+          <button class="warp" type="button" data-warp="midtown">Midtown</button>
+          <button class="warp" type="button" data-warp="pigeonpark">Pigeon Park</button>
+          <button class="warp" type="button" data-warp="naturalhistory">Museum of Natural History</button>
+          <button class="warp" type="button" data-warp="empire">Empire Feather Building</button>
+          <button class="warp" type="button" data-warp="sunnyside">Sunny Side Diner</button>
+          <button class="warp" type="button" data-warp="maplegrove">Maple Grove</button>
+          <button class="warp" type="button" data-warp="mgschool">Maple Grove School</button>
+          <button class="warp" type="button" data-warp="airport">Featherstone International</button>
           <button class="warp" type="button" data-warp="nest" id="warpNest" hidden>Our nest</button>
           <button class="warp" type="button" data-warp="pond">Duck pond</button>
           <button class="warp" type="button" data-warp="loft">Pemberton's loft</button>
@@ -4963,7 +4971,7 @@ function updateTraffic(dt){
       braking = target < v.cur - 0.3;
       v.cur += clamp(target - v.cur, -7*dt, 2.6*dt);
       v.u += v.dir*v.cur*dt;
-      if (v.u > (v.uMax || 245)) v.u = -245; if (v.u < -245) v.u = (v.uMax || 245);
+      { const lo = v.uMin ?? -245, hi = v.uMax || 245; if (v.u > hi) v.u = lo; if (v.u < lo) v.u = hi; }
     }
     // lateral moves (lane changes, pulling in and out)
     const latV = clamp(v.latT - v.lat, -1.5*dt, 1.5*dt)*(v.cur > 0.3 || v.state === 'parking' ? 1 : 0.6);
@@ -5311,7 +5319,7 @@ function updateDistricts(dt, time){
   distT -= dt;
   if (distT <= 0){
     distT = 0.5;
-    const d = P.pos.z < -270 && P.pos.x > FL.x0 && P.pos.x < FL.x1 ? 'featherland' : districtOf(Math.round(P.pos.x/CELL), Math.round(P.pos.z/CELL));
+    const d = districtOf25(P.pos.x, P.pos.z) || districtOf(Math.round(P.pos.x/CELL), Math.round(P.pos.z/CELL));
     if (d !== curDistrict){ curDistrict = d; if (playing){ const D = DISTRICTS[d]; toast(`<b>${D.name}</b> · ${D.sub}`, '', 3200); if (!seenDistricts.has(d)){ seenDistricts.add(d); if (typeof onDistrict === 'function') onDistrict(d); } } }
   }
   // show only what's near
@@ -7581,7 +7589,7 @@ function stationHall(o){
 const HALL = {cx: 0, cz: -249.5, w: 24, d: 9, h: 7};
 const stationRoom = stationHall({cx: HALL.cx, cz: HALL.cz, w: HALL.w, d: HALL.d, h: HALL.h, style: 4, inner: wallpaper('#efe6d2', '#e4d8c0'), name: 'Featherstone Central'});
 const sG = igroup(0, -250, 75);
-const RAIL_STOPS = [{name: 'Westgate Halt', x: -200}, {name: 'Featherland', x: -100}, {name: 'Featherstone Central', x: 0}, {name: 'Eastgate Halt', x: 200}];
+const RAIL_STOPS = [{name: 'Westgate Halt', x: -200}, {name: 'Featherland', x: -100}, {name: 'Featherstone Central', x: 0}, {name: 'Airport Parkway', x: 130}, {name: 'Eastgate Halt', x: 200}];
 {
   // the grassy railway corridor, the track and the boundary wall
   const lawn = grassTex.clone(); lawn.needsUpdate = true; lawn.repeat.set(125, 6);
@@ -7590,8 +7598,8 @@ const RAIL_STOPS = [{name: 'Westgate Halt', x: -200}, {name: 'Featherland', x: -
   const box = (x0, x1, z0, z1, y0, y1, m, tag) => { const w = x1 - x0, d = z1 - z0, h = y1 - y0; items.push({w, h, d, x: (x0 + x1)/2, y: (y0 + y1)/2, z: (z0 + z1)/2, faces: [m, m, m, m, m, m], uv: f => f < 2 ? [d/2, h/2] : f < 4 ? [w/2, d/2] : [w/2, h/2]}); if (tag) return addSolid((x0 + x1)/2, (z0 + z1)/2, w, d, y0, y1, tag); };
   box(RAIL.x0, RAIL.x1, RAIL.z - 1.9, RAIL.z + 1.9, 0, 0.12, 0);
   for (const s of [-0.72, 0.72]) box(RAIL.x0, RAIL.x1, RAIL.z + s - 0.05, RAIL.z + s + 0.05, 0.12, 0.26, 1);
-  for (const [x0, x1] of [[-250, -103], [-97, 250]]){ box(x0, x1, -269.1, -268.5, 0, 1.0, 2, 'wall'); box(x0, x1, -269.2, -268.4, 1.0, 1.1, 3); }
-  for (const x of [-103.4, -96.6]){ box(x - 0.4, x + 0.4, -269.2, -268.4, 0, 1.8, 2, 'wall'); box(x - 0.5, x + 0.5, -269.3, -268.3, 1.8, 1.95, 3); }
+  for (const [x0, x1] of [[-250, -103], [-97, 127], [133, 250]]){ box(x0, x1, -269.1, -268.5, 0, 1.0, 2, 'wall'); box(x0, x1, -269.2, -268.4, 1.0, 1.1, 3); }
+  for (const x of [-103.4, -96.6, 126.6, 133.4]){ box(x - 0.4, x + 0.4, -269.2, -268.4, 0, 1.8, 2, 'wall'); box(x - 0.5, x + 0.5, -269.3, -268.3, 1.8, 1.95, 3); }
   // platforms: Central has a canopy; the halts get a little shelter
   for (const st of RAIL_STOPS){
     const half = st.x === 0 ? 32 : 14;
@@ -7636,8 +7644,11 @@ let windSails;
   const hedges = [], PX0 = -166, PX1 = -34, PZ0 = -390;
   for (let x = -560; x <= 560; x += 40){ if (x > PX0 && x < PX1) hedges.push([x, 0.6, (-559 + PZ0)/2, 1.4, 1.2, PZ0 + 559]); else hedges.push([x, 0.6, -414, 1.4, 1.2, 290]); }
   for (let z = -269.5 - 36.25; z > -560; z -= 72.5){ if (z > PZ0) hedges.push([(-560 + PX0)/2, 0.6, z, PX0 + 560, 1.2, 1.4], [(PX1 + 560)/2, 0.6, z, 560 - PX1, 1.2, 1.4]); else hedges.push([0, 0.6, z, 1120, 1.2, 1.4]); }
-  instBoxes(mat(0x4f8a3a), hedges);
-  const tr = []; for (let k = 0; k < 40; k++){ const x = rr(-500, 500), z = rr(-540, -285); if (x > -172 && x < -28 && z > -396) continue; tr.push([x, z]); }
+  // keep hedgerows off the airport and its access road
+  const CUTS = [[22, 248, -532, -376], [125, 135, -390, -262]];
+  const cutH = list => { let out = list; for (const [cx0, cx1, cz0, cz1] of CUTS){ const next = []; for (const h of out){ const [x, y, z, w, hh, d] = h, x0 = x - w/2, x1 = x + w/2, z0 = z - d/2, z1 = z + d/2; if (x1 <= cx0 || x0 >= cx1 || z1 <= cz0 || z0 >= cz1){ next.push(h); continue; } if (w >= d){ if (x0 < cx0) next.push([(x0 + cx0)/2, y, z, cx0 - x0, hh, d]); if (x1 > cx1) next.push([(cx1 + x1)/2, y, z, x1 - cx1, hh, d]); } else { if (z0 < cz0) next.push([x, y, (z0 + cz0)/2, w, hh, cz0 - z0]); if (z1 > cz1) next.push([x, y, (cz1 + z1)/2, w, hh, z1 - cz1]); } } out = next; } return out; };
+  instBoxes(mat(0x4f8a3a), cutH(hedges));
+  const tr = []; for (let k = 0; k < 40; k++){ const x = rr(-500, 500), z = rr(-540, -285); if (x > -172 && x < -28 && z > -396) continue; if (x > 18 && x < 252 && z > -536 && z < -372) continue; if (Math.abs(x - 130) < 8 && z > -392) continue; tr.push([x, z]); }
   const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.3, 0.4, 3.6, 5), trunkMat, tr.length), blobs = new THREE.InstancedMesh(leafGeo, mat(0x4f9e3a), tr.length), d = new THREE.Object3D();
   tr.forEach(([x, z], i) => { d.position.set(x, 1.8, z); d.rotation.set(0, 0, 0); d.scale.set(1, 1, 1); d.updateMatrix(); trunks.setMatrixAt(i, d.matrix); d.position.set(x, 4.8, z); d.rotation.set(i, i, 0); d.scale.setScalar(rr(2.2, 3)); d.updateMatrix(); blobs.setMatrixAt(i, d.matrix); });
   scene.add(trunks, blobs);
@@ -7741,7 +7752,7 @@ function drawRailBoard(){
   g.fillStyle = '#14100c'; g.fillRect(0, 0, 160, 40); g.font = 'bold 10px "Pixelify Sans", monospace'; g.textBaseline = 'middle';
   g.fillStyle = '#ffb23d'; g.fillText('THE FEATHERSTONE FLYER', 6, 10);
   fitText(g, atC ? `Now boarding · to ${RAIL_STOPS[clamp(TR.i + TR.dir, 0, RAIL_STOPS.length - 1)].name}` : `Next train: ${Math.max(1, Math.ceil((Math.abs(TR.x - 2.35)/7 + (TR.state === 'dock' ? TR.t : 0))/60))} min`, 6, 24);
-  g.fillStyle = '#c88a2a'; { const t = 'Westgate · Featherland · Central · Eastgate', w = g.measureText(t).width; g.save(); g.translate(6, 35); g.scale(Math.min(1, 148/w), 1); g.fillText(t, 0, 0); g.restore(); }
+  g.fillStyle = '#c88a2a'; { const t = 'Westgate · Featherland · Central · Airport · Eastgate', w = g.measureText(t).width; g.save(); g.translate(6, 35); g.scale(Math.min(1, 148/w), 1); g.fillText(t, 0, 0); g.restore(); }
   depTex.needsUpdate = true;
 }
 drawRailBoard();
@@ -10491,7 +10502,7 @@ wmCan.addEventListener('pointermove', e => { if (!WMAP.pts.has(e.pointerId)) ret
   if (WMAP.pinch && WMAP.pts.size === 2){ const [a, b] = [...WMAP.pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); wmZoom(d/WMAP.pinch.d, (a[0] + b[0])/2, (a[1] + b[1])/2); WMAP.pinch.d = d; return; }
   if (WMAP.drag){ WMAP.ox += x - WMAP.drag.x; WMAP.oy += y - WMAP.drag.y; WMAP.drag.moved += Math.abs(x - WMAP.drag.x) + Math.abs(y - WMAP.drag.y); WMAP.drag.x = x; WMAP.drag.y = y; drawWM(); } });
 wmCan.addEventListener('pointerup', e => { WMAP.pts.delete(e.pointerId); if (WMAP.pts.size < 2) WMAP.pinch = null;
-  if (WMAP.drag && WMAP.drag.moved < 6){ const [x, y] = wmPt(e), wx = (x - WMAP.ox)/WMAP.s/MS - 268, wz = (y - WMAP.oy)/WMAP.s/MS - 392; waypoint = new THREE.Vector3(clamp(wx, -W, W), 0.6, clamp(wz, FL.z0, W)); toast('Waypoint set. Follow the red pin.', '', 1800); drawWM(); }
+  if (WMAP.drag && WMAP.drag.moved < 6){ const [x, y] = wmPt(e), wx = (x - WMAP.ox)/WMAP.s/MS - 600, wz = (y - WMAP.oy)/WMAP.s/MS - 540; waypoint = new THREE.Vector3(clamp(wx, -630, 239), 0.6, clamp(wz, -526, 446)); toast('Waypoint set. Follow the red pin.', '', 1800); drawWM(); }
   WMAP.drag = null; });
 wmCan.addEventListener('wheel', e => { e.preventDefault(); const [x, y] = wmPt(e); wmZoom(e.deltaY < 0 ? 1.18 : 1/1.18, x, y); }, {passive: false});
 $('wmIn').addEventListener('click', () => wmZoom(1.3)); $('wmOut').addEventListener('click', () => wmZoom(1/1.3)); $('wmMe').addEventListener('click', () => { wmCenter(player.pos.x, player.pos.z); drawWM(); });
@@ -10608,6 +10619,550 @@ function updateV23(dt){
     lodT = 0.35; const cp = camera.position;
     for (const H of ALLH){ if (!H.det) continue; const far = H.g.parent === scene ? Math.hypot(H.g.position.x - cp.x, H.g.position.z - cp.z) > 26 : false; if (far !== H.farLod){ H.farLod = far; for (const m of H.det) m.visible = !far; } }
   }
+}
+
+/* =====================================================================
+   THE BIG CITY: Uptown (New York style), Maple Grove suburbs, the airport,
+   and real edges to the world
+   ===================================================================== */
+// remaining far-skyline boxes stood exactly where the new districts go
+for (const m of skylineMeshes) scene.remove(m); skylineMeshes.length = 0;
+const XM = [...FAR_MATS]; const xc = c => { XM.push(mat(c)); return XM.length - 1; };
+const XC = {red: xc(0xd4483a), blue: xc(0x3f6b8a), yellow: xc(0xf2c14e), cream: xc(0xf4ead2), green: xc(0x5fae44), hedge: xc(0x3f7a34), dark: xc(0x2a2622), grey: xc(0x8a8f94), white: xc(0xf8f6ee), brown: xc(0x6b4a2e), teal: xc(0x2fae8f), stone: xc(0xc8c0b0), black: xc(0x26262a), copper: xc(0x6fae94), pink: xc(0xe8a8bc), sand: xc(0xe8d4a0), tar: xc(0x55504c), lightgrey: xc(0xd8d4cc), navy: xc(0x2f3f5a)};
+const NEWCH = new Map();
+const nch = (x, z) => { const k = Math.floor(x/128) + ',' + Math.floor(z/128); if (!NEWCH.has(k)) NEWCH.set(k, []); return NEWCH.get(k); };
+const NB = (ch, w, h, d, x, y, z, m, ry) => ch.push({w, h, d, x, y, z, ry, faces: Array.isArray(m) ? m : [m, m, m, m, m, m]});
+const NEWT = [], NEWSLAB = [], NEWGRASS = [], NEWLAMP = [];
+function newSlab(cx, cz, grass){ NEWSLAB.push([cx, cz]); addSolid(cx, cz, BLOCK, BLOCK, 0, 0.15, 'slab'); mapRects.push({x0: cx - 12, z0: cz - 12, x1: cx + 12, z1: cz + 12, color: grass ? '#7fbf5a' : '#cbbba1', kind: 'slab'}); for (const sx of [-1, 1]) for (const sz of [-1, 1]){ lampSpots.push([cx + sx*11.2, cz + sz*11.2]); NEWLAMP.push([cx + sx*11.2, cz + sz*11.2]); } }
+function newTree(x, z, s = 1){ NEWT.push([x, z, s]); treeSpots.push([x, z, s]); addSolid(x, z, 0.5*s, 0.5*s, 0, 3.5*s, 'trunk'); addSolid(x, z, 3*s, 3*s, 0.15 + 3.4*s, 0.15 + 6.2*s, 'canopy'); mapRects.push({x0: x - 1.8*s, z0: z - 1.8*s, x1: x + 1.8*s, z1: z + 1.8*s, color: '#3f8a34', kind: 'tree'}); }
+const bld = (cx, cz, w, d, top, color) => { buildings.push({cx, cz, w, d, top}); mapRects.push({x0: cx - w/2, z0: cz - d/2, x1: cx + w/2, z1: cz + d/2, color, kind: 'bld'}); };
+// a skyscraper with setbacks, a crown and shops at street level
+function tower(cx, cz, w, d, h, st){
+  const ch = nch(cx, cz), trim = FM.trim(st === 7 ? 6 : st), si = ri(0, 6);
+  NB(ch, w + 0.2, 3.3, d + 0.2, cx, 1.8, cz, [FM.shop(si), FM.shop(si), FM.shopTop, FM.shopTop, FM.shop(si), FM.shop(si)]); ch[ch.length - 1].uv = f => f < 2 ? [Math.max(1, Math.round(d/8)), 1] : f < 4 ? [1, 1] : [Math.max(1, Math.round(w/8)), 1];
+  let y = 0.15, ww = w, dd = d; const tiers = h > 70 ? 3 : h > 35 ? 2 : 1, parts = tiers === 3 ? [0.55, 0.3, 0.15] : tiers === 2 ? [0.7, 0.3] : [1];
+  for (let t = 0; t < tiers; t++){
+    const th = h*parts[t], w0 = ww, d0 = dd;
+    ch.push({w: w0, h: th, d: d0, x: cx, y: y + th/2, z: cz, faces: [st, st, FM.roof, FM.roof, st, st], uv: f => f < 2 ? [d0/8, th/3.5] : f < 4 ? [w0/2, d0/2] : [w0/8, th/3.5]});
+    NB(ch, w0 + 0.5, 0.6, d0 + 0.5, cx, y + th - 0.15, cz, trim);
+    addSolid(cx, cz, w0 + 0.5, d0 + 0.5, y, y + th + 0.15, 'tower');
+    y += th; ww *= 0.76; dd *= 0.76;
+  }
+  if (rand() < 0.5){ NB(ch, 0.6, h*0.12 + 4, 0.6, cx, y + (h*0.12 + 4)/2, cz, XC.grey); addSolid(cx, cz, 0.6, 0.6, y, y + h*0.12 + 4, 'antenna'); }
+  else { for (let k = 0; k < 3; k++){ const s = ww*(0.9 - k*0.28); NB(ch, s, 1.6, s, cx, y + 0.8 + k*1.6, cz, k === 2 ? XC.copper : trim); addSolid(cx, cz, s, s, y + k*1.6, y + (k + 1)*1.6, 'crown'); } }
+  if (rand() < 0.35 && h < 60){ NB(ch, 2.4, 2.6, 2.4, cx + ww/4, y + 1.9, cz - dd/4, FM.tank); NB(ch, 2.7, 0.3, 2.7, cx + ww/4, y + 3.35, cz - dd/4, FM.chim); }
+  bld(cx, cz, w, d, h + 0.15, st === 7 ? '#8fc6e0' : STYLES[st].base);
+  if (h < 60) foodSpots.push({x: cx + rr(-ww/3, ww/3), y: y + 0.01, z: cz + rr(-dd/3, dd/3), roof: true});
+}
+// a row of brownstones with stoops, cornices and the odd fire escape
+function brownRow(x0, x1, zFace, out, depth = 9.5){
+  for (let x = x0 + 2.3; x < x1 - 2; x += 4.6){
+    const ch = nch(x, zFace), st = pick([3, 3, 3, 2, 4]), hh = 12 + ri(0, 3)*1.75, cz = zFace - out*depth/2;
+    ch.push({w: 4.5, h: hh, d: depth, x, y: 0.15 + hh/2, z: cz, faces: [st, st, FM.roof, FM.roof, st, st], uv: f => f < 2 ? [depth/8, hh/3.5] : f < 4 ? [1, 1] : [4.5/8, hh/3.5]});
+    NB(ch, 4.7, 0.55, depth + 0.4, x, 0.15 + hh - 0.1, cz, FM.trim(st));
+    for (let k = 0; k < 3; k++) NB(ch, 1.4, 0.3*(3 - k), 0.5, x + 1.1, 0.15 + 0.15*(3 - k), zFace + out*(0.25 + k*0.5), XC.stone);
+    for (const s of [-0.75, 0.75]) NB(ch, 0.06, 0.8, 1.5, x + 1.1 + s, 1.0, zFace + out*0.75, XC.black);
+    NB(ch, 1.1, 2.2, 0.1, x + 1.1, 0.95 + 1.1, zFace + out*0.04, FM.wood);
+    addSolid(x, cz, 4.6, depth, 0, 0.15 + hh, 'building'); addSolid(x + 1.1, zFace + out*0.75, 1.4, 1.5, 0, 0.9, 'stoop');
+    if (rand() < 0.3) for (let f = 1; f < Math.floor(hh/3.5); f++){ const y = 0.15 + f*3.5; NB(ch, 3.2, 0.08, 1.0, x - 0.3, y, zFace + out*0.55, XC.black); NB(ch, 3.2, 0.7, 0.04, x - 0.3, y + 0.4, zFace + out*1.03, XC.black); const lad = {w: 0.06, h: 3.6, d: 0.06, x: x - 1.2, y: y - 1.6, z: zFace + out*0.6, faces: all6(XC.black)}; ch.push(lad); addSolid(x - 0.3, zFace + out*0.55, 3.2, 1.0, y - 0.05, y + 0.05, 'fireescape'); }
+    bld(x, cz, 4.6, depth, hh + 0.15, STYLES[st].base);
+    if (rand() < 0.3) foodSpots.push({x: x + 1.1, y: 1.05, z: zFace + out*0.75});
+  }
+}
+// a suburban house: stepped pitched roof, porch, picket fence, a car in the drive
+function house(cx, cz, face){
+  const ch = nch(cx, cz), st = pick([0, 1, 5, 6, 2]), roofC = pick([XC.red, XC.brown, XC.navy, XC.dark, FM.roof]), w = 7.2, d = 6.2, h = 3.8;
+  const fx = face === 'x' ? 1 : 0, sgn = rand() < 0.5 ? 1 : -1;
+  ch.push({w, h, d, x: cx, y: 0.15 + h/2, z: cz, faces: [st, st, FM.roof, FM.roof, st, st], uv: f => f < 2 ? [d/8, 1] : f < 4 ? [1, 1] : [w/8, 1]});
+  for (let k = 0; k < 4; k++){ const sw = fx ? w + 0.6 : w + 0.6 - k*2.1, sd = fx ? d + 0.6 - k*1.8 : d + 0.6; NB(ch, Math.max(0.6, sw), 0.62, Math.max(0.6, sd), cx, 0.15 + h + 0.31 + k*0.62, cz, roofC); }
+  NB(ch, 0.8, 1.6, 0.8, cx + w/4, 0.15 + h + 1.8, cz - d/5, FM.chim);
+  addSolid(cx, cz, w, d, 0, 0.15 + h + 0.6, 'house'); addSolid(cx, cz, fx ? w : w - 2, fx ? d - 2 : d, 0.15 + h + 0.6, 0.15 + h + 2.4, 'roof');
+  bld(cx, cz, w, d, 0.15 + h + 2.4, STYLES[st].base);
+  // porch and door facing the street
+  const px_ = fx ? cx + sgn*(w/2 + 0.7) : cx, pz = fx ? cz : cz + sgn*(d/2 + 0.7);
+  NB(ch, fx ? 1.4 : 2.6, 0.3, fx ? 2.6 : 1.4, px_, 0.3, pz, FM.wood); NB(ch, fx ? 0.1 : 1.0, 2.1, fx ? 1.0 : 0.1, fx ? cx + sgn*(w/2 + 0.02) : cx, 1.2, fx ? cz : cz + sgn*(d/2 + 0.02), pick([XC.red, XC.navy, XC.teal, XC.yellow, FM.wood]));
+  // fence round the lot, a mailbox, and sometimes a car
+  const L = 4.3;
+  for (const [ax, az, lw, ld] of [[0, -L, 2*L, 0.12], [0, L, 2*L, 0.12], [-L, 0, 0.12, 2*L], [L, 0, 0.12, 2*L]]){ const isFront = fx ? ax === sgn*L : az === sgn*L; if (isFront){ for (const s of [-1, 1]) NB(ch, fx ? 0.12 : 2.6, 0.7, fx ? 2.6 : 0.12, cx + ax + (fx ? 0 : s*2.85), 0.5, cz + az + (fx ? s*2.85 : 0), XC.white); } else NB(ch, lw, 0.7, ld, cx + ax, 0.5, cz + az, XC.white); }
+  NB(ch, 0.12, 1.0, 0.12, px_ + (fx ? sgn*1.5 : 1.6), 0.65, pz + (fx ? 1.6 : sgn*1.5), XC.dark); NB(ch, 0.35, 0.28, 0.5, px_ + (fx ? sgn*1.5 : 1.6), 1.25, pz + (fx ? 1.6 : sgn*1.5), pick([XC.red, XC.blue, XC.white]));
+  if (rand() < 0.55){ const carC = pick([XC.red, XC.blue, XC.yellow, XC.white, XC.teal, XC.dark]), ccx = fx ? cx + sgn*0.5 : cx - 2.6, ccz = fx ? cz - 2.6 : cz + sgn*0.5, cw = fx ? 3.6 : 1.8, cd = fx ? 1.8 : 3.6;
+    NB(ch, cw, 0.7, cd, ccx + (fx ? sgn*4.6 : 0), 0.6, ccz + (fx ? 0 : sgn*4.6), carC); NB(ch, fx ? 2.0 : 1.6, 0.6, fx ? 1.6 : 2.0, ccx + (fx ? sgn*4.5 : 0), 1.2, ccz + (fx ? 0 : sgn*4.5), FM.glass); }
+  NEWGRASS.push([cx, cz]);
+  if (rand() < 0.7) newTree(cx + (fx ? -sgn*3.2 : 3.2), cz + (fx ? 3.2 : -sgn*3.2), rr(0.7, 0.95));
+  foodSpots.push({x: px_ + (fx ? sgn*1 : 0), y: 0.18, z: pz + (fx ? 0 : sgn*1)});
+}
+
+/* ---------- Uptown: bi -17..-8 (x -544..-256), bj -7..5 (z -224..160) ---------- */
+const PARK = {x0: -528, x1: -400, z0: -48, z1: 112, cx: -464, cz: 32};
+const inPigeonPark = (x, z) => x > PARK.x0 && x < PARK.x1 && z > PARK.z0 && z < PARK.z1;
+const UPTOWN_SPECIAL = {'-12,1': 'museum', '-9,-4': 'empire', '-8,2': 'diner', '-9,3': 'bodega', '-13,-3': 'apartment'};
+function uptownHood(bi, bj){ if (inPigeonPark(bi*32, bj*32)) return 'park'; if (bi >= -10) return bj <= -1 ? 'midtown' : 'market'; if (bi >= -12 && bj >= -1 && bj <= 3) return 'museummile'; return 'brownstone'; }
+const uptownBlocks = [];
+for (let bi = -17; bi <= -8; bi++) for (let bj = -7; bj <= 5; bj++){
+  const cx = bi*32, cz = bj*32, hood = uptownHood(bi, bj), sp = UPTOWN_SPECIAL[bi + ',' + bj];
+  if (hood === 'park') continue;
+  newSlab(cx, cz); uptownBlocks.push({cx, cz, hood, sp, bi, bj});
+  if (sp === 'museum' || sp === 'empire') continue;
+  if (sp === 'diner' || sp === 'bodega' || sp === 'apartment'){ tower(cx - 4.5, cz, 9, 18, rr(14, 22), pick([2, 3, 4])); continue; }
+  if (hood === 'midtown'){
+    if (rand() < 0.5) tower(cx, cz, rr(14, 18), rr(14, 18), rr(55, 120), pick([7, 7, 4, 2, 1]));
+    else { tower(cx - 4.5, cz, 9, 18, rr(40, 90), pick([7, 4, 1])); tower(cx + 4.5, cz, 9, 18, rr(25, 70), pick([7, 2, 3])); }
+  } else if (hood === 'market'){
+    for (const lx of [-1, 1]) for (const lz of [-1, 1]){ const ch = nch(cx, cz); farBuilding(ch, cx + lx*4.5, cz + lz*4.5, rr(7, 8.4), rr(7, 8.4), ri(2, 5)*3.5, pick([0, 1, 2, 5, 6])); }
+  } else if (hood === 'museummile'){
+    tower(cx, cz, rr(16, 18), rr(16, 18), rr(30, 55), pick([4, 2]));
+  } else {
+    brownRow(cx - 11, cx + 11, cz - 11.3, -1); brownRow(cx - 11, cx + 11, cz + 11.3, 1);
+    for (const s of [-1, 1]) for (let k = -1; k <= 1; k++) if (rand() < 0.75) newTree(cx + k*7.5 + rr(-0.8, 0.8), cz + s*10.4, rr(0.75, 0.95));
+  }
+}
+// the Empire Feather Building: a lobby with a lift, and an observation deck at 130 m
+const EMPIRE = {x: -288, z: -128};
+const empireLobby = hollow({cx: EMPIRE.x, cz: EMPIRE.z, w: 16, d: 16, h: 6, style: 4, door: 's', inner: wallpaper('#e8dcc0', '#d8c8a4'), name: 'Empire Feather Building', doorColor: 0xb08020, noLight: true});
+{
+  const ch = nch(EMPIRE.x, EMPIRE.z), st = 4, trim = FM.trim(4); let y = 6.55;
+  const T = [[16, 40], [12.5, 48], [9.5, 36], [6, 10]];
+  for (const [s, th] of T){ ch.push({w: s, h: th, d: s, x: EMPIRE.x, y: y + th/2, z: EMPIRE.z, faces: [st, st, FM.roof, FM.roof, st, st], uv: f => f < 2 ? [s/8, th/3.5] : f < 4 ? [s/2, s/2] : [s/8, th/3.5]}); NB(ch, s + 0.6, 0.7, s + 0.6, EMPIRE.x, y + th - 0.1, EMPIRE.z, trim); addSolid(EMPIRE.x, EMPIRE.z, s + 0.6, s + 0.6, y, y + th + 0.25, 'tower'); y += th; }
+  EMPIRE.deck = 6.55 + 40 + 48 + 36 + 0.25; EMPIRE.top = y;
+  for (let k = 0; k < 4; k++){ const a = k*PI/2, r = 4.5; NB(ch, k % 2 ? 9.4 : 0.1, 1.0, k % 2 ? 0.1 : 9.4, EMPIRE.x + Math.cos(a)*r, EMPIRE.deck + 0.5, EMPIRE.z + Math.sin(a)*r, XC.black); }
+  NB(ch, 2.2, 6, 2.2, EMPIRE.x, y + 3, EMPIRE.z, XC.lightgrey); addSolid(EMPIRE.x, EMPIRE.z, 2.2, 2.2, y, y + 6, 'spire');
+  NB(ch, 0.5, 22, 0.5, EMPIRE.x, y + 17, EMPIRE.z, XC.grey); addSolid(EMPIRE.x, EMPIRE.z, 0.5, 0.5, y + 6, y + 28, 'antenna');
+  bld(EMPIRE.x, EMPIRE.z, 16, 16, y + 28, STYLES[4].base);
+}
+// the Museum of Natural History, facing the park
+const MUSEUM = {x: -384, z: 32};
+const nhmRoom = hollow({cx: MUSEUM.x, cz: MUSEUM.z, w: 22, d: 22, h: 12, style: 4, door: 'w', inner: wallpaper('#ece4d0', '#e0d6bc'), name: 'Museum of Natural History', doorColor: 0x2f3f5a, noLight: true});
+{
+  const ch = nch(MUSEUM.x, MUSEUM.z), x = MUSEUM.x - 11;
+  for (let k = 0; k < 3; k++) NB(ch, 1.0, 0.3*(3 - k), 14, x - 2.6 + k*0.9, 0.15 + 0.15*(3 - k), MUSEUM.z, XC.stone);
+  for (let k = -3; k <= 3; k++){ if (k === 0) continue; NB(ch, 0.9, 9, 0.9, x - 1.4, 0.15 + 4.5 + 0.9, MUSEUM.z + k*2.0, XC.cream); addSolid(x - 1.4, MUSEUM.z + k*2.0, 0.9, 0.9, 0, 10.5, 'column'); }
+  NB(ch, 3.0, 0.9, 15, x - 1.2, 11.0, MUSEUM.z, XC.stone); for (let k = 0; k < 4; k++) NB(ch, 2.6, 0.8, 13 - k*3.4, x - 1.2, 11.85 + k*0.8, MUSEUM.z, XC.stone); addSolid(x - 1.2, MUSEUM.z, 3.0, 15, 10.5, 12.3, 'portico');
+  for (const s of [-1, 1]){ const b = mesh(new THREE.PlaneGeometry(1.2, 4), mat(s > 0 ? 0xd4483a : 0x2fae8f), x - 0.2, 6.5, MUSEUM.z + s*4.2); b.rotation.y = -PI/2; scene.add(b); }
+  const sg = mesh(new THREE.PlaneGeometry(9, 1.0), mat(0xffffff, {map: textTex('NATURAL HISTORY', 224, 26, 15)}), x - 2.75, 11.0, MUSEUM.z); sg.rotation.y = -PI/2; scene.add(sg);
+}
+// Pigeon Park: lawns, a pond with an island, paths, a bridge, the Very Important Pigeon
+const PPOND = {x: -478, z: 40, rx: 22, rz: 15};
+{
+  const lawn = grassTex.clone(); lawn.needsUpdate = true; lawn.repeat.set(36, 45);
+  const g = mesh(new THREE.PlaneGeometry(PARK.x1 - PARK.x0 + 6, PARK.z1 - PARK.z0 + 6), mat(0xffffff, {map: lawn}), PARK.cx, 0.12, PARK.cz); g.rotation.x = -PI/2; g.receiveShadow = true; scene.add(g);
+  addSolid(PARK.cx, PARK.cz, PARK.x1 - PARK.x0 + 6, PARK.z1 - PARK.z0 + 6, 0, 0.12, 'lawn');
+  mapRects.push({x0: PARK.x0 - 3, z0: PARK.z0 - 3, x1: PARK.x1 + 3, z1: PARK.z1 + 3, color: '#6cbf4a', kind: 'park'});
+  const water = mesh(new THREE.CircleGeometry(1, 32), mat(0x5fa8d0, {map: harbourTex}), PPOND.x, 0.14, PPOND.z); water.scale.set(PPOND.rx, PPOND.rz, 1); water.rotation.x = -PI/2; scene.add(water);
+  WATERS.push({fn: (x, z) => ((x - PPOND.x)/PPOND.rx)**2 + ((z - PPOND.z)/PPOND.rz)**2 < 0.95 && Math.hypot(x - (PPOND.x + 6), z - (PPOND.z - 3)) > 3.4});
+  mapRects.push({circle: true, cx: PPOND.x, cz: PPOND.z, r: 17, color: '#5fa8d0'});
+  const rocks = []; for (let k = 0; k < 40; k++){ const a = k/40*PI*2; rocks.push([PPOND.x + Math.cos(a)*PPOND.rx*rr(0.98, 1.05), 0.25, PPOND.z + Math.sin(a)*PPOND.rz*rr(0.98, 1.05), rr(0.6, 1.4), rr(0.3, 0.7), rr(0.6, 1.4), rand()*3]); }
+  instBoxes(mat(0x9a9488), rocks);
+  const isl = mesh(new THREE.CylinderGeometry(3.4, 3.8, 0.6, 12), mat(0x7fbf5a), PPOND.x + 6, 0.25, PPOND.z - 3); scene.add(isl); addSolid(PPOND.x + 6, PPOND.z - 3, 5, 5, 0, 0.55, 'island'); newTree(PPOND.x + 6.5, PPOND.z - 3.5, 0.8);
+  const paths = []; const P_ = (x0, z0, x1, z1) => paths.push([(x0 + x1)/2, 0.125, (z0 + z1)/2, Math.abs(x1 - x0) || 3, 0.02, Math.abs(z1 - z0) || 3]);
+  P_(PARK.x0, -20, PARK.x1, -20); P_(PARK.x0, 92, PARK.x1, 92); P_(-420, PARK.z0, -420, PARK.z1); P_(-515, PARK.z0, -515, PARK.z1); P_(-450, -20, -450, 22);
+  instBoxes(mat(0xe8cf98), paths);
+  // a stone footbridge over the pond's east arm
+  const br = new THREE.Group(); br.position.set(PPOND.x + 17, 0, PPOND.z + 6); scene.add(br);
+  for (let k = -3; k <= 3; k++){ const y = 0.9 - Math.abs(k)*0.18; br.add(boxMesh(1.0, 0.25, 3, mat(0xc8c0b0), k, y, 0)); }
+  for (const s of [-1, 1]) br.add(boxMesh(7, 0.5, 0.2, mat(0xb8b0a0), 0, 1.3, s*1.5));
+  addSolid(PPOND.x + 17, PPOND.z + 6, 7, 3, 0, 0.95, 'bridge');
+  for (let k = 0; k < 70; k++){ const x = rr(PARK.x0 + 3, PARK.x1 - 3), z = rr(PARK.z0 + 3, PARK.z1 - 3); if (((x - PPOND.x)/(PPOND.rx + 4))**2 + ((z - PPOND.z)/(PPOND.rz + 4))**2 < 1) continue; if (Math.abs(z + 20) < 3 || Math.abs(z - 92) < 3 || Math.abs(x + 420) < 3 || Math.abs(x + 515) < 3) continue; newTree(x, z, rr(0.85, 1.25)); }
+  const benches = []; for (let x = PARK.x0 + 8; x < PARK.x1; x += 14) for (const z of [-17.6, 89.4]){ benches.push([x, 0.55, z, 2.2, 0.12, 0.6]); benches.push([x, 0.85, z + (z < 0 ? -0.3 : 0.3), 2.2, 0.5, 0.1]); addSolid(x, z, 2.2, 0.7, 0, 0.62, 'bench'); foodSpots.push({x, y: 0.15, z: z + (z < 0 ? 1.2 : -1.2)}); }
+  instBoxes(woodMat, benches);
+  // the Very Important Pigeon
+  const vip = makePigeon({lite: true, scale: 4, body: 0x8a9a8a, head: 0x7a8a7a, wing: 0x9aaa9a, neckPlain: 0x6fae94}); vip.g.position.set(-420, 3.3, 40); vip.g.rotation.y = -PI/2; scene.add(vip.g);
+  scene.add(boxMesh(3, 3, 3, mat(0xc8c0b0), -420, 1.6, 40)); addSolid(-420, 40, 3, 3, 0, 3.15, 'plinth'); addSolid(-420, 40, 1.2, 1.2, 3.15, 5.5, 'statue');
+  for (let k = 0; k < 24; k++) foodSpots.push({x: rr(PARK.x0 + 4, PARK.x1 - 4), y: 0.15, z: rr(PARK.z0 + 4, PARK.z1 - 4)});
+}
+// the High Line: a park on an old elevated railway along the north edge
+{
+  const ch = nch(-400, -252), z = -251;
+  for (let x = -556; x < -250; x += 8){ NB(ch, 8, 0.4, 5, x + 4, 6.0, z, XC.tar); NB(ch, 8, 0.3, 4.4, x + 4, 6.3, z, XC.green); }
+  for (let x = -552; x < -250; x += 16) for (const s of [-1, 1]) NB(ch, 0.6, 6, 0.6, x, 3, z + s*2, XC.black);
+  for (const s of [-1, 1]) NB(ch, 306, 0.9, 0.08, -403, 6.9, z + s*2.5, XC.black);
+  for (let x = -548; x < -255; x += 22){ NB(ch, 2.4, 0.5, 1.2, x, 6.7, z, FM.wood); newTree(x + 8, z, 0.6); }
+  addSolid(-403, z, 306, 5, 5.8, 6.45, 'highline');
+  for (let x = -540; x < -260; x += 30) foodSpots.push({x, y: 6.46, z});
+  mapRects.push({x0: -556, z0: z - 2.5, x1: -250, z1: z + 2.5, color: '#7fbf5a', kind: 'park'});
+}
+// the riverside park south of Uptown, and Westwater with its suspension bridge
+{
+  const lawn = grassTex.clone(); lawn.needsUpdate = true; lawn.repeat.set(80, 10);
+  const g = mesh(new THREE.PlaneGeometry(316, 34), mat(0xffffff, {map: lawn}), -402, 0.12, 222); g.rotation.x = -PI/2; scene.add(g); addSolid(-402, 222, 316, 34, 0, 0.12, 'lawn'); mapRects.push({x0: -560, z0: 205, x1: -244, z1: 239, color: '#7fbf5a', kind: 'park'});
+  for (let k = 0; k < 26; k++) newTree(rr(-555, -250), rr(210, 236), rr(0.8, 1.1));
+  const wt = harbourTex.clone(); wt.needsUpdate = true; wt.repeat.set(30, 60);
+  const ww = mesh(new THREE.PlaneGeometry(330, 520), mat(0xffffff, {map: wt}), -737, 0.03, 0); ww.rotation.x = -PI/2; scene.add(ww);
+  WATERS.push({x0: -905, x1: -573, z0: -260, z1: 260}); mapRects.push({x0: -600, z0: -260, x1: -573, z1: 260, color: '#3f7fa8', kind: 'water'});
+  instBoxes(mat(0x9a8f80), [[-572, 0.4, 0, 1.2, 0.8, 500]]);
+  const ch = nch(-620, -40), bz = -40;
+  NB(ch, 330, 0.8, 9, -735, 8, bz, XC.tar); for (const s of [-1, 1]) NB(ch, 330, 1.0, 0.3, -735, 8.9, bz + s*4.4, XC.stone);
+  for (const tx of [-618, -820]){ for (const s of [-1, 1]) NB(ch, 2.4, 40, 2.4, tx, 20, bz + s*3.6, XC.stone); NB(ch, 2.6, 3, 9.6, tx, 38, bz, XC.stone); NB(ch, 2.6, 1.6, 9.6, tx, 26, bz, XC.stone); addSolid(tx, bz, 3, 10, 0, 39.5, 'bridgetower'); }
+  for (const s of [-1, 1]){ const pts = []; for (let k = 0; k <= 40; k++){ const x = -572 - k*8.25, t = k/40; const y = 9 + 30*(Math.pow((x + 719)/101, 2) > 1 ? 1 : Math.pow((x + 719)/101, 2)); pts.push(new THREE.Vector3(x, Math.min(39, y), bz + s*4.4)); } const ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color: 0x2a2622})); scene.add(ln); for (let k = 2; k < 40; k += 2){ const p = pts[k]; NB(ch, 0.08, p.y - 9, 0.08, p.x, 9 + (p.y - 9)/2, bz + s*4.4, XC.dark); } }
+  addSolid(-735, bz, 330, 9, 7.6, 8.4, 'bridgedeck');
+  const sign = mesh(new THREE.PlaneGeometry(6, 1.0), mat(0xffffff, {map: textTex('FEATHER BRIDGE', 160, 24, 14)}), -618, 36.2, bz); sign.rotation.y = PI/2; scene.add(sign);
+}
+
+/* ---------- Maple Grove: the suburbs south of the river, bi -7..4, bj 8..12 ---------- */
+const SUB_SPECIAL = {'-2,10': 'school', '1,9': 'pool', '-5,11': 'green', '3,9': 'family'};
+for (let bi = -7; bi <= 4; bi++) for (let bj = 8; bj <= 12; bj++){
+  const cx = bi*32, cz = bj*32, sp = SUB_SPECIAL[bi + ',' + bj];
+  newSlab(cx, cz, true);
+  if (sp === 'school' || sp === 'pool') continue;
+  if (sp === 'green'){ for (let k = 0; k < 7; k++) newTree(cx + rr(-9, 9), cz + rr(-9, 9), rr(0.8, 1.1)); NEWGRASS.push([cx - 4.5, cz - 4.5], [cx + 4.5, cz - 4.5], [cx - 4.5, cz + 4.5], [cx + 4.5, cz + 4.5]); continue; }
+  for (const lx of [-1, 1]) for (const lz of [-1, 1]){ if (sp === 'family' && lx > 0) continue; house(cx + lx*4.6, cz + lz*4.6, rand() < 0.5 ? 'x' : 'z'); }
+}
+// the Outer Ring road and the city limits
+{
+  const ch = nch(0, 440);
+  NB(ch, 380, 1.4, 1.6, -50, 0.85, 446, XC.hedge); addSolid(-50, 446, 380, 1.6, 0, 1.4, 'hedge');
+  const fl = mesh(new THREE.PlaneGeometry(1100, 120), mat(0x8fc66a), 0, 0.05, 508); fl.rotation.x = -PI/2; scene.add(fl);
+  for (const [x, face, text] of [[-120, 0, 'WELCOME TO FEATHERSTONE'], [60, PI, 'YOU ARE NOW LEAVING FEATHERSTONE']]){
+    NB(ch, 0.3, 4, 0.3, x - 3.5, 2.15, 440, XC.dark); NB(ch, 0.3, 4, 0.3, x + 3.5, 2.15, 440, XC.dark);
+    const b = mesh(new THREE.PlaneGeometry(8, 1.6), mat(0xffffff, {map: textTex(text, 256, 40, 15)}), x, 4.2, 440 + (face ? -0.05 : 0.05)); b.rotation.y = face; scene.add(b);
+    const b2 = mesh(new THREE.PlaneGeometry(8.3, 1.9), mat(0x2f6b4a), x, 4.2, 440 + (face ? 0.02 : -0.02)); b2.rotation.y = face; scene.add(b2);
+    addSolid(x, 440, 8.4, 0.4, 3.3, 5.1, 'billboard');
+  }
+  const marks = []; for (let x = -236; x <= 136; x += 4) marks.push([x, 0.012, 432, 1.8, 0.02, 0.18]);
+  for (const rz of [272, 304, 336, 368, 400]) for (let x = -236; x <= 136; x += 4) if (![-240, -208, -176, -144, -112, -80, -48, -16, 16, 48, 80, 112].some(r => Math.abs(x - r) < 7)) marks.push([x, 0.012, rz, 1.8, 0.02, 0.18]);
+  for (let x = -556; x <= -244; x += 32) for (let z = -236; z <= 172; z += 4) if (!roadLines.some(r => Math.abs(z - r) < 7) && !inPigeonPark(x, z)) marks.push([x, 0.012, z, 0.18, 0.02, 1.8]);
+  for (const rz of roadLines) for (let x = -556; x <= -244; x += 4) if ((rz < -236 || rz > 176 || !inPigeonPark(x, rz)) && ![-560, -528, -496, -464, -432, -400, -368, -336, -304, -272].some(r => Math.abs(x - r) < 7)) marks.push([x, 0.012, rz, 1.8, 0.02, 0.18]);
+  instBoxes(mat(0xf4ead2), marks);
+}
+
+/* ---------- Featherstone International: the airport in the northern countryside ---------- */
+const AIR = {x0: 28, x1: 242, z0: -526, z1: -382, rz: -478};
+{
+  const tm = mesh(new THREE.PlaneGeometry(AIR.x1 - AIR.x0, AIR.z1 - AIR.z0), mat(0x7a756e), (AIR.x0 + AIR.x1)/2, 0.03, (AIR.z0 + AIR.z1)/2); tm.rotation.x = -PI/2; tm.receiveShadow = true; scene.add(tm);
+  const rw = mesh(new THREE.PlaneGeometry(210, 20), mat(0x55504c), 135, 0.04, AIR.rz); rw.rotation.x = -PI/2; scene.add(rw);
+  mapRects.push({x0: AIR.x0, z0: AIR.z0, x1: AIR.x1, z1: AIR.z1, color: '#9a948c', kind: 'slab'}, {x0: 30, z0: AIR.rz - 10, x1: 240, z1: AIR.rz + 10, color: '#55504c', kind: 'path'});
+  const marks = []; for (let x = 45; x < 225; x += 10) marks.push([x, 0.05, AIR.rz, 5, 0.02, 0.5]); for (const x of [36, 234]) for (let k = -3; k <= 3; k++) marks.push([x, 0.05, AIR.rz + k*2.4, 4, 0.02, 1.2]);
+  marks.push([135, 0.05, -446, 190, 0.02, 0.4], [40, 0.05, -462, 0.4, 0.02, 32], [230, 0.05, -462, 0.4, 0.02, 32]);
+  instBoxes(mat(0xf4ead2), marks);
+  const lights = []; for (let x = 30; x <= 240; x += 7) for (const s of [-1, 1]) lights.push([x, 0.15, AIR.rz + s*10.5, 0.3, 0.2, 0.3]);
+  AIR.lightMat = mat(0xfff0b0, {emissive: 0xffd070, emissiveIntensity: 0.2}); instBoxes(AIR.lightMat, lights);
+  // chain-link fence with a gap at the terminal
+  const fence = []; const F_ = (x0, z0, x1, z1) => { fence.push([(x0 + x1)/2, 1.0, (z0 + z1)/2, Math.abs(x1 - x0) || 0.08, 2.0, Math.abs(z1 - z0) || 0.08]); addSolid((x0 + x1)/2, (z0 + z1)/2, Math.abs(x1 - x0) || 0.2, Math.abs(z1 - z0) || 0.2, 0, 2.0, 'fence'); };
+  F_(AIR.x0, AIR.z0, AIR.x1, AIR.z0); F_(AIR.x0, AIR.z0, AIR.x0, AIR.z1); F_(AIR.x1, AIR.z0, AIR.x1, AIR.z1); F_(AIR.x0, AIR.z1, 98, AIR.z1); F_(142, AIR.z1, AIR.x1, AIR.z1);
+  instBoxes(new THREE.MeshBasicMaterial({color: 0x9aa0a6, transparent: true, opacity: 0.45, depthWrite: false}), fence);
+}
+const terminal = hollow({cx: 120, cz: -393, w: 40, d: 13, h: 8, style: 4, door: 's', inner: wallpaper('#eef0f2', '#dfe4e8'), name: 'Featherstone International', doorColor: 0x2fae8f, noLight: true});
+{
+  const ch = nch(55, -405);
+  NB(ch, 4, 20, 4, 55, 10.15, -405, FM.fac(4)); NB(ch, 7.4, 3.6, 7.4, 55, 22, -405, FM.glass); NB(ch, 8.2, 0.5, 8.2, 55, 24.05, -405, XC.dark); NB(ch, 0.3, 4, 0.3, 55, 26.3, -405, XC.grey);
+  addSolid(55, -405, 4.2, 4.2, 0, 20.15, 'tower'); addSolid(55, -405, 8.2, 8.2, 20.15, 24.3, 'tower'); bld(55, -405, 8, 8, 24.3, '#b9b09a');
+  // a hangar with a little plane inside
+  const hg = new THREE.Group(); hg.position.set(205, 0, -410); scene.add(hg);
+  const roof = mesh(new THREE.CylinderGeometry(11, 11, 22, 16, 1, true, -PI/2, PI), mat(0xb8b2a6, {side: THREE.DoubleSide}), 0, 2, 0); roof.rotation.x = PI/2; roof.rotation.y = PI/2; hg.add(roof);
+  hg.add(boxMesh(22, 2, 0.4, mat(0xb8b2a6), 0, 1, -11)); addSolid(205, -421, 22, 0.6, 0, 13, 'hangar'); addSolid(205, -410, 22, 22, 12.6, 13.2, 'hangarroof');
+  for (const s of [-1, 1]) addSolid(205 + s*11, -410, 0.6, 22, 0, 13, 'hangar');
+  bld(205, -410, 22, 22, 13, '#b8b2a6');
+  // windsock
+  const ws = new THREE.Group(); ws.position.set(36, 0, -455); scene.add(ws); ws.add(boxMesh(0.12, 6, 0.12, mat(0x8a8f94), 0, 3, 0));
+  AIR.sock = new THREE.Group(); AIR.sock.position.y = 5.8; ws.add(AIR.sock); const sk = mesh(new THREE.ConeGeometry(0.45, 2.6, 8, 1, true), mat(0xff8a3a, {side: THREE.DoubleSide}), 0, 0, 1.3); sk.rotation.x = -PI/2; AIR.sock.add(sk);
+  // a road from the train halt to the terminal
+  const rd = mesh(new THREE.PlaneGeometry(7, 118), mat(0x6e6660), 130, 0.035, -327); rd.rotation.x = -PI/2; scene.add(rd); mapRects.push({x0: 126.5, z0: -386, x1: 133.5, z1: -268, color: '#6e6660', kind: 'path'});
+}
+// jet airliners: two at the gates, one flying the circuit (and you can ride on it)
+function makeJet(livery = 0x2fae8f){
+  const g = new THREE.Group(), white = mat(0xf8f6ee), stripe = mat(livery), dark = mat(0x2a2622), win = mat(0x2f3f5a);
+  const body = mesh(new THREE.CylinderGeometry(1.9, 1.9, 26, 12), white, 0, 2.6, 0); body.rotation.x = PI/2; g.add(body);
+  const nose = mesh(SPHERE, white, 0, 2.6, 13); nose.scale.set(1.9, 1.9, 2.6); g.add(nose);
+  const tailc = mesh(new THREE.ConeGeometry(1.9, 6, 12), white, 0, 3.1, -16); tailc.rotation.x = -PI/2; g.add(tailc);
+  g.add(boxMesh(3.82, 0.5, 26, stripe, 0, 2.6, 0)); g.add(boxMesh(3.84, 0.35, 24, win, 0, 3.3, 0.5)); g.add(boxMesh(1.6, 0.5, 0.6, dark, 0, 3.5, 14.2));
+  g.add(boxMesh(28, 0.4, 4.2, white, 0, 2.0, 0)); g.add(boxMesh(10, 0.3, 2.4, white, 0, 3.3, -16));
+  const fin = boxMesh(0.4, 6, 4, stripe, 0, 6.5, -16); g.add(fin);
+  for (const s of [-1, 1]){ const eng = mesh(new THREE.CylinderGeometry(0.9, 0.9, 3.2, 10), mat(0xd8dde0), s*6, 1.2, 1.2); eng.rotation.x = PI/2; g.add(eng); g.add(boxMesh(0.25, 1.1, 0.25, dark, s*2.2, 0.55, -1)); }
+  g.add(boxMesh(0.25, 1.1, 0.25, dark, 0, 0.55, 10));
+  const logo = mesh(new THREE.PlaneGeometry(2.4, 2.4), mat(0xffffff, {map: pxTex(8, 8, gg => { px(gg, 0, 0, '#2fae8f', 8, 8); px(gg, 2, 3, '#f8f6ee', 4, 2); px(gg, 5, 2, '#f8f6ee', 1, 1); px(gg, 1, 4, '#f8f6ee', 2, 1); }), side: THREE.DoubleSide}), 0.22, 6.8, -16.4); logo.rotation.y = PI/2; g.add(logo);
+  scene.add(g); return g;
+}
+const jets = [];
+for (const [x, z] of [[100, -419], [138, -419]]){ const g = makeJet(); g.position.set(x, 0, z); g.rotation.y = PI; jets.push(g); addSolid(x, z, 4, 30, 0, 4.6, 'jet'); addSolid(x, z + 1, 28, 4.2, 1.8, 2.2, 'wing'); const jb = boxMesh(3, 3, 8, mat(0xd8dde0), x - 4, 3.4, -404.5); scene.add(jb); addSolid(x - 4, -404.5, 3, 8, 1.9, 4.9, 'jetbridge'); }
+const flyer = makeJet(0xd4483a);
+const flyerMover = addMover(flyer, 0, [[-1.9, 1.9, -13, 13, 0.7, 4.5, 'jet'], [-14, 14, -2.1, 2.1, 1.8, 2.25, 'wing']]);
+const FLIGHT = [
+  [0, 150, 0, -420], [18, 150, 0, -420], [26, 150, 0, -432], [34, 175, 0, -446], [50, 40, 0, -446], [56, 38, 0, AIR.rz], [62, 38, 0, AIR.rz], [72, 120, 0, AIR.rz], [78, 190, 6, AIR.rz], [84, 232, 22, -495],
+  [94, 210, 42, -518], [106, 110, 60, -520], [118, 10, 66, -505], [128, -80, 55, -470], [138, -110, 40, -430], [148, -60, 24, AIR.rz], [156, 10, 9, AIR.rz], [162, 45, 0.6, AIR.rz], [172, 140, 0, AIR.rz], [182, 175, 0, AIR.rz], [190, 175, 0, -446], [200, 150, 0, -432], [210, 150, 0, -420],
+];
+const FLIGHT_T = 210;
+const _fa = new THREE.Vector3(), _fb = new THREE.Vector3();
+function flightAt(t, out){ t = ((t % FLIGHT_T) + FLIGHT_T) % FLIGHT_T; let i = 0; while (i < FLIGHT.length - 2 && t > FLIGHT[i + 1][0]) i++; const A = FLIGHT[i], B = FLIGHT[i + 1], f = clamp((t - A[0])/(B[0] - A[0] || 1), 0, 1), still = (A[1] === B[1] && A[3] === B[3]) || i === 0 || i === FLIGHT.length - 2, s = still ? f*f*(3 - 2*f) : f; return out.set(lerp(A[1], B[1], s), lerp(A[2], B[2], s), lerp(A[3], B[3], s)); }
+let flightT = rr(0, 60);
+
+/* ---------- interiors: museum, diner, bodega, apartment, lobby, school, family home, terminal ---------- */
+const v25NPC = (name, look, blurb) => { NPC_LOOKS[name] = look; const P = makeNamed(name); scene.remove(P.g); P.g.rotation.y = 0.4; PORTRAITS[name] = renderPortrait(P.g, new THREE.Vector3(0.3, 1.92, 1.15), new THREE.Vector3(0, 1.8, 0)); FOLK.push([name, blurb]); const H = makeNamed(name); return H; };
+const _p25 = new THREE.Vector3();
+// the museum
+const MU = roomBox(nhmRoom);
+const muG = igroup(MU.cx, MU.z, 70);
+const rex = {bones: [], missing: []};
+{
+  const bone = mat(0xe8dcc0), g = muG, rx = MU.cx + 1, rz = MU.z;
+  GB(g, 6, 0.6, 3, 0x8a7f70, rx, 0.45, rz, true, 'plinth');
+  const spine = []; for (let k = 0; k < 16; k++){ const t = k/15, x = rx - 5 + t*10, y = 3.4 + Math.sin(t*PI)*0.8 - (t < 0.15 ? (0.15 - t)*6 : 0); spine.push([x, y]); rex.bones.push(gadd(g, boxMesh(0.5, 0.45, 0.35, bone, x, y, rz))); }
+  for (let k = 3; k < 10; k++){ const [x, y] = spine[k]; for (const s of [-1, 1]){ const rib = gadd(g, boxMesh(0.12, 1.4, 0.12, bone, x, y - 0.7, rz + s*0.45)); rib.rotation.x = s*0.35; rex.bones.push(rib); } }
+  const skull = new THREE.Group(); skull.position.set(rx + 5.6, 4.0, rz); g.add(skull); skull.add(boxMesh(1.6, 0.9, 0.8, bone, 0, 0, 0)); const jaw = boxMesh(1.4, 0.3, 0.7, bone, 0.1, -0.55, 0); skull.add(jaw); for (let k = 0; k < 5; k++) skull.add(boxMesh(0.08, 0.2, 0.75, mat(0xfff6dc), -0.5 + k*0.28, -0.4, 0)); rex.skull = skull; rex.jaw = jaw;
+  for (const s of [-1, 1]){ gadd(g, boxMesh(0.4, 2.2, 0.4, bone, rx - 0.5, 2.0, rz + s*0.7)).rotation.z = 0.3; gadd(g, boxMesh(0.35, 1.6, 0.35, bone, rx - 0.2, 0.9, rz + s*0.7)).rotation.z = -0.4; gadd(g, boxMesh(0.9, 0.2, 0.5, bone, rx + 0.2, 0.25 + 0.45, rz + s*0.7)); }
+  for (const s of [-1, 1]) gadd(g, boxMesh(0.15, 0.6, 0.15, bone, rx + 3.2, 3.0, rz + s*0.4)).rotation.z = 0.8;
+  addSolid(rx, rz, 11, 1.4, 3.0, 4.0, 'rex'); addSolid(rx + 5.6, rz, 1.6, 0.8, 3.55, 4.45, 'skull');
+  // the three missing bones show up when they're brought back
+  for (const [x, y] of [[rx - 2.5, 4.4], [rx + 2.6, 4.3], [rx - 4.4, 3.0]]){ const b = gadd(g, boxMesh(0.9, 0.3, 0.3, mat(0xfff0c8), x, y, rz)); b.visible = false; rex.missing.push(b); }
+  // a whale overhead, gems, a meteorite and a mammoth
+  const whale = new THREE.Group(); whale.position.set(MU.cx - 1, 9.6, MU.z - 5.5); g.add(whale); const wb = mesh(SPHERE, mat(0x5a7a9a), 0, 0, 0); wb.scale.set(1.4, 1.2, 6); whale.add(wb); const wbelly = mesh(SPHERE, mat(0xd8e4ea), 0, -0.35, 0.6); wbelly.scale.set(1.1, 0.8, 5); whale.add(wbelly); const tail = boxMesh(3.4, 0.2, 1.2, mat(0x5a7a9a), 0, 0.2, -6.4); whale.add(tail); for (const s of [-1, 1]){ const fin = boxMesh(2, 0.15, 0.8, mat(0x5a7a9a), s*1.6, -0.5, 2); fin.rotation.z = s*0.4; whale.add(fin); } whale.rotation.y = 0.3; rex.whale = whale;
+  for (const s of [-1, 1]) gadd(g, boxMesh(0.04, 2.5, 0.04, mat(0x8a8f94), MU.cx - 1 + s*2.5, 11.3, MU.z - 5.5));
+  rex.gems = [];
+  for (let k = 0; k < 4; k++){ const x = MU.x1 - 1.2, z = MU.z0 + 2 + k*2.6; GB(g, 1.4, 1.0, 1.4, 0x5c3a1c, x, 0.65, z, true, 'case'); const gm = mat(pick([0x8fd3f4, 0xff8fd8, 0x7aff8a, 0xffd166]), {emissive: 0x6a6aff, emissiveIntensity: 0.5}); const c = gadd(g, mesh(new THREE.OctahedronGeometry(0.32), gm, x, 1.45, z)); c.scale.y = 1.6; rex.gems.push(c); gadd(g, mesh(BOX, new THREE.MeshBasicMaterial({color: 0xcfe8f0, transparent: true, opacity: 0.25, depthWrite: false}), x, 1.6, z)).scale.set(1.2, 0.9, 1.2); }
+  const met = gadd(g, mesh(new THREE.DodecahedronGeometry(1.1), mat(0x4a4440), MU.cx - 6, 1.6, MU.z1 - 2.5)); met.scale.y = 0.75; GB(g, 2.6, 0.5, 2.6, 0x8a7f70, MU.cx - 6, 0.4, MU.z1 - 2.5, true, 'plinth');
+  const mam = new THREE.Group(); mam.position.set(MU.cx + 4, 0.15, MU.z1 - 3); mam.rotation.y = -PI/2; g.add(mam); const fur = mat(0x6b4a2e); mam.add(boxMesh(2.2, 1.9, 3.4, fur, 0, 2.4, 0)); mam.add(boxMesh(1.6, 1.5, 1.4, fur, 0, 2.8, 2.2)); for (const [x, z] of [[-0.7, 1.1], [0.7, 1.1], [-0.7, -1.1], [0.7, -1.1]]) mam.add(boxMesh(0.6, 1.5, 0.6, fur, x, 0.75, z)); for (const s of [-1, 1]){ const tk = mesh(new THREE.TorusGeometry(0.8, 0.09, 4, 10, PI), mat(0xfff6dc), s*0.5, 1.8, 3.0); tk.rotation.y = PI/2; mam.add(tk); } const trunk = boxMesh(0.35, 1.6, 0.35, fur, 0, 1.6, 3.0); mam.add(trunk); addSolid(MU.cx + 4, MU.z1 - 3, 3.4, 2.2, 0, 3.4, 'mammoth');
+  rex.ada = v25NPC('Ada', {shirt: 0x3f6b4a, pants: 0x3a3330, skin: 0x8a5a3a, hair: 0x1a1410, extra: 'glasses'}, 'Curator of the Museum of Natural History. Loves dinosaurs, tolerates pigeons.');
+  scene.remove(rex.ada.g); g.add(rex.ada.g); rex.ada.g.position.set(MU.x0 + 3, 0.15, MU.z + 3); rex.ada.g.rotation.y = PI/2;
+  rex.visitors = [0, 1, 2, 3].map(k => { const H = makeHuman({shirt: pick(SHIRTS)}); scene.remove(H.g); H.snack.visible = false; if (k > 1) H.g.scale.setScalar(0.62); g.add(H.g); H.g.position.set(MU.cx + rr(-6, 4), 0.15, MU.z + rr(3, 7)); H.g.rotation.y = rr(-1, 1) + PI; return H; });
+}
+ITEMS.bone = {name: 'Fossil bone', desc: 'A piece of Rex the T. rex. Dr Ada at the Museum of Natural History is looking for three of them.', draw: g => { px(g, 3, 6, '#f0e4c8', 10, 4); pdisc(g, 3, 6, 2.2, '#f0e4c8'); pdisc(g, 3, 10, 2.2, '#f0e4c8'); pdisc(g, 13, 6, 2.2, '#f0e4c8'); pdisc(g, 13, 10, 2.2, '#f0e4c8'); px(g, 4, 7, '#d8c8a0', 8, 1); }};
+drawIcon('bone', ITEMS.bone.draw);
+FAV.bones = {giver: 'Ada', title: 'Bones for Rex', text: 'Three of Rex the T. rex\'s bones went missing: one on the island in Pigeon Park\'s pond, one up on the Empire Feather Building\'s observation deck, and one on the airport hangar roof. Bring them to Dr Ada.', xp: 90};
+questLoot('bone1', 'bone', PPOND.x + 6, 0.55, PPOND.z - 3, 'bones');
+questLoot('bone2', 'bone', EMPIRE.x + 4.3, EMPIRE.deck, EMPIRE.z + 1, 'bones');
+questLoot('bone3', 'bone', 210, 13.2, -414, 'bones');
+{ const m = mesh(new THREE.OctahedronGeometry(0.16), new THREE.MeshBasicMaterial({color: 0x2fae8f}), MU.x0 + 3, 2.7, MU.z + 3); m.scale.y = 1.6; scene.add(m); giverMarkers.bones = {m, y: 2.7}; }
+addNamedTalker('Talk to Dr Ada', 'Ada', () => _p25.set(MU.x0 + 3.8, 0.6, MU.z + 3), () => {
+  const st = favState('bones'), n = (S.bag && S.bag.bone) || 0;
+  if (st === 'none') return say([L('Ada', 'Welcome to the Museum of Natural History! Mind Rex, he\'s sixty-six million years old and a little fragile.'), L('Ada', 'Three of his bones went missing during the move. A gull, a tourist and, I suspect, a very confused pilot. Would you look for them?', [
+    {label: 'I\'ll find them!', fn: () => { startFav('bones'); addNote('bones', 'Rex\'s bones: the island in Pigeon Park\'s pond; the Empire Feather Building\'s observation deck; the airport hangar roof.'); say([L('Ada', 'Marvellous! I\'ve written down the rumours. Bring them back and Rex will be whole again.')]); }},
+    {label: 'Maybe later.', fn: () => say([L('Ada', 'Rex has waited this long. He\'s very patient. And very dead.')])},
+  ])]);
+  if (st === 'active'){ if (n >= 3){ bagTake('bone', 3); finishFav('bones'); S.crumbs += 30; for (const b of rex.missing) b.visible = true; rex.roar = 2.5; return say([L('Ada', 'All three! Let me just... there. Rex is complete!'), L('Ada', 'Did he just... no. Bones don\'t roar. Still, thank you, little one.')]); } return say([L('Ada', `${n} of 3 so far. The notes in your bag have the rumours.`)]); }
+  say([L('Ada', mpick(['Pigeons are living dinosaurs, you know. You\'re practically family to Rex.', 'The whale is called Wendy. Please don\'t perch on Wendy.', 'The gems glow at night. So do I, when talking about the Cretaceous.']))]);
+}, 2.6);
+addTalker('Read about Rex', () => _p25.set(MU.cx + 1, 0.6, MU.z + 2), () => say([L('Museum', 'TYRANNOSAURUS REX: "Rex". Late Cretaceous. Length 12 m. Diet: everything. Closest living relatives: birds. Yes, including you.')]), 2.2);
+addTalker('Admire the gems', () => _p25.set(MU.x1 - 2, 0.6, MU.z), () => { for (const c of rex.gems) c.userData.spin = 3; floatText(player.pos, 'ooh, shiny...', '#8fd3f4', 1.2); }, 2.4);
+// the diner, the bodega and the apartment share the same three blocks' east halves
+const dinerRoom = hollow({cx: -256 + 4.3, cz: 64, w: 8.6, d: 16, h: 4.5, style: 5, door: 'e', inner: wallpaper('#f4e8d0', '#e8dab8'), name: 'Sunny Side Diner', doorColor: 0xd4483a, noLight: true});
+const bodegaRoom = hollow({cx: -288 + 4.3, cz: 96, w: 8.6, d: 16, h: 4.5, style: 3, door: 'e', inner: wallpaper('#e8ecdc', '#d8dec8'), name: 'Corner Bodega', doorColor: 0x3f9a5a, noLight: true});
+const aptRoom = hollow({cx: -416 + 4.3, cz: -96, w: 8.6, d: 16, h: 4.5, style: 3, door: 'e', inner: wallpaper('#f1dfe6', '#e3c9d4'), name: 'Apartment 2B', doorColor: 0x2f3f5a, noLight: true});
+const schoolRoom = hollow({cx: -64, cz: 320, w: 18, d: 14, h: 6, style: 3, door: 's', inner: wallpaper('#f4f0dc', '#e8e2c4'), name: 'Maple Grove School', doorColor: 0x3f6b8a, noLight: true});
+const homeRoom = hollow({cx: 96 + 4.3, cz: 288, w: 8.6, d: 16, h: 4.5, style: 6, door: 'e', inner: wallpaper('#f6e7cf', '#efd8b4'), name: 'The Hendersons\'', doorColor: 0x3f7a4a, noLight: true});
+const D25 = {};
+{ // Sunny Side Diner
+  const r = roomBox(dinerRoom), g = igroup(r.cx, r.z, 60); D25.diner = {r, g};
+  GB(g, 1.0, 1.05, 9, 0xd8dde0, r.x0 + 2.2, 0.68, r.z, true, 'counter'); GB(g, 1.1, 0.08, 9.1, 0xd4483a, r.x0 + 2.2, 1.24, r.z);
+  for (let k = -3; k <= 3; k++){ GB(g, 0.08, 0.6, 0.08, 0x8a8f94, r.x0 + 3.1, 0.45, r.z + k*1.2); gadd(g, mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.12, 10), mat(0xd4483a), r.x0 + 3.1, 0.8, r.z + k*1.2)); addSolid(r.x0 + 3.1, r.z + k*1.2, 0.56, 0.56, 0, 0.86, 'stool'); }
+  for (const z of [r.z0 + 1.6, r.z0 + 4.2, r.z1 - 1.6]){ GB(g, 1.6, 0.08, 1.0, 0xf4f4ef, r.x1 - 1.4, 0.85, z, true, 'table'); for (const s of [-1, 1]) GB(g, 1.6, 1.0, 0.5, 0xd4483a, r.x1 - 1.4, 0.6, z + s*0.8, true, 'booth'); }
+  const juke = gadd(g, mesh(new THREE.CylinderGeometry(0.7, 0.7, 1.8, 10, 1, false, 0, PI), mat(0xffd166, {emissive: 0xff8a3a, emissiveIntensity: 0.4}), r.x0 + 0.6, 1.05, r.z1 - 1.0)); juke.rotation.y = PI/2; D25.diner.juke = juke;
+  const menu = gadd(g, mesh(new THREE.PlaneGeometry(3.6, 0.9), mat(0xffffff, {map: textTex('PANCAKES · PIE · COFFEE', 160, 22, 11)}), r.x0 + 0.02, 2.7, r.z)); menu.rotation.y = PI/2;
+  D25.diner.dolores = v25NPC('Dolores', {shirt: 0x8fd3f4, pants: 0x3f6b8a, skin: 0xf2be92, hair: 0xe0b85a, extra: 'bun'}, 'Waitress at the Sunny Side Diner. Calls everyone "hon". Including you.');
+  scene.remove(D25.diner.dolores.g); g.add(D25.diner.dolores.g); D25.diner.dolores.g.position.set(r.x0 + 1.3, 0.15, r.z); D25.diner.dolores.g.rotation.y = PI/2;
+  const diner1 = person22(g, r.x0 + 3.5, r.z - 1.2, -PI/2, {sit: true, y: -0.05}); diner1.arms[1].rotation.x = -1.1;
+}
+{ // Corner Bodega, with its cat
+  const r = roomBox(bodegaRoom), g = igroup(r.cx, r.z, 60); D25.bodega = {r, g};
+  for (const zz of [r.z0 + 0.4, r.z1 - 0.4]){ GB(g, 5.5, 2.4, 0.6, 0x6b4a2e, r.cx + 0.4, 1.35, zz, true, 'shelf'); for (const y of [0.7, 1.4, 2.1]) for (let k = 0; k < 9; k++) GB(g, 0.42, 0.42, 0.4, pick([0xd4483a, 0xffd166, 0x3f8ad4, 0x3f9a5a, 0xf4ead2, 0xff8fa3]), r.x0 + 1.8 + k*0.55, y + 0.1, zz + (zz < r.z ? 0.3 : -0.3)); }
+  GB(g, 1.0, 1.05, 3.4, 0x8a5a34, r.x0 + 1.8, 0.68, r.z, true, 'counter');
+  const cat = makeCat([0xe0903a, 0xf6c088]); scene.remove(cat.g); g.add(cat.g); cat.g.position.set(r.x0 + 1.8, 1.21, r.z + 0.8); cat.g.rotation.y = 1.2; D25.bodega.cat = cat;
+  GB(g, 1.2, 1.8, 0.8, 0xf4f4ef, r.x1 - 1.4, 1.05, r.z1 - 1.2, true, 'fridge'); gadd(g, mesh(new THREE.PlaneGeometry(1.0, 1.4), mat(0x9fd0e6, {emissive: 0x6aa0c0, emissiveIntensity: 0.4}), r.x1 - 1.4, 1.1, r.z1 - 1.61)).rotation.y = PI;
+  D25.bodega.ray = person22(g, r.x0 + 0.9, r.z, PI/2, {shirt: 0x3f9a5a});
+}
+{ // Apartment 2B
+  const r = roomBox(aptRoom), g = igroup(r.cx, r.z, 60); D25.apt = {r, g};
+  const rug = gadd(g, mesh(new THREE.PlaneGeometry(3.6, 4.6), mat(0x8a2f3a), r.cx - 0.3, 0.17, r.z)); rug.rotation.x = -PI/2;
+  GB(g, 0.9, 1.6, 2.6, 0x8a7f70, r.x0 + 0.5, 0.95, r.z, true, 'fireplace'); D25.apt.fire = gadd(g, mesh(new THREE.ConeGeometry(0.4, 0.7, 6), mat(0xffa040, {emissive: 0xff7020, emissiveIntensity: 1.2}), r.x0 + 0.9, 0.55, r.z)); GB(g, 1.0, 0.12, 2.8, 0xe8dcc0, r.x0 + 0.55, 1.8, r.z);
+  GB(g, 2.4, 0.5, 0.9, 0x3f6b8a, r.cx, 0.4, r.z1 - 1.2, true, 'sofa'); GB(g, 2.4, 0.9, 0.3, 0x3f6b8a, r.cx, 0.75, r.z1 - 0.8);
+  GB(g, 1.6, 1.1, 0.7, 0x1a1a1a, r.x1 - 1.0, 0.7, r.z0 + 0.6, true, 'piano');
+  GB(g, 0.6, 2.2, 1.8, 0x6b4a2e, r.x1 - 0.5, 1.25, r.z + 2.5, true, 'shelf'); for (const y of [0.8, 1.5, 2.1]) GB(g, 0.5, 0.4, 1.6, bookMat, r.x1 - 0.5, y, r.z + 2.5);
+  const cat = makeCat([0x3a3330, 0xf4ead2]); scene.remove(cat.g); g.add(cat.g); cat.g.position.set(r.cx + 0.5, 0.67, r.z1 - 1.2); cat.g.rotation.y = -0.5;
+  D25.apt.res = person22(g, r.cx - 0.6, r.z1 - 1.25, PI, {sit: true, y: 0.05, hair: 0xd8d4cc}); D25.apt.res.arms[0].rotation.x = D25.apt.res.arms[1].rotation.x = -1.0; gadd(g, boxMesh(0.4, 0.3, 0.05, mat(0xf4ead2), r.cx - 0.6, 1.05, r.z1 - 1.75));
+}
+{ // Maple Grove School
+  const r = roomBox(schoolRoom), g = igroup(r.cx, r.z, 60); D25.school = {r, g, kids: []};
+  const bb = gadd(g, mesh(new THREE.PlaneGeometry(6, 2.2), mat(0x2f4a3a), r.cx, 2.4, r.z0 + 0.02)); D25.school.boardC = document.createElement('canvas'); D25.school.boardC.width = 96; D25.school.boardC.height = 36; D25.school.boardT = new THREE.CanvasTexture(D25.school.boardC); D25.school.boardT.magFilter = THREE.NearestFilter; bb.material = new THREE.MeshBasicMaterial({map: D25.school.boardT});
+  const bg = D25.school.boardC.getContext('2d'); bg.fillStyle = '#2f4a3a'; bg.fillRect(0, 0, 96, 36); bg.fillStyle = '#f4f4ef'; bg.font = '8px monospace'; bg.fillText('2 + 2 = 4', 8, 12); bg.fillText('PIGEONS: 1 + 1 = 2', 8, 26); D25.school.boardT.needsUpdate = true;
+  for (let row = 0; row < 3; row++) for (let col = 0; col < 4; col++){ const x = r.cx - 5 + col*3.3, z = r.z0 + 4 + row*2.6; GB(g, 1.2, 0.06, 0.8, 0xc8a060, x, 0.78, z, true, 'desk'); for (const s of [-1, 1]) GB(g, 0.06, 0.62, 0.06, 0x8a8f94, x + s*0.5, 0.45, z); if ((row + col) % 2 === 0){ const k = person22(g, x, z + 0.6, PI, {sit: true, y: -0.15}); k.g.scale.setScalar(0.62); k.g.position.y = 0.05; D25.school.kids.push(k); } }
+  D25.school.teacher = person22(g, r.cx + 2.5, r.z0 + 1.6, 0, {shirt: 0x8a5fc7, hair: 0x3a2414});
+  for (let k = 0; k < 3; k++) GB(g, 0.4, 0.4, 0.06, pick([0xd4483a, 0xffd166, 0x3f8ad4]), r.x1 - 0.05, 2.2 + (k % 2)*0.6, r.z0 + 3 + k*1.6);
+  // playground and flagpole outside
+  const yard = mesh(new THREE.PlaneGeometry(22, 6), mat(0xd4b88a), -64, 0.16, 334); yard.rotation.x = -PI/2; scene.add(yard);
+  scene.add(boxMesh(0.12, 8, 0.12, mat(0xd8dde0), -54, 4.15, 333)); const flag = boxMesh(0.04, 1.0, 1.6, mat(0xd4483a), -54, 7.6, 333.8); scene.add(flag); D25.school.flag = flag;
+}
+{ // the Hendersons' house
+  const r = roomBox(homeRoom), g = igroup(r.cx, r.z, 60); D25.home = {r, g};
+  GB(g, 1.0, 0.95, 4.0, 0xf4ead2, r.x0 + 0.5, 0.62, r.z0 + 3, true, 'kitchen'); GB(g, 1.0, 0.08, 4.0, 0x8a8f94, r.x0 + 0.5, 1.12, r.z0 + 3);
+  GB(g, 1.2, 0.06, 1.8, 0x8a5a34, r.cx, 0.85, r.z0 + 3.5, true, 'table'); for (const s of [-1, 1]) GB(g, 0.5, 0.5, 0.5, 0x6b4a2e, r.cx + s*0.95, 0.4, r.z0 + 3.5, true, 'chair');
+  GB(g, 2.4, 0.5, 0.9, 0xc06090, r.cx, 0.4, r.z1 - 1.2, true, 'sofa'); GB(g, 0.5, 0.6, 1.3, 0x2a2622, r.x1 - 0.5, 0.95, r.z1 - 3, true, 'tv');
+  D25.home.mum = person22(g, r.x0 + 1.2, r.z0 + 3, -PI/2, {shirt: 0x3f9a5a, hair: 0x8a5a34}); D25.home.mum.arms[1].rotation.x = -0.9;
+  const kid = person22(g, r.cx - 0.5, r.z1 - 1.25, PI, {sit: true, y: 0.05}); kid.g.scale.setScalar(0.62);
+  const dog = makeDog(0xe0c890); scene.remove(dog.g); g.add(dog.g); dog.g.position.set(r.cx + 1.2, 0.15, r.z1 - 2.6); D25.home.dog = dog;
+}
+{ // the airport terminal
+  const r = roomBox(terminal), g = igroup(r.cx, r.z, 80); D25.term = {r, g, bags: []};
+  for (let k = 0; k < 4; k++){ const x = r.x0 + 4 + k*3.6; GB(g, 2.6, 1.05, 0.9, 0xd8dde0, x, 0.68, r.z0 + 1.2, true, 'checkin'); const sign = gadd(g, mesh(new THREE.PlaneGeometry(1.6, 0.4), mat(0xffffff, {map: textTex('CHECK-IN ' + (k + 1), 96, 18, 10)}), x, 2.6, r.z0 + 0.04)); }
+  const bc = document.createElement('canvas'); bc.width = 128; bc.height = 64; const bt = new THREE.CanvasTexture(bc); bt.magFilter = THREE.NearestFilter; D25.term.board = {c: bc, t: bt};
+  const board = gadd(g, mesh(new THREE.PlaneGeometry(4, 2), new THREE.MeshBasicMaterial({map: bt}), r.x1 - 0.04, 3.4, r.z)); board.rotation.y = -PI/2;
+  for (let row = 0; row < 3; row++) for (let k = 0; k < 6; k++){ const x = r.cx - 2 + k*1.1, z = r.z + 0.5 + row*1.6; GB(g, 0.9, 0.12, 0.8, 0x3f6b8a, x, 0.5, z, true, 'seat'); GB(g, 0.9, 0.6, 0.1, 0x3f6b8a, x, 0.8, z + 0.38); }
+  D25.term.car = new THREE.Group(); D25.term.car.position.set(r.x0 + 5, 0, r.z + 2.6); g.add(D25.term.car);
+  D25.term.car.add(mesh(new THREE.CylinderGeometry(2.2, 2.2, 0.55, 20), mat(0x55504c), 0, 0.4, 0));
+  for (let k = 0; k < 7; k++){ const a = k/7*PI*2, b = boxMesh(0.6, 0.4, 0.4, mat(pick([0xd4483a, 0x2f3f5a, 0x3f9a5a, 0xffd166, 0x8a5fc7])), Math.cos(a)*1.6, 0.9, Math.sin(a)*1.6); b.rotation.y = -a; D25.term.car.add(b); }
+  D25.term.carMover = addMover(D25.term.car, 0, [[-1.55, 1.55, -1.55, 1.55, 0, 0.68, 'carousel']]);
+  D25.term.travellers = [0, 1, 2, 3, 4].map(k => { const H = person22(g, r.cx - 6 + k*3.2, r.z0 + 3 + (k % 2)*1.2, k % 2 ? PI : 0, {shirt: pick(SHIRTS)}); const bag = boxMesh(0.4, 0.55, 0.25, mat(pick([0xd4483a, 0x2f3f5a, 0x3f9a5a, 0x8a5fc7])), 0.45, 0.43, 0); H.g.add(bag); return H; });
+  D25.term.staff = person22(g, r.x0 + 4, r.z0 + 0.4, 0, {shirt: 0x2fae8f, hat: 0x2fae8f});
+  const cafe = gadd(g, mesh(new THREE.PlaneGeometry(2.4, 0.4), mat(0xffffff, {map: textTex('CAFÉ', 64, 16, 10)}), r.x1 - 3, 2.6, r.z1 - 0.04)); cafe.rotation.y = PI; GB(g, 2.6, 1.05, 0.9, 0x8a5a34, r.x1 - 3, 0.68, r.z1 - 1.2, true, 'cafe');
+}
+const DESTS = ['GULL ISLAND', 'PIGEON POINT', 'NEW YORK', 'CRUMBVILLE', 'BREAD BAY', 'THE MOON (DELAYED)', 'SEED CITY', 'PARIS'];
+function drawBoard(time){ const {c, t} = D25.term.board, g = c.getContext('2d'); g.fillStyle = '#1a1a1a'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#ffc83d'; g.font = 'bold 8px monospace'; g.fillText('DEPARTURES', 4, 9); g.font = '7px monospace'; const off = Math.floor(time/6); for (let k = 0; k < 5; k++){ const d = DESTS[(off + k) % DESTS.length]; g.fillStyle = '#f4ead2'; g.fillText(`${String(10 + ((off + k)*7) % 14).padStart(2, '0')}:${k % 2 ? '30' : '05'} ${d}`.slice(0, 22), 4, 20 + k*9); g.fillStyle = k === 0 ? '#7fe08a' : '#ffc83d'; g.fillText(k === 0 ? 'BOARD' : 'ON TIME', 98, 20 + k*9); } t.needsUpdate = true; }
+// people to talk to and things to poke inside
+const at25 = (H, dx = 1) => () => _p25.set(H.g.position.x + dx, 0.6, H.g.position.z);
+addNamedTalker('Talk to Dolores', 'Dolores', at25(D25.diner.dolores, 1.4), () => { if ((D25.diner.cd || 0) > 0) return say([L('Dolores', 'Patience, hon. Pancakes take time.')]); D25.diner.cd = 40; say([L('Dolores', mpick(['What\'ll it be, hon? Oh, you\'re a pigeon. Crumbs it is.', 'Short stack, coming right up. Well, the crumbs of one.', 'We don\'t usually serve birds. But you\'ve got a face for it.']))], () => { for (let k = 0; k < 4; k++) spawnFood(D25.diner.r.x0 + 3.2 + rr(-0.3, 0.3), 0.17, D25.diner.r.z + rr(-2, 2), mpick(['crumb', 'crust']), null); }); }, 2.6);
+addTalker('Play the jukebox', () => _p25.set(D25.diner.r.x0 + 1.4, 0.8, D25.diner.r.z1 - 1.0), () => { D25.diner.song = 12; floatText(player.pos, '♪ doo-wop ♪', '#ffd166', 1.4); }, 1.6);
+addTalker('Pet the bodega cat', () => _p25.set(D25.bodega.r.x0 + 2.6, 1.0, D25.bodega.r.z + 0.8), () => { heart(D25.bodega.cat.g.position, 0.6); tone(120, 0.6, 'sine', 0.03, 140); floatText(player.pos, 'purrrr', '#fff6dc', 1); }, 1.8);
+addTalker('Talk to the clerk', () => _p25.set(D25.bodega.r.x0 + 1.9, 0.6, D25.bodega.r.z - 1), () => say([L('Clerk', mpick(['Bodega\'s open twenty-four seven. The cat is not. The cat is asleep.', 'You want a sandwich? I got sandwiches. I got everything.', 'That cat? That\'s Mango. Mango runs this place, I just work here.']))], () => { if (Math.random() < 0.5) spawnFood(D25.bodega.r.x0 + 3, 0.17, D25.bodega.r.z, 'crust', null); }), 2.2);
+addTalker('Play the piano', () => _p25.set(D25.apt.r.x1 - 1.0, 0.8, D25.apt.r.z0 + 1.5), () => { [262, 330, 392, 523].forEach((f, i) => tone(f, 0.8, 'triangle', 0.045, null, i*0.12)); speak(D25.apt.res.g, mpick(['Bravo! Encore!', 'Oh, Chopin!', 'You play better than my nephew.'])); }, 1.6);
+addTalker('Write on the blackboard', () => _p25.set(D25.school.r.cx, 0.8, D25.school.r.z0 + 1.2), () => { const g = D25.school.boardC.getContext('2d'); g.fillStyle = '#2f4a3a'; g.fillRect(0, 0, 96, 36); g.fillStyle = '#f4f4ef'; g.font = '8px monospace'; g.fillText(mpick(['COO COO', 'PIDGE WAS HERE', 'NO HOMEWORK!', 'CRUMBS = JOY']), 8, 20); D25.school.boardT.needsUpdate = true; for (const k of D25.school.kids) speak(k.g, mpick(['Haha!', 'A pigeon can write?', 'Miss! Miss!'])); }, 2.0);
+addTalker('Talk to the teacher', () => _p25.set(D25.school.teacher.g.position.x, 0.6, D25.school.teacher.g.position.z + 1), () => say([L('Teacher', mpick(['Class, we have a visitor. Everyone say hello to the pigeon.', 'Today: birds of Featherstone. You\'re very on topic.', 'Please don\'t eat the glue.']))]), 2.2);
+addTalker('Say hello to the Hendersons', () => _p25.set(D25.home.r.x0 + 2, 0.6, D25.home.r.z0 + 3), () => say([L('Mrs Henderson', mpick(['A pigeon in the kitchen! Well, you\'re cleaner than the dog.', 'Biscuit, no! The dog\'s called Biscuit. He loves birds. Too much.', 'Want a crust? Don\'t tell Mr Henderson.']))], () => spawnFood(D25.home.r.x0 + 2.2, 0.17, D25.home.r.z0 + 4.5, 'crust', null)), 2.4);
+addTalker('Read the departures board', () => _p25.set(D25.term.r.x1 - 1.5, 0.6, D25.term.r.z), () => toast('Next flight: <b>' + mpick(DESTS) + '</b>. Pigeons fly free, but please queue like everyone else.', '', 3200), 2.4);
+addTalker('Ask at check-in', () => _p25.set(D25.term.r.x0 + 4, 0.6, D25.term.r.z0 + 2), () => say([L('Check-in', mpick(['Any liquids? Seeds? Shinies? Please place them in the tray.', 'Window or aisle? Ha. You\'d prefer the wing, I expect.', 'Your flight leaves when the red plane lands. Or you could just... fly.']))]), 2.2);
+addTalker('Take the lift up', () => _p25.set(EMPIRE.x, 0.6, EMPIRE.z - 4), () => { tone(880, 0.2, 'sine', 0.05); tone(1320, 0.3, 'sine', 0.04, null, 0.2); const P = player; P.pos.set(EMPIRE.x + 4.4, EMPIRE.deck + 0.05, EMPIRE.z); P.vel.set(0, 0, 0); P.push.set(0, 0, 0); P.heading = PI/2; camTarget.copy(P.pos); toast('<b>Ding!</b> The observation deck, 130 m up. Mind the gap.', '', 3000); if (!S.empireTop){ S.empireTop = true; addXP(20); } }, 2.4);
+addTalker('Take the lift down', () => _p25.set(EMPIRE.x + 4.4, EMPIRE.deck + 0.5, EMPIRE.z - 2), () => { tone(1320, 0.2, 'sine', 0.05); tone(880, 0.3, 'sine', 0.04, null, 0.2); const P = player; P.pos.set(EMPIRE.x, 0.2, EMPIRE.z - 4); P.vel.set(0, 0, 0); P.heading = 0; camTarget.copy(P.pos); }, 1.8);
+addShiny('pilot wings', 55, 24.3, -405);
+addShiny('subway token', EMPIRE.x - 2.8, EMPIRE.top + 6, EMPIRE.z - 0.6);
+addShiny('school bell', -64, 6.55, 316);
+
+/* ---------- life in the new districts ---------- */
+for (const b of uptownBlocks){ const n = b.hood === 'midtown' || b.hood === 'market' ? 2 : 1; for (let k = 0; k < n; k++) addWalker(b, rand() < 0.15 ? {hat: pick([0x2a2622, 0x6b4a2e])} : {}); }
+for (let bi = -7; bi <= 4; bi++) for (let bj = 8; bj <= 12; bj++) if (rand() < 0.5) addWalker({cx: bi*32, cz: bj*32});
+// joggers and a horse-drawn carriage round Pigeon Park
+const parkLoop = []; { const n = 48; for (let k = 0; k < n; k++){ const t = k/n*PI*2; parkLoop.push([PARK.cx + Math.cos(t)*58, PARK.cz + Math.sin(t)*74]); } }
+const joggers = [0, 1, 2, 3, 4].map(k => { const H = makeHuman({shirt: pick(SHIRTS)}); H.snack.visible = false; return {H, t: k/5, sp: rr(0.018, 0.025)*(k % 2 ? 1 : -1)}; });
+const carriage = (() => { const g = new THREE.Group(); scene.add(g); g.add(boxMesh(1.6, 1.0, 2.4, mat(0x2a2622), 0, 1.3, -1.2)); g.add(boxMesh(1.7, 0.1, 2.5, mat(0xd4483a), 0, 1.85, -1.2)); for (const [x, z] of [[-0.85, -0.2], [0.85, -0.2], [-0.85, -2.2], [0.85, -2.2]]){ const w = mesh(new THREE.TorusGeometry(0.45, 0.06, 4, 12), mat(0x5c3a1c), x, 0.5, z); w.rotation.y = PI/2; g.add(w); } const horse = new THREE.Group(); horse.position.z = 1.8; g.add(horse); const hm = mat(0xf4ead2); horse.add(boxMesh(0.6, 0.7, 1.6, hm, 0, 1.4, 0)); horse.add(boxMesh(0.35, 0.8, 0.4, hm, 0, 2.0, 0.8)); horse.add(boxMesh(0.32, 0.35, 0.6, hm, 0, 2.3, 1.1)); const legs = []; for (const [x, z] of [[-0.2, 0.6], [0.2, 0.6], [-0.2, -0.6], [0.2, -0.6]]){ const l = new THREE.Group(); l.position.set(x, 1.05, z); l.add(boxMesh(0.15, 1.0, 0.15, hm, 0, -0.5, 0)); horse.add(l); legs.push(l); } const driver = makeHuman({shirt: 0x2a2622, hat: 0x2a2622}); scene.remove(driver.g); driver.snack.visible = false; sitPose(driver); driver.g.position.set(0, 1.0, -0.3); g.add(driver.g); return {g, legs, t: 0}; })();
+// hot dog and pretzel carts with vendors on Midtown corners
+const carts25 = [];
+for (const b of uptownBlocks.filter(b => b.hood === 'midtown' || b.hood === 'market').slice(0, 10)){
+  const x = b.cx + 10.6, z = b.cz - 9.5, g = new THREE.Group(); g.position.set(x, 0.15, z); scene.add(g);
+  g.add(boxMesh(1.8, 1.0, 1.0, mat(0xd8dde0), 0, 0.6, 0)); g.add(boxMesh(1.9, 0.08, 1.1, mat(0xd4483a), 0, 2.2, 0)); g.add(mesh(new THREE.ConeGeometry(1.4, 0.6, 8), mat(pick([0xffd166, 0x3f8ad4, 0xd4483a])), 0, 2.6, 0)); g.add(boxMesh(0.06, 1.2, 0.06, mat(0x8a8f94), 0, 1.7, 0));
+  addSolid(x, z, 1.8, 1.0, 0, 1.1, 'cart'); const V = makeHuman({shirt: pick(SHIRTS), hat: 0xf4f4ef}); V.snack.visible = false; V.g.position.set(x - 1.3, 0.15, z); V.g.rotation.y = PI/2; carts25.push({x, z, V, t: rr(5, 20)});
+  foodSpots.push({x: x + 1.4, y: 0.15, z}); foodSpots.push({x, y: 0.15, z: z + 1.3});
+}
+addSolid(95, -318, 10.4, 7.4, 0, 8, 'farmhouse'); addSolid(40, -345, 7, 7, 0, 17, 'windmill');
+const STEAM = uptownBlocks.filter((b, i) => i % 7 === 0).map(b => [b.cx + 16, b.cz + rr(-4, 4)]);
+for (const b of uptownBlocks.filter(b => b.hood === 'brownstone').slice(0, 6)) addFlock({x: b.cx, y: 0.15, z: b.cz + 10.5, rx: 6, rz: 0.8}, 4);
+addFlock({x: PARK.cx + 30, y: 0.15, z: PARK.cz - 40, rx: 8, rz: 6}, 8);
+addFlock({x: -64, y: 0.18, z: 340, rx: 6, rz: 3}, 4);
+// suburb life: a mower, sprinklers, a barbecue, kids on bikes
+const sprinklers = []; for (let k = 0; k < 8; k++){ const b = NEWGRASS[ri(0, NEWGRASS.length)]; if (b) sprinklers.push([b[0] + rr(-2, 2), b[1] + rr(-2, 2)]); }
+const mower = (() => { const b = NEWGRASS[3] || [0, 300]; const H = makeHuman({shirt: 0x3f9a5a, hat: 0xffd166}); H.snack.visible = false; const m = boxMesh(0.8, 0.4, 0.6, mat(0xd4483a), 0, 0.35, 0.8); H.g.add(m); H.arms[0].rotation.x = H.arms[1].rotation.x = -0.9; return {H, cx: b[0], cz: b[1], t: 0}; })();
+const bbq = NEWGRASS[7] || [32, 352];
+// the community pool
+{
+  const cx = 32, cz = 288, ch = nch(cx, cz);
+  NB(ch, 22, 0.2, 18, cx, 0.25, cz, XC.lightgrey); addSolid(cx, cz, 22, 18, 0, 0.35, 'deck');
+  const w = mesh(new THREE.PlaneGeometry(14, 8), mat(0x5fc8e8, {map: harbourTex}), cx, 0.36, cz - 1); w.rotation.x = -PI/2; scene.add(w);
+  WATERS.push({x0: cx - 7, x1: cx + 7, z0: cz - 5, z1: cz + 3}); mapRects.push({x0: cx - 7, z0: cz - 5, x1: cx + 7, z1: cz + 3, color: '#5fc8e8', kind: 'water'});
+  for (let k = 0; k < 4; k++){ NB(ch, 0.8, 0.3, 1.9, cx - 6 + k*3.2, 0.5, cz + 6, XC.white); NB(ch, 0.8, 0.5, 0.15, cx - 6 + k*3.2, 0.75, cz + 6.9, XC.white); foodSpots.push({x: cx - 6 + k*3.2, y: 0.36, z: cz + 4.6}); }
+  for (const s of [-1, 1]){ NB(ch, 0.1, 2.4, 0.1, cx + s*9.5, 1.5, cz + 6, XC.grey); }
+  NB(ch, 0.6, 0.1, 3, cx - 7.8, 0.9, cz - 1, XC.white); addSolid(cx - 7.8, cz - 1, 0.6, 3, 0.8, 0.95, 'diving');
+  NB(ch, 1.2, 2.6, 1.2, cx + 9.5, 1.5, cz - 4, XC.white); NB(ch, 1.4, 0.1, 1.4, cx + 9.5, 2.85, cz - 4, XC.red); addSolid(cx + 9.5, cz - 4, 1.4, 1.4, 0, 2.9, 'lifeguard');
+  for (const s of [-1, 1]) NB(ch, 22, 1.2, 0.15, cx, 0.95, cz + s*9, XC.white);
+}
+const swimmers = [0, 1, 2].map(k => { const h = mesh(SPHERE, mat(pick([0xf2be92, 0xb3794d, 0xe0a87a])), 32, 0.45, 287); h.scale.setScalar(0.22); scene.add(h); const cap = mesh(SPHERE, mat(pick([0xd4483a, 0xffd166, 0x3f8ad4])), 0, 0.4, 0); cap.scale.set(1.05, 0.6, 1.05); h.add(cap); return {h, ph: k*2.1}; });
+const bikeKids = [0, 1, 2].map(k => { const C = makeCyclist(); C.g.scale.setScalar(0.7); return {C, t: k/3, road: [272, 336, 400][k], dir: k % 2 ? 1 : -1}; });
+// airport life
+const tug = (() => { const g = new THREE.Group(); scene.add(g); g.add(boxMesh(1.6, 1.0, 2.2, mat(0xffd166), 0, 0.7, 0)); for (let k = 1; k <= 3; k++){ g.add(boxMesh(1.4, 0.6, 1.8, mat(0x8a8f94), 0, 0.5, -k*2.2)); g.add(boxMesh(1.0, 0.5, 1.2, mat(pick([0xd4483a, 0x3f8ad4, 0x3f9a5a])), 0, 1.0, -k*2.2)); } return {g, t: 0}; })();
+
+/* ---------- traffic reaches the new streets ---------- */
+const PARK_ROADS = [-16, 16, 48, 80];
+for (const v of cars){
+  if (v.axis === 'x' && v.road >= -240 && v.road <= 176) v.uMin = PARK_ROADS.includes(v.road) ? -398 : -556;
+  if (v.axis === 'z' && v.road >= -240 && v.road <= 144) v.uMax = 412;
+}
+{
+  const AVES = [-560, -528, -400, -368, -336, -304, -272];
+  for (const x of AVES) for (const dir of [-1, 1]) for (let k = 0; k < 2; k++){ const v = addVeh(rand() < 0.45 ? 'taxi' : rand() < 0.15 ? 'bus' : 'car', 'z', x, dir, rr(-230, 170)); v.uMin = -236; v.uMax = 172; v.fixed = x + dir*2; }
+  for (const z of [-176, -112, -48, 112, 144]) for (const dir of [-1, 1]){ const v = addVeh(rand() < 0.5 ? 'taxi' : 'car', 'x', z, dir, rr(-540, -260)); v.uMin = -556; v.uMax = 172; }
+  for (const z of [272, 336, 400, 432]) for (const dir of [-1, 1]){ const v = addVeh(rand() < 0.2 ? 'van' : 'car', 'x', z, dir, rr(-220, 120)); v.uMin = -236; v.uMax = 136; }
+}
+
+/* ---------- shared visuals for the new ground: slabs, grass, trees, lamps ---------- */
+{
+  const d = new THREE.Object3D();
+  instBoxes(slabSideMat, NEWSLAB.map(([x, z]) => [x, 0.075, z, BLOCK, 0.15, BLOCK]));
+  const tops = new THREE.InstancedMesh(slabTopGeo, slabTopMat, NEWSLAB.length); NEWSLAB.forEach(([x, z], i) => { d.position.set(x, 0.152, z); d.rotation.set(-PI/2, 0, 0); d.scale.set(1, 1, 1); d.updateMatrix(); tops.setMatrixAt(i, d.matrix); }); tops.receiveShadow = true; scene.add(tops);
+  const gm = mat(0xffffff, {map: grassTex}), gl = new THREE.InstancedMesh(new THREE.PlaneGeometry(8.8, 8.8), gm, Math.max(1, NEWGRASS.length)); NEWGRASS.forEach(([x, z], i) => { d.position.set(x, 0.162, z); d.rotation.set(-PI/2, 0, 0); d.updateMatrix(); gl.setMatrixAt(i, d.matrix); }); gl.receiveShadow = true; scene.add(gl);
+  const LEAVES = [0x4f9e3a, 0x5fae44, 0x3f8a34, 0x6fae3a];
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.24, 0.34, 3.6, 6), trunkMat, NEWT.length), blobs = new THREE.InstancedMesh(leafGeo, mat(0xffffff), NEWT.length*3), c = new THREE.Color();
+  NEWT.forEach(([x, z, s], i) => { const y0 = inPigeonPark(x, z) || z > 200 && x < -244 ? 0.12 : 0.15; d.rotation.set(0, 0, 0); d.position.set(x, y0 + 1.8*s, z); d.scale.set(s, s, s); d.updateMatrix(); trunks.setMatrixAt(i, d.matrix); [[0, 4.7, 0, 2.0], [0.8, 4.3, 0.5, 1.4], [-0.4, 5.6, -0.3, 1.3]].forEach(([ox, oy, oz, r], k) => { d.position.set(x + ox*s, y0 + oy*s, z + oz*s); d.rotation.set(i + k, i*1.7 + k, 0); d.scale.setScalar(r*s); d.updateMatrix(); blobs.setMatrixAt(i*3 + k, d.matrix); blobs.setColorAt(i*3 + k, c.setHex(LEAVES[(i + k) % 4])); }); });
+  trunks.castShadow = blobs.castShadow = true; scene.add(trunks, blobs);
+  for (const [x, z, s] of NEWT){ const k = Math.floor(x/16) + ',' + Math.floor(z/16); if (!treeGrid.has(k)) treeGrid.set(k, []); treeGrid.get(k).push([x, 0.15 + 4.8*s, z, 2.3*s]); }
+  const poles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.1, 4.4, 6), ironMat, NEWLAMP.length), heads = new THREE.InstancedMesh(BOX, lampHeadMat, NEWLAMP.length), caps = new THREE.InstancedMesh(new THREE.ConeGeometry(0.42, 0.3, 4), ironMat, NEWLAMP.length), pools = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), poolMat, NEWLAMP.length);
+  NEWLAMP.forEach(([x, z], i) => { d.rotation.set(0, 0, 0); d.scale.set(1, 1, 1); d.position.set(x, 2.35, z); d.updateMatrix(); poles.setMatrixAt(i, d.matrix); d.position.set(x, 4.6, z); d.scale.set(0.42, 0.4, 0.42); d.updateMatrix(); heads.setMatrixAt(i, d.matrix); d.position.set(x, 4.95, z); d.scale.set(1, 1, 1); d.rotation.set(0, PI/4, 0); d.updateMatrix(); caps.setMatrixAt(i, d.matrix); d.position.set(x, 0.17, z); d.rotation.set(-PI/2, 0, 0); d.scale.set(8.5, 8.5, 1); d.updateMatrix(); pools.setMatrixAt(i, d.matrix); });
+  pools.renderOrder = 2; pools.frustumCulled = false; scene.add(poles, heads, caps, pools);
+  const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(NEWLAMP.flatMap(([x, z]) => [x, 4.6, z]), 3)); const gp = new THREE.Points(gg, glowPts.material); gp.frustumCulled = false; scene.add(gp);
+  // the merged building chunks
+  // the camera keeps clear of these through their exact collision boxes, so no costly ray tests
+  for (const items of NEWCH.values()){ if (!items.length) continue; const m = mergeBoxes(items, XM); m.updateMatrix(); m.matrixAutoUpdate = false; }
+}
+
+/* ---------- districts, warps and the map ---------- */
+Object.assign(DISTRICTS, {
+  midtown: {name: 'Midtown', sub: 'Skyscrapers, yellow cabs and steam from the drains'},
+  market: {name: 'Market Lane', sub: 'Food carts, awnings and noise'},
+  brownstone: {name: 'Brownstone Heights', sub: 'Stoops, trees and fire escapes'},
+  museummile: {name: 'Museum Mile', sub: 'Culture, columns and Rex the T. rex'},
+  pigeonpark: {name: 'Pigeon Park', sub: 'The city\'s back garden'},
+  riverside: {name: 'Riverside Park', sub: 'Benches by the River Quill'},
+  maplegrove: {name: 'Maple Grove', sub: 'Lawns, fences and paperboys'},
+  airport: {name: 'Featherstone International', sub: 'Planes, gates and lost luggage'},
+  country: {name: 'The Countryside', sub: 'Fields, sheep and a windmill'},
+  westwater: {name: 'Westwater', sub: 'The river at the edge of the city'},
+});
+setTimeout(() => Object.assign(DISTRICT_SPOTS, {midtown: [-304, -150], market: [-288, 110], brownstone: [-470, -170], museummile: [-372, 40], pigeonpark: [-464, 32], maplegrove: [-40, 330], airport: [135, -440], riverside: [-400, 222]}), 0);
+function districtOf25(x, z){
+  if (x < -572) return 'westwater';
+  if (x < -244){ if (z > 200) return 'riverside'; if (inPigeonPark(x, z)) return 'pigeonpark'; const bi = Math.round(x/32), bj = Math.round(z/32); return uptownHood(bi, bj) === 'park' ? 'pigeonpark' : uptownHood(bi, bj); }
+  if (z > 246) return 'maplegrove';
+  if (z < -270){ if (x > FL.x0 && x < FL.x1 && z > FL.z0) return 'featherland'; if (x > AIR.x0 - 4 && z < AIR.z1 + 4) return 'airport'; return 'country'; }
+  return null;
+}
+// the world's new edges
+function clampWorld(P, pz0){
+  P.pos.x = clamp(P.pos.x, -630, 239); P.pos.z = clamp(P.pos.z, -526, 446);
+  if (P.pos.x < -244 && (P.pos.z < -256 || P.pos.z > 241)){ if (P.pos.z < -256) P.pos.z = -256; else P.pos.z = 241; edgeNote(); }
+  if (P.pos.x > 150 && P.pos.z > 246){ P.pos.z = 246; }
+  if (P.pos.x <= -629.9 || P.pos.z <= -525.9 || P.pos.z >= 445.9) edgeNote();
+}
+let edgeCd = 0;
+function edgeNote(){ if (edgeCd > 0 || state !== 'play') return; edgeCd = 12; toast('That\'s the edge of Featherstone. Plenty more to see back in town!', '', 2400); }
+
+/* ---------- per frame ---------- */
+const _v25 = new THREE.Vector3();
+let lifeT25 = 0;
+function updateV25(dt, time){
+  const P = player, playing = state === 'play';
+  edgeCd -= dt;
+  // the flight
+  flightT += dt; flightAt(flightT, _fa); flightAt(flightT + 0.6, _fb);
+  const hd = Math.atan2(_fb.x - _fa.x, _fb.z - _fa.z), sp = _fa.distanceTo(_fb);
+  moverY(flyerMover, _fa.y); placeMover(flyerMover, _fa.x, _fa.z, sp > 0.02 ? hd : flyerMover.h);
+  flyer.rotation.x = -Math.atan2(_fb.y - _fa.y, Math.hypot(_fb.x - _fa.x, _fb.z - _fa.z) || 1)*0.8; flyer.rotation.z = clamp(angDiff(hd, Math.atan2(flightAt(flightT + 1.2, _v25).x - _fb.x, _v25.z - _fb.z))*-3, -0.5, 0.5);
+  if (rideStick(flyerMover)){ if (!S.planeRide){ S.planeRide = true; addXP(25); toast('Hitching a ride on a jet! <b>+25 XP</b> (flap to jump off)', '', 3000); save(); } if (_fa.y > 5 && Math.random() < dt*0.6) floatText(P.pos, mpick(['WHEEE!', 'first class!', 'no peanuts?']), '#fff6dc', 0.9); }
+  const nearAir = Math.hypot(P.pos.x - 135, P.pos.z + 450) < 220;
+  if (nearAir && playing && sp > 0.15 && _fa.y < 30){ const d = _fa.distanceTo(P.pos); if (d < 120 && Math.random() < dt*4) noise(0.3, 180 + sp*40, 0.03*(1 - d/120)); }
+  if (AIR.sock){ AIR.sock.rotation.y = WIND.a; AIR.sock.rotation.x = -0.9 + Math.min(0.8, WIND.s*0.6); }
+  AIR.lightMat.emissiveIntensity = 0.2 + nightF*1.6;
+  // ground life near the player
+  lifeT25 -= dt; const near = (x, z, r) => Math.hypot(P.pos.x - x, P.pos.z - z) < r;
+  joggers.forEach(j => { const vis = near(PARK.cx, PARK.cz, 110); j.H.g.visible = vis; if (!vis) return; j.t = (j.t + j.sp*dt + 1) % 1; const tt = j.t*PI*2, x = PARK.cx + Math.cos(tt)*58, z = PARK.cz + Math.sin(tt)*74; const dx = -Math.sin(tt)*58*Math.sign(j.sp), dz = Math.cos(tt)*74*Math.sign(j.sp); j.H.g.position.set(x, 0.12, z); j.H.g.rotation.y = Math.atan2(dx, dz); j.ph = (j.ph || 0) + dt*9; const sw = Math.sin(j.ph)*0.8; j.H.legs[0].rotation.x = sw; j.H.legs[1].rotation.x = -sw; j.H.arms[0].rotation.x = -0.9 - sw*0.6; j.H.arms[1].rotation.x = -0.9 + sw*0.6; });
+  { const c = carriage, vis = near(PARK.cx, PARK.cz, 120); c.g.visible = vis; if (vis){ c.t = (c.t + dt*0.012) % 1; const tt = c.t*PI*2, x = PARK.cx + Math.cos(tt)*52, z = PARK.cz + Math.sin(tt)*68; c.g.position.set(x, 0.12, z); c.g.rotation.y = Math.atan2(-Math.sin(tt)*52, Math.cos(tt)*68); const sw = Math.sin(time*6)*0.5; c.legs[0].rotation.x = sw; c.legs[3].rotation.x = sw; c.legs[1].rotation.x = -sw; c.legs[2].rotation.x = -sw; if (playing && near(x, z, 14) && Math.random() < dt*1.5) tone(rr(600, 700), 0.05, 'square', 0.012); } }
+  for (const c of carts25){ const vis = near(c.x, c.z, 60); c.V.g.visible = vis; if (!vis) continue; c.V.arms[1].rotation.x = -0.6 + Math.sin(time*3)*0.3; c.t -= dt; if (c.t <= 0 && near(c.x, c.z, 14) && playing){ c.t = rr(15, 30); speak(c.V.g, mpick(['Hot dogs! Get your hot dogs!', 'Pretzels! Salty, warm, and not for pigeons!', 'Hey, pigeon. Don\'t even think about it.'])); if (Math.random() < 0.35 && foods.length < MAX_FOOD) spawnFood(c.x + rr(1.2, 2), 0.15, c.z + rr(-1, 1), mpick(['pretzel', 'sausage']), null); } }
+  if (playing && Math.random() < dt*4) for (const [x, z] of STEAM) if (near(x, z, 45)) emit('steam', _v25.set(x + rr(-0.3, 0.3), 0.3, z), 1, 0.3, 1.2);
+  for (const sw of swimmers){ const vis = near(32, 288, 60); sw.h.visible = vis; if (vis){ sw.ph += dt*0.4; sw.h.position.set(32 + Math.sin(sw.ph)*5.5, 0.42 + Math.sin(time*3 + sw.ph)*0.04, 287 + Math.cos(sw.ph*1.3)*2.6); if (Math.random() < dt*1.5) emit('splash', sw.h.position, 1, 0.2, 0.6); } }
+  for (const [x, z] of sprinklers) if (near(x, z, 40) && nightF < 0.4 && Math.random() < dt*10){ const a = time*2; emit('splash', _v25.set(x, 0.5, z), 1, 0.2, 1.4); }
+  if (near(bbq[0], bbq[1], 50) && Math.random() < dt*3) emit('steam', _v25.set(bbq[0] + 3, 1.2, bbq[1] + 3), 1, 0.3, 0.7);
+  { const m = mower, vis = near(m.cx, m.cz, 60); m.H.g.visible = vis; if (vis){ m.t += dt*0.25; const x = m.cx + Math.sin(m.t*1.3)*3, z = m.cz + ((m.t*0.8) % 6) - 3; m.H.g.position.set(x, 0.17, z); m.H.g.rotation.y = Math.cos(m.t*1.3) > 0 ? 0 : PI; if (playing && near(x, z, 18) && Math.random() < dt*8) tone(rr(95, 110), 0.12, 'sawtooth', 0.006); } }
+  for (const k of bikeKids){ const vis = near(-50, k.road, 140); k.C.g.visible = vis; if (!vis) continue; k.t = (k.t + dt*0.02*k.dir + 1) % 1; const x = -230 + k.t*360; k.C.g.position.set(x, 0, k.road + k.dir*3.3); k.C.g.rotation.y = k.dir > 0 ? PI/2 : -PI/2; k.ph = (k.ph || 0) + dt*8; k.C.H.legs[0].rotation.x = -1.2 + Math.sin(k.ph)*0.55; k.C.H.legs[1].rotation.x = -1.2 - Math.sin(k.ph)*0.55; }
+  { const t = tug, vis = near(135, -420, 160); t.g.visible = vis; if (vis){ t.t += dt*0.03; const a = t.t*PI*2, x = 135 + Math.cos(a)*60, z = -460 + Math.sin(a)*6; t.g.position.set(x, 0.03, z); t.g.rotation.y = Math.atan2(-Math.sin(a)*45, Math.cos(a)*10); } }
+  // interiors
+  const R = D25;
+  if (R.diner.g.visible){ R.diner.cd = Math.max(0, (R.diner.cd || 0) - dt); R.diner.juke.material.emissiveIntensity = 0.4 + Math.sin(time*4)*0.3; if ((R.diner.song || 0) > 0){ R.diner.song -= dt; R.diner.n = (R.diner.n || 0) - dt; if (R.diner.n <= 0){ R.diner.n = 0.25; const tune = [392, 392, 523, 494, 440, 392, 330, 349, 392, 440, 392, 330]; tone(tune[R.diner.i = ((R.diner.i || 0) + 1) % tune.length], 0.22, 'triangle', 0.035); if (R.diner.i % 4 === 0) tone(98, 0.2, 'sine', 0.04); } } }
+  if (R.apt.g.visible){ R.apt.fire.scale.set(1 + Math.sin(time*13)*0.1, 1 + Math.sin(time*9)*0.15, 1); R.apt.fire.material.emissiveIntensity = 1.0 + Math.sin(time*11)*0.3; }
+  if (R.school.g.visible){ R.school.kids.forEach((k, i) => { k.head.rotation.y = Math.sin(time*0.7 + i)*0.4; }); R.school.flag.rotation.y = Math.sin(time*3)*0.3*WIND.s; R.school.teacher.arms[1].rotation.x = -1.4 + Math.sin(time*2)*0.4; }
+  if (R.term.g.visible){ placeMover(R.term.carMover, R.term.r.x0 + 5, R.term.r.z + 2.6, (R.term.carMover.h || 0) + dt*0.6); if ((lifeT25 % 1) < dt) drawBoard(time); }
+  if (muG.visible){ for (const c of rex.gems){ c.rotation.y += dt*(0.5 + (c.userData.spin || 0)); c.userData.spin = Math.max(0, (c.userData.spin || 0) - dt); c.material.emissiveIntensity = 0.4 + nightF*0.8; } rex.whale.rotation.z = Math.sin(time*0.4)*0.04; rex.ada.arms[1].rotation.x = -0.4 + Math.sin(time*1.3)*0.3;
+    if ((rex.roar || 0) > 0){ rex.roar -= dt; rex.jaw.rotation.z = -Math.abs(Math.sin(rex.roar*6))*0.6; if (Math.random() < dt*8) noise(0.3, 90, 0.08); } }
+  if (lifeT25 <= 0) lifeT25 = 1;
 }
 
 /* ---------- progression ---------- */
@@ -11108,8 +11663,7 @@ function updatePlayer(dt){
   P.vel.x = hx*P.fwd + P.push.x; P.vel.z = hz*P.fwd + P.push.z;
   const prevY = P.pos.y, vyBefore = P.vel.y, pz0 = P.pos.z;
   P.pos.addScaledVector(P.vel, dt);
-  P.pos.x = clamp(P.pos.x, -W, W); P.pos.z = clamp(P.pos.z, FL.z0 + 0.6, W);
-  if (P.pos.z < -W - 30 && (P.pos.x < FL.x0 + 0.6 || P.pos.x > FL.x1 - 0.6)){ if (pz0 >= -W - 30) P.pos.z = -W - 30; else P.pos.x = clamp(P.pos.x, FL.x0 + 0.6, FL.x1 - 0.6); }
+  clampWorld(P, pz0);
   if (P.pos.y > 90){ P.pos.y = 90; P.vel.y = Math.min(0, P.vel.y); }
   bumped = false;
   let st = collide(P.pos, P.vel, prevY);
@@ -11201,6 +11755,7 @@ function updateHumans(dt){
     h.t += h.dir*h.speed*dt; h.phase += dt*h.speed*(h.jog ? 2.6 : 3.2);
     const [x, z, ddx, ddz] = perim(h.cx, h.cz, h.a, h.t);
     h.H.g.position.set(x, 0.15 + (h.jog ? Math.abs(Math.sin(h.phase))*0.08 : 0), z);
+    if (!h.H.g.visible){ h.cool = Math.max(0, h.cool - dt); h.talkCd = Math.max(0, h.talkCd - dt); continue; }
     h.H.g.rotation.y = angLerp(h.H.g.rotation.y, Math.atan2(ddx*h.dir, ddz*h.dir), damp(8, dt));
     const amp = h.jog ? 0.85 : 0.5, sw = Math.sin(h.phase)*amp;
     h.H.legs[0].rotation.x = sw; h.H.legs[1].rotation.x = -sw;
@@ -11550,11 +12105,11 @@ function updateAttract(dt){
 
 /* ---------- minimap ---------- */
 const mm = $('minimap'), mctx = mm.getContext('2d');
-const MS = 2.5, mapBase = document.createElement('canvas'); mapBase.width = 1340; mapBase.height = 1650;
-const mx = x => (x + 268)*MS, mz = z => (z + 392)*MS;
+const MS = 2.5, mapBase = document.createElement('canvas'); mapBase.width = 2125; mapBase.height = 2475;
+const mx = x => (x + 600)*MS, mz = z => (z + 540)*MS;
 {
   const c = mapBase.getContext('2d');
-  c.fillStyle = '#6e6660'; c.fillRect(0,0,1340,1650);
+  c.fillStyle = '#6e6660'; c.fillRect(0,0,2125,2475);
   c.fillStyle = '#cbbba1';
   for (const b of blocks) c.fillRect(mx(b.cx-12), mz(b.cz-12), 24*MS, 24*MS);
   for (const r of mapRects){ c.fillStyle = r.color; if (r.circle){ c.beginPath(); c.arc(mx(r.cx), mz(r.cz), r.r*MS, 0, PI*2); c.fill(); continue; } c.fillRect(mx(r.x0), mz(r.z0), (r.x1-r.x0)*MS, (r.z1-r.z0)*MS); if (r.kind === 'bld'){ c.strokeStyle = 'rgba(61,31,14,.55)'; c.lineWidth = 1; c.strokeRect(mx(r.x0)+.5, mz(r.z0)+.5, (r.x1-r.x0)*MS-1, (r.z1-r.z0)*MS-1); } }
@@ -11654,7 +12209,7 @@ function updateGoal(tg){
 
 /* ---------- save ---------- */
 const SAVE_KEY = 'crumb-city-save-v1';
-function save(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify({level:S.level, xp:S.xp, crumbs:S.crumbs, qi:S.qi, qp:S.qp, time:S.time, handouts:S.handouts, gulls:S.gulls, eaten:S.eaten, won:S.won, shinies:S.shinies, fav:S.fav, favFocus:S.favFocus, racersFound:S.racersFound, met:S.met, popped:S.popped, rides:S.rides, tramStops:S.tramStops, photos:S.photos, scarf:S.scarf, tubeRides:S.tubeRides || 0, riverRides:S.riverRides || 0, riverPiers:S.riverPiers || [], chipGulls:S.chipGulls || 0, tubeStops:S.tubeStops || [], dvis:S.dvis || [], ch2seen:!!S.ch2seen, won2:!!S.won2, pebbleHome:!!S.pebbleHome, giraffeRide:!!S.giraffeRide, fam:S.fam || null, trainRides:S.trainRides || 0, trainStops:S.trainStops || [], events:S.events || [], murals:S.murals || [], passport:S.passport || {}, hugCoo:!!S.hugCoo, alarms:S.alarms || 0, headRides:S.headRides || 0, hats:S.hats || 0, piano:!!S.piano, swung:!!S.swung, slid:!!S.slid, headers:S.headers || 0, props:S.props || {}, bag:S.bag || {}, notes:S.notes || [], qloot:S.qloot || {}, dug:!!S.dug, bellsRung:!!S.bellsRung, hatsCaught:S.hatsCaught || 0, visited:S.visited || {park: true}, wornHat:pidgeHat ? S.wornHat : null, tipsSeen:S.tipsSeen || [], seenV2:!!S.seenV2})); } catch(e) {} }
+function save(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify({level:S.level, xp:S.xp, crumbs:S.crumbs, qi:S.qi, qp:S.qp, time:S.time, handouts:S.handouts, gulls:S.gulls, eaten:S.eaten, won:S.won, shinies:S.shinies, fav:S.fav, favFocus:S.favFocus, racersFound:S.racersFound, met:S.met, popped:S.popped, rides:S.rides, tramStops:S.tramStops, photos:S.photos, scarf:S.scarf, tubeRides:S.tubeRides || 0, riverRides:S.riverRides || 0, riverPiers:S.riverPiers || [], chipGulls:S.chipGulls || 0, tubeStops:S.tubeStops || [], dvis:S.dvis || [], ch2seen:!!S.ch2seen, won2:!!S.won2, pebbleHome:!!S.pebbleHome, giraffeRide:!!S.giraffeRide, fam:S.fam || null, trainRides:S.trainRides || 0, trainStops:S.trainStops || [], events:S.events || [], murals:S.murals || [], passport:S.passport || {}, hugCoo:!!S.hugCoo, alarms:S.alarms || 0, headRides:S.headRides || 0, hats:S.hats || 0, piano:!!S.piano, swung:!!S.swung, slid:!!S.slid, headers:S.headers || 0, props:S.props || {}, bag:S.bag || {}, notes:S.notes || [], qloot:S.qloot || {}, dug:!!S.dug, bellsRung:!!S.bellsRung, hatsCaught:S.hatsCaught || 0, visited:S.visited || {park: true}, wornHat:pidgeHat ? S.wornHat : null, tipsSeen:S.tipsSeen || [], seenV2:!!S.seenV2, planeRide:!!S.planeRide, empireTop:!!S.empireTop})); } catch(e) {} }
 function load(){ try { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return d && typeof d.level === 'number' ? d : null; } catch(e) { return null; } }
 
 /* ---------- screens ---------- */
@@ -11705,6 +12260,14 @@ const WARPS = {
   number7: [-117, 0.15, -128, -PI/2],
   music: [-53, 0.15, 96, -PI/2],
   gazette: [107, 0.15, 32, -PI/2],
+  midtown: [-245, 0.15, -139, PI],
+  pigeonpark: [-406, 0.13, 28, -PI/2],
+  naturalhistory: [-401, 0.15, 32, PI/2],
+  empire: [-288, 0.15, -116, PI],
+  sunnyside: [-245, 0.15, 64, -PI/2],
+  maplegrove: [-43, 0.15, 309, 0],
+  mgschool: [-64, 0.15, 331, PI],
+  airport: [130, 0.05, -380, PI],
   tube: UG_WARP,
   river: [0, -2.7, 184.6, PI/2],
   beach: [185, 0.1, 221, PI/2],
@@ -11792,7 +12355,7 @@ function frame(now){
   if (state === 'play'){ updatePlayer(dt); S.time += dt; saveT += dt; if (saveT > 10){ saveT = 0; save(); } }
   else if (state === 'title'){ player.anim.t += dt; animatePigeon(player.P, 'idle', player.anim, dt); player.P.g.position.copy(player.pos); player.P.g.rotation.y = player.heading; }
   updateHumans(dt); updateSitters(dt); updateDogs(dt); updateCars(dt); updateGull(dt); updateSal(dt); updateFood(dt, time);
-  updateFlock(dt); updateGus(dt); updateVents(dt); updateSparrows(dt, time); updateButterflies(dt, time); updateLeaves(dt); updateCharm(dt, time); updateWorld2(dt, time); updatePolish(dt, time); updateExtras(dt, time); updateTransit(dt, time); updateHighrise(dt, time); updateDistricts(dt, time); updateUnderground(dt, time); updateCoast(dt, time); updateLife14(dt, time); updateZoo(dt, time); updatePebble(dt); updateFamily(dt, time); updateRail(dt, time); updateStreets(dt, time); updateEvents(dt, time); updateLife18(dt, time); updatePark(dt, time); updateTraffic2(dt, time); updatePlay20(dt, time); updateV21(dt, time); updateV22(dt, time); updateV23(dt); updateParticles(dt); updateAudio(dt);
+  updateFlock(dt); updateGus(dt); updateVents(dt); updateSparrows(dt, time); updateButterflies(dt, time); updateLeaves(dt); updateCharm(dt, time); updateWorld2(dt, time); updatePolish(dt, time); updateExtras(dt, time); updateTransit(dt, time); updateHighrise(dt, time); updateDistricts(dt, time); updateUnderground(dt, time); updateCoast(dt, time); updateLife14(dt, time); updateZoo(dt, time); updatePebble(dt); updateFamily(dt, time); updateRail(dt, time); updateStreets(dt, time); updateEvents(dt, time); updateLife18(dt, time); updatePark(dt, time); updateTraffic2(dt, time); updatePlay20(dt, time); updateV21(dt, time); updateV22(dt, time); updateV25(dt, time); updateV23(dt); updateParticles(dt); updateAudio(dt);
   for (const c of clouds){ c.position.x += dt*1.2; if (c.position.x > 420) c.position.x = -420; }
   const tg = state === 'title' ? null : questTarget();
   beacon.visible = !!tg && !dlg;
