@@ -11543,7 +11543,7 @@ let attractT = 0, attractY = 0;
 function updateAttract(dt){
   attractT += dt*(reduceMotion ? 0.02 : 0.06);
   const ax = Math.cos(attractT)*32, az = Math.sin(attractT)*32, top = Math.max(floorAt(ax, az, 90), floorAt(Math.cos(attractT + 0.25)*32, Math.sin(attractT + 0.25)*32, 90), floorAt(Math.cos(attractT + 0.5)*32, Math.sin(attractT + 0.5)*32, 90));
-  attractY = lerp(attractY || 30, Math.max(26, top + 6), Math.min(1, dt*2));
+  attractY = lerp(attractY || 36, Math.max(34, top + 8), Math.min(1, dt*2));
   camera.position.set(ax, attractY, az);
   camera.lookAt(0, 3, 0);
 }
