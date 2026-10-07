@@ -10553,7 +10553,7 @@ document.getElementById('journal').addEventListener('click', e => {
   const f = e.target.closest('[data-jfly]'); if (f){ toggleJournal(false); const wb = document.querySelector(`#warpRow [data-warp="${f.dataset.jfly}"]`); if (wb) wb.click(); }
 });
 { const rj0 = renderJournal; renderJournal = function(){ rj0(); setJTab(jTab); }; }
-addEventListener('keydown', e => { if (state === 'play' && !dlg && e.code === 'KeyN' && !e.repeat){ e.stopImmediatePropagation(); openMap(); } }, true);
+addEventListener('keydown', e => { if (state === 'play' && !dlg && e.code === 'KeyN' && !e.repeat && !e.defaultPrevented){ e.stopImmediatePropagation(); openMap(); } }, true);
 
 function updateV22(dt, time){ updateLife22(dt, time); updateLighting22(dt); updateVisits(dt); }
 
@@ -12695,7 +12695,7 @@ function updateV27(dt, time){
   updateCine(dt); updateMsg(dt); updateHeat(dt);
   for (const b of Object.values(CREW)) if (b.g.visible) stepBird(b, dt);
   const vil = inVillage();
-  vG.visible = vil || (CINE && CINE.kind === 'kidnap' && CINE.phase !== 'black');
+  vG.visible = !!(vil || (CINE && CINE.kind === 'kidnap' && CINE.phase !== 'black'));
   if (vil){
     // village life
     { const h = document.querySelector('#worldmap h3'); if (h && state === 'map' && h.textContent !== 'Map of Little Pecking'){ h.dataset.t = h.textContent; h.textContent = 'Map of Little Pecking'; } }
@@ -15506,7 +15506,7 @@ const _yUp30 = new THREE.Vector3(0, 1, 0), _vr1 = new THREE.Vector3(), _vr2 = ne
 const VROUTE_A = [[-191.4, 0, -244.4], [-152, 0, -244.4]];
 const VROUTE_B = [[184, 1.5, -120], [204, 9, -120], [320, 9, -120], [344, 0.15, -120], [349.5, 0.15, -110], [349.5, 0.15, 40], [343, 0.15, 50], [314, 0.15, 50]];
 function routeLen(R){ let L = 0; for (let i = 1; i < R.length; i++) L += Math.hypot(R[i][0] - R[i - 1][0], R[i][2] - R[i - 1][2]); return L; }
-function routeAt(R, s, out){ for (let i = 1; i < R.length; i++){ const a = R[i - 1], b = R[i], L = Math.hypot(b[0] - a[0], b[2] - a[2]); if (s <= L || i === R.length - 1){ const u = clamp(s/L, 0, 1); out.set(lerp(a[0], b[0], u), lerp(a[1], b[1], u), lerp(a[2], b[2], u)); return Math.atan2(b[0] - a[0], b[2] - a[2]); } s -= L; } return 0; }
+function routeAt30(R, s, out){ for (let i = 1; i < R.length; i++){ const a = R[i - 1], b = R[i], L = Math.hypot(b[0] - a[0], b[2] - a[2]); if (s <= L || i === R.length - 1){ const u = clamp(s/L, 0, 1); out.set(lerp(a[0], b[0], u), lerp(a[1], b[1], u), lerp(a[2], b[2], u)); return Math.atan2(b[0] - a[0], b[2] - a[2]); } s -= L; } return 0; }
 const PAVEL_LINES = ['Hold on to your feathers, little bird!', 'Red light? Is only suggestion!', 'WHEEEEEEEE!', 'Who taught Pavel to drive? Nobody! Natural talent!', 'Brakes are for lobsters!', 'Shortcut! Probably!', 'Dasvidaniya, bridge!', 'Is fine! Is all fine!'];
 function vanSay(t){ speak(VAN.g, t); tone(1100 + Math.random()*400, 0.05, 'square', 0.015); }
 function kidnapVan(){
@@ -15566,7 +15566,7 @@ function updateVan(dt){
     if (v.t > 2.8 && !v.krab){ v.krab = true; speak(SHIP.g, '*click* Again with the van, Pavel?'); tone(240, 0.08, 'square', 0.03); }
     if (v.t > 4.4) vanDone();
   }
-  if (R) v.yaw = angLerp(v.yaw, routeAt(R, v.s, v.pos), damp(9, dt)); else if (v.phase === 'spin'){}
+  if (R) v.yaw = angLerp(v.yaw, routeAt30(R, v.s, v.pos), damp(9, dt)); else if (v.phase === 'spin'){}
   for (let i = v.fall.length - 1; i >= 0; i--){ const f = v.fall[i]; f.vel.y -= 20*dt; f.c.position.addScaledVector(f.vel, dt); f.c.rotation.x += dt*6; f.c.rotation.z += dt*4; if (f.c.position.y < f.y0){ f.c.position.y = f.y0; f.vel.y = Math.abs(f.vel.y) > 3 ? -f.vel.y*0.4 : 0; f.vel.x *= 0.7; f.vel.z *= 0.7; if (f.vel.y === 0 && f.vel.lengthSq() < 0.5) { emit('bit', f.c.position, 6, 0.5, 1); f.c.visible = false; v.fall.splice(i, 1); } } }
   vanPose(dt);
 }
@@ -15824,7 +15824,7 @@ function tankDone(){
   placeTo(HT_30.cx, 0.2, HT_30.z1 + 2.4, PI); player.P.g.rotation.set(0, 0, 0); state = 'play';
   say([L('Larry', 'Larry never forgets a favour, little bird! You let me out of that pot. I drive you to the hotel. Now we\'re even.'), L('Larry', 'The tank? Borrowed it from a museum. They have so many. They won\'t miss one. Probably.'), L('Larry', 'Go on, the Countess is waiting. I\'ll keep the engine warm.')], () => { toast('Now: the egg to <b>Countess Octavia</b> in the Grand Hotel.'); renderQuest(); });
 }
-function routeYawAt(R, s, out){ return routeAt(R, s, out); }
+function routeYawAt(R, s, out){ return routeAt30(R, s, out); }
 function tankPose(dt, time){
   const T = TANK31, g = T.g; g.position.copy(T.pos); g.rotation.y = T.yaw + T.spin;
   const v = TC ? TC.v : 0; g.position.y += Math.abs(Math.sin(time*13))*0.03*Math.min(1, v/4); g.rotation.z = Math.sin(time*7)*0.012*Math.min(1, v/4);
@@ -15836,7 +15836,7 @@ function updateTank31(dt, time){
   const c = TC, T = TANK31; c.t += dt;
   if (c.phase === 'in'){
     const L = routeLen(TRI); c.v = c.s < L - 10 ? Math.min(14, c.v + dt*10) : Math.max(0, Math.min(c.v, (L - c.s)*1.3)); c.s = Math.min(L, c.s + c.v*dt);
-    T.yaw = angLerp(T.yaw, routeAt(TRI, c.s, T.pos), damp(6, dt));
+    T.yaw = angLerp(T.yaw, routeAt30(TRI, c.s, T.pos), damp(6, dt));
     if (c.s > 30 && c.s < 44 && Math.random() < dt*30) emit('dust', tankRel(rr(-1.5, 1.5), 0.3, -3, _t31a), 1, 0.6, 0.6);
     if (c.s > 42 && !c.dust){ c.dust = true; emit('smoke', V30(PB.x, 4, PB.z - 6), 26, 4, 1.5); noise(0.8, 300, 0.07); }
     if (c.s >= L - 0.05){ c.phase = 'board'; c.t = 0; speak(T.g, 'GET IN, LITTLE BIRD!'); horn31(); }
@@ -15850,14 +15850,14 @@ function updateTank31(dt, time){
       speak(T.g, mpick(['Hold on to your tail feathers!', 'Larry drives! Everybody else, MOVE!'])); }
   } else if (c.phase === 'chase'){
     const L = routeLen(TRO), left = L - c.s; c.v = left < 12 ? Math.max(0, Math.min(c.v, left*1.2)) : Math.min(13, c.v + dt*6); c.s += c.v*dt;
-    T.yaw = angLerp(T.yaw, routeAt(TRO, c.s, T.pos), damp(5, dt));
+    T.yaw = angLerp(T.yaw, routeAt30(TRO, c.s, T.pos), damp(5, dt));
     T.tur.rotation.y = Math.sin(c.t*0.7)*0.6; tankRel(0, 1.6, -2.2, player.pos); player.P.g.position.copy(player.pos); player.P.g.rotation.set(0, T.yaw, 0); player.anim.t += dt; animatePigeon(player.P, 'idle', player.anim, dt);
     if (Math.random() < dt*12) emit('dust', tankRel(rr(-1.5, 1.5), 0.3, -3, _t31a), 1, 0.6, 0.6);
     if (!c.crunch && KIOSK.g.position.distanceTo(T.pos) < 3.2){ c.crunch = true; flattenKiosk(); speak(T.g, 'Sorry! Larry will pay! ...Larry will not pay.'); }
     // the Ladas give chase, and one of them spins out on the blini
     for (const [i, l] of LADAS.entries()){
       if (l.crash > 0){ l.crash += dt; l.yaw += dt*Math.max(0, 6 - l.crash*2); l.g.rotation.y = l.yaw; continue; }
-      l.s = Math.min(c.s - 10 - i*8, l.s + dt*14); l.g.visible = l.s > 0; const y = routeAt(TRO, Math.max(0, l.s), l.pos); l.yaw = angLerp(l.yaw, y, damp(6, dt)); l.g.position.copy(l.pos); l.g.rotation.y = l.yaw; l.red.visible = Math.floor(time*6) % 2 === 0; l.blue.visible = !l.red.visible;
+      l.s = Math.min(c.s - 10 - i*8, l.s + dt*14); l.g.visible = l.s > 0; const y = routeAt30(TRO, Math.max(0, l.s), l.pos); l.yaw = angLerp(l.yaw, y, damp(6, dt)); l.g.position.copy(l.pos); l.g.rotation.y = l.yaw; l.red.visible = Math.floor(time*6) % 2 === 0; l.blue.visible = !l.red.visible;
       if (i === 0 && c.crunch && l.pos.distanceTo(KIOSK.g.position) < 4){ l.crash = 0.01; noise(0.6, 2400, 0.04); speak(l.g, 'Blini on the windscreen!'); }
     }
     if (Math.floor(c.t/3) !== c.lastLine && left > 15){ c.lastLine = Math.floor(c.t/3); if (c.lastLine % 2) speak(T.g, mpick(['Left! No, other left!', 'Is this a one-way street? It is now!', 'Ha! Police in Ladas! Larry has a TANK!', 'Mind the tram! ...What tram?'])); }
@@ -16574,7 +16574,7 @@ THREE.Object3D.prototype.updateMatrixWorld = function(force){
   if (this.matrixAutoUpdate) this.updateMatrix();
   if (this.matrixWorldNeedsUpdate || force){ if (this.parent === null) this.matrixWorld.copy(this.matrix); else this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix); this.matrixWorldNeedsUpdate = false; force = true; }
   const ch = this.children;
-  for (let i = 0, l = ch.length; i < l; i++){ const c = ch[i]; if (c.visible || c.isLight || c.isCamera) c.updateMatrixWorld(force); else if (force) c.matrixWorldNeedsUpdate = true; }
+  for (let i = 0, l = ch.length; i < l; i++){ const c = ch[i]; if (c.visible !== true && c.visible !== false) c.visible = !!c.visible; if (c.visible || c.isLight || c.isCamera) c.updateMatrixWorld(force); else if (force) c.matrixWorldNeedsUpdate = true; }
 };
 
 /* ---------- soft contact shadows where walls meet the ground ---------- */
@@ -18845,6 +18845,1208 @@ renderErr42 = function(){ renderErr45(); const b = document.getElementById('errB
 { const st = document.createElement('style'); st.textContent = '.pc-tree,.pc-err{white-space:nowrap;flex:none} @media (max-width:560px){ .pc-tree,.pc-err{margin-left:3px;padding:0 4px;font-size:12px} } body.touch45 #now41{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 150px);left:50%;transform:translateX(-50%)}'; document.head.appendChild(st); if (isTouch) document.body.classList.add('touch45'); }
 { const st = document.createElement('style'); st.textContent = '@media (max-width:420px){ .pc-name{display:none} .pc-lvl{white-space:nowrap} }'; document.head.appendChild(st); }
 
+/* =====================================================================
+   v46 · TIDY NEST: a bug hunt. The village no longer stands up as a
+   giant lawn-wall in the park after Continue, the New Yolk tram runs its
+   loop again (it had been parked on the spawn point since v30), Esc
+   closes the map, tree and errands without opening the menu, Esc leaves
+   photo mode, and Continue frames Pidge with the park instead of the
+   statue's plinth
+   ===================================================================== */
+GAME_VER.n = 46; GAME_VER.name = 'Tidy Nest';
+
+/* ---------- Continue: look across the park, not into the plinth ---------- */
+const begin46 = begin;
+begin = function(fromSave){
+  begin46(fromSave);
+  const P = player.pos;
+  if (fromSave && Math.hypot(P.x, P.z) < 6 && !inVillage()) placeTo(4.2, 0.1, 5.4, Math.atan2(4.2, 5.4));
+};
+
+/* ---------- Esc in photo mode brings the HUD back first ---------- */
+addEventListener('keydown', e => { if (photo && state === 'play' && e.code === 'Escape' && !e.repeat){ togglePhoto(); e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+
+WHATS_NEW.unshift(['46 · Tidy Nest', 'A bug hunt. After Continue, the village no longer stands up as a giant wall of lawn in the park. The New Yolk tram runs its loop around the park again (it had been stuck on the spawn point). Esc closes the map, the Feather Tree, errands and the bag without also opening the menu, N closes the map again, Esc leaves photo mode, and Continue frames Pidge with the park instead of the statue\'s plinth.']);
+{ const d = document.querySelector('#help .new36'); if (d) d.innerHTML = `<summary style="cursor:pointer;font-weight:700">What's new</summary>${WHATS_NEW.map(([v, t]) => `<p style="margin:6px 0 0"><b>v${v}.</b> ${t}</p>`).join('')}`; }
+
+/* =====================================================================
+   v47 · BACK TO SCHOOL: Featherstone University in the northern fields,
+   two high schools on School Lane, a bigger zoo (the Wild Acres), buses
+   all over town (city buses, a double-decker, yellow school buses and
+   the College Road shuttle), and more of the Shellfish saga
+   ===================================================================== */
+GAME_VER.n = 47; GAME_VER.name = 'Back to School';
+const V47 = (x, y, z) => new THREE.Vector3(x, y, z), _a47 = new THREE.Vector3(), _b47 = new THREE.Vector3(), _c47 = new THREE.Vector3(), _d47 = new THREE.Object3D();
+const Q47 = () => (S.v47 = S.v47 || {});
+const nt47 = (label, who, pos, act, range, en) => { addNamedTalker(label, who, pos, act, range); talkers[talkers.length - 1].enabled = en || (() => true); };
+
+/* ---------- the new places ---------- */
+const CAMPUS47 = {x0: -556, x1: -300, z0: -516, z1: -292, cx: -428, cz: -404};
+const WILD47 = {x0: -258, x1: -172, z0: -404, z1: -292, cx: -215, cz: -348};
+const COLLEGE47 = {z: -284, x0: -560, x1: -168};
+const SCHOOL47 = {z: 272, x0: -556, x1: -236};
+const SPARROW47 = {x0: -552, x1: -416, z0: 280, z1: 440, cx: -484, cz: 360};
+const MAPLE47 = {x0: -404, x1: -262, z0: 280, z1: 440, cx: -333, cz: 360};
+const in47 = (R, x, z, m = 0) => x > R.x0 - m && x < R.x1 + m && z > R.z0 - m && z < R.z1 + m;
+
+/* ---------- a kit that merges a place's boxes into one mesh ---------- */
+function kit47(){
+  const items = [], mats = [], key = new Map(), inst = new Map();
+  const mi = c => { const k = typeof c === 'number' ? 'c' + c : c.uuid; if (!key.has(k)){ key.set(k, mats.length); mats.push(typeof c === 'number' ? mat(c) : c); } return key.get(k); };
+  const K = {
+    box(w, h, d, x, y, z, c, o = {}){
+      const faces = Array.isArray(c) ? c.map(mi) : Array(6).fill(mi(c)); items.push({w, h, d, x, y, z, ry: o.ry, faces, uv: o.uv});
+      if (o.solid){ const sw = o.ry && Math.abs(Math.sin(o.ry)) > 0.7; addSolid(x, z, sw ? d : w, sw ? w : d, y - h/2, y + h/2 + (o.lift || 0), o.solid); }
+      return K;
+    },
+    // a building: facade on the sides, roof on top, a cornice, a solid and a map rectangle
+    bld(x, z, w, d, h, wall, o = {}){
+      const y0 = o.y0 ?? 0.15, roof = o.roof || roofMat;
+      K.box(w, h, d, x, y0 + h/2, z, [wall, wall, roof, roof, wall, wall], {uv: f => f < 2 ? [d/8, h/3.5] : f < 4 ? [w/2, d/2] : [w/8, h/3.5]});
+      if (o.cornice !== false) K.box(w + 0.5, 0.45, d + 0.5, x, y0 + h + 0.1, z, o.trim ?? 0x6f6655);
+      if (o.solid !== false) addSolid(x, z, w + 0.5, d + 0.5, 0, y0 + h + 0.3, 'building');
+      if (o.map !== false) mapRects.push({x0: x - w/2, z0: z - d/2, x1: x + w/2, z1: z + d/2, color: o.mapCol || '#b98a6a', kind: 'bld'});
+      if (o.occ !== false) buildings.push({cx: x, cz: z, w, d, top: y0 + h + 0.3});
+      return K;
+    },
+    // instanced copies of one shape (columns, posts, trees)
+    inst(name, geo, c, x, y, z, sx = 1, sy = 1, sz = 1, ry = 0){ if (!inst.has(name)) inst.set(name, {geo, m: typeof c === 'number' ? mat(c, {}) : c, list: []}); // its own material: r128 mixes up shaders when one material serves instanced meshes with and without per-instance colours
+      inst.get(name).list.push([x, y, z, sx, sy, sz, ry]); return K; },
+    build(g){
+      let m = null; if (items.length){ m = mergeBoxes(items, mats); scene.remove(m); g.add(m); }
+      for (const {geo, m: mm, list} of inst.values()){ const im = new THREE.InstancedMesh(geo, mm, list.length); list.forEach(([x, y, z, sx, sy, sz, ry], i) => { _d47.position.set(x, y, z); _d47.rotation.set(0, ry, 0); _d47.scale.set(sx, sy, sz); _d47.updateMatrix(); im.setMatrixAt(i, _d47.matrix); }); im.castShadow = true; im.receiveShadow = true; g.add(im); }
+      return m;
+    },
+  };
+  return K;
+}
+// still scenery doesn't need its matrices recomputed every frame
+function freeze47(g){ g.updateMatrixWorld(true); g.traverse(o => { if (o !== g){ o.matrixAutoUpdate = false; } }); }
+
+/* ---------- facades of their own: collegiate stone, school brick, dorm brick, modern glass and white weatherboard ---------- */
+const FAC47 = {
+  stone: glowMat(facadeTex({kind: 'stone', base: '#d8ccb0', frame: '#5c4a36', shutter: '#3a5a7a', trim: 0x8a7a62})),
+  brick: glowMat(facadeTex({kind: 'brick', base: '#b0563c', mortar: '#e2cfb2', frame: '#f4ead2', shutter: '#2f5f7a', trim: 0x5c2f16})),
+  dorm: glowMat(facadeTex({kind: 'brick', base: '#8a4a3a', mortar: '#d9c2a0', frame: '#efe6d2', shutter: '#3f6b4c', trim: 0x4a2a1e})),
+  sci: glowMat(facadeTex({kind: 'plaster', base: '#e8e4dc', frame: '#3a4a5a', shutter: '#4f7fa8', trim: 0x3a4a5a})),
+  board: glowMat(facadeTex({kind: 'siding', base: '#f2efe6', frame: '#3a5a7a', shutter: '#3a5a7a', trim: 0x3a5a7a})),
+  maple: glowMat(facadeTex({kind: 'siding', base: '#c8a060', frame: '#fff6dc', shutter: '#8a3a2a', trim: 0x6b3a1e})),
+};
+facadeMats.push(...Object.values(FAC47)); // so they light up at night with the rest of the city
+const lawn47 = (() => { const t = grassTex.clone(); t.needsUpdate = true; t.repeat.set(1, 1); t.wrapS = t.wrapT = THREE.RepeatWrapping; return mat(0xffffff, {map: t}); })();
+const sand47 = mat(0xe8d4a8, {map: sandTex});
+const pave47 = mat(0xffffff, {map: pxTex(16, 16, g => { px(g, 0, 0, '#c9b896', 16, 16); for (let i = 0; i < 18; i++) px(g, ri(0, 16), ri(0, 16), pick(['#bfae8a', '#d2c2a0', '#c2b08c'])); for (let y = 0; y < 16; y += 4) for (let x = (y/4) % 2 ? 2 : 0; x < 16; x += 4) px(g, x, y, '#a8966f', 1, 4); for (let y = 0; y < 16; y += 4) px(g, 0, y, '#a8966f', 16, 1); })});
+const asphalt47 = mat(0xffffff, {map: pxTex(16, 16, g => { px(g, 0, 0, '#5a5a60', 16, 16); for (let i = 0; i < 26; i++) px(g, ri(0, 16), ri(0, 16), pick(['#535359', '#616168', '#56565c'])); })});
+const UVT = (w, d, k = 4) => f => f === 2 ? [w/k, d/k] : f < 2 ? [d/k, 0.05] : [w/k, 0.05];
+// a ground slab like the city's blocks, with a lawn top
+function slab47(K, R, top = lawn47){ const w = R.x1 - R.x0, d = R.z1 - R.z0, x = (R.x0 + R.x1)/2, z = (R.z0 + R.z1)/2; K.box(w, 0.15, d, x, 0.075, z, [slabSideMat, slabSideMat, top, slabSideMat, slabSideMat, slabSideMat], {uv: UVT(w, d)}); addSolid(x, z, w, d, 0, 0.15, 'slab'); }
+const path47 = (K, x0, z0, x1, z1, m = pave47, y = 0.165) => { const w = Math.abs(x1 - x0), d = Math.abs(z1 - z0); K.box(w, 0.03, d, (x0 + x1)/2, y, (z0 + z1)/2, m, {uv: UVT(w, d, 3)}); };
+// a tree the city way: trunk and a leafy blob, instanced per place
+function tree47(K, x, z, s = 1, col = 0x4f9e3a, y = 0.15){ K.inst('trunk', new THREE.CylinderGeometry(0.22, 0.3, 2.4, 6), trunkMat, x, y + 1.2*s, z, s, s, s); K.inst('leaf' + col, leafGeo, col, x, y + 3.1*s, z, 1.7*s, 1.5*s, 1.7*s, x*7 + z); addSolid(x, z, 0.5*s, 0.5*s, y, y + 2.4*s, 'trunk'); treeSpots.push([x, z, s]); }
+
+/* ---------- make room in the fields: trim hedgerows and lift out trees where the new places go ---------- */
+{
+  const CUT = [[CAMPUS47.x0 - 4, CAMPUS47.x1 + 4, CAMPUS47.z0 - 4, CAMPUS47.z1 + 4], [WILD47.x0 - 4, WILD47.x1 + 4, WILD47.z0 - 4, WILD47.z1 + 4], [COLLEGE47.x0, COLLEGE47.x1, -292, -276]];
+  const hit = (x0, x1, z0, z1) => CUT.some(([a, b, c, d]) => x1 > a && x0 < b && z1 > c && z0 < d);
+  const m4 = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
+  for (const im of scene.children.filter(o => o.isInstancedMesh)){
+    const isHedge = im.geometry === BOX && im.material.color && im.material.color.getHex() === 0x4f8a3a, isTree = im.geometry === leafGeo || (im.geometry.parameters && im.geometry.parameters.height === 3.6);
+    if (!isHedge && !isTree) continue;
+    if (isTree){ let n = 0; for (let i = 0; i < im.count; i++){ im.getMatrixAt(i, m4); m4.decompose(p, q, s); if (p.z < -270 && hit(p.x - 3, p.x + 3, p.z - 3, p.z + 3)){ s.set(0.0001, 0.0001, 0.0001); m4.compose(p, q, s); im.setMatrixAt(i, m4); n++; } } if (n) im.instanceMatrix.needsUpdate = true; continue; }
+    // hedgerows: cut each one that crosses a new place into the bits outside it
+    const list = []; let changed = false;
+    for (let i = 0; i < im.count; i++){
+      im.getMatrixAt(i, m4); m4.decompose(p, q, s);
+      let parts = [[p.x - s.x/2, p.x + s.x/2, p.z - s.z/2, p.z + s.z/2]];
+      if (p.z < -265) for (const [a, b, c, d] of CUT){ const next = []; for (const [x0, x1, z0, z1] of parts){ if (x1 <= a || x0 >= b || z1 <= c || z0 >= d){ next.push([x0, x1, z0, z1]); continue; } changed = true; if (x1 - x0 >= z1 - z0){ if (x0 < a) next.push([x0, a, z0, z1]); if (x1 > b) next.push([b, x1, z0, z1]); } else { if (z0 < c) next.push([x0, x1, z0, c]); if (z1 > d) next.push([x0, x1, d, z1]); } } parts = next; }
+      for (const [x0, x1, z0, z1] of parts) if (x1 - x0 > 0.3 && z1 - z0 > 0.3) list.push([(x0 + x1)/2, p.y, (z0 + z1)/2, x1 - x0, s.y, z1 - z0]);
+    }
+    if (changed){ scene.remove(im); instBoxes(im.material, list); }
+  }
+}
+
+/* ---------- roads: College Road in the north, and School Lane carrying Maple Grove's street out west ---------- */
+const roadG47 = new THREE.Group(); scene.add(roadG47); const CR47_ = COLLEGE47.z;
+{
+  const K = kit47();
+  const road = (x0, x1, z, w = 8) => { const L = x1 - x0, x = (x0 + x1)/2; K.box(L, 0.04, w, x, 0.02, z, asphalt47, {uv: UVT(L, w, 4)}); for (let u = x0 + 2; u < x1 - 2; u += 6) K.box(2.6, 0.012, 0.18, u, 0.045, z, 0xf4ead2); mapRects.push({x0, z0: z - w/2, x1, z1: z + w/2, color: '#6e6e74', kind: 'road'}); };
+  // College Road, with a turning circle at each end and a sidewalk on the city side
+  road(COLLEGE47.x0 + 4, COLLEGE47.x1 - 2, COLLEGE47.z);
+  for (const x of [COLLEGE47.x0 + 6, COLLEGE47.x1 - 6]){ K.box(14, 0.04, 14, x, 0.02, COLLEGE47.z, asphalt47, {uv: UVT(14, 14, 4)}); }
+  { const L = COLLEGE47.x1 - COLLEGE47.x0 - 8, x = (COLLEGE47.x0 + COLLEGE47.x1)/2; K.box(L, 0.15, 3, x, 0.075, COLLEGE47.z + 6.5, pave47, {uv: UVT(L, 3, 3)}); addSolid(x, COLLEGE47.z + 6.5, L, 3, 0, 0.15, 'slab'); }
+  // grass verges either side of College Road, instead of bare field
+  { const verge = (x0, x1, z0, z1) => { const w = x1 - x0, d = z1 - z0; K.box(w, 0.02, d, (x0 + x1)/2, 0.012, (z0 + z1)/2, lawn47, {uv: UVT(w, d)}); };
+    verge(COLLEGE47.x0, COLLEGE47.x1, -308, CR47_ - 4); verge(COLLEGE47.x0, COLLEGE47.x1, CR47_ + 4, -268); }
+  // School Lane, from the edge of Maple Grove to the river, with sidewalks
+  road(SCHOOL47.x0, SCHOOL47.x1 + 2, SCHOOL47.z);
+  for (const s of [-1, 1]){ const L = SCHOOL47.x1 - SCHOOL47.x0, x = (SCHOOL47.x0 + SCHOOL47.x1)/2, z = SCHOOL47.z + s*5.5; K.box(L, 0.15, 3, x, 0.075, z, pave47, {uv: UVT(L, 3, 3)}); addSolid(x, z, L, 3, 0, 0.15, 'slab'); }
+  // the drive up to the university and the bus loop in front of each school
+  road(-432.5, -423.5, -300);
+  K.box(9, 0.04, 16, -428, 0.02, -300, asphalt47, {uv: UVT(9, 16, 4)});
+  K.build(roadG47);
+  freeze47(roadG47);
+}
+
+/* ---------- bus stops: a shelter, a bench, a sign and a timetable ---------- */
+const STOPS47 = [];
+function busStop47(x, z, ry, name, line){
+  const g = new THREE.Group(); g.position.set(x, 0.15, z); g.rotation.y = ry; scene.add(g);
+  const glass = new THREE.MeshBasicMaterial({color: 0xbfe0ee, transparent: true, opacity: 0.35, depthWrite: false});
+  g.add(boxMesh(3.6, 0.1, 1.4, mat(0x3a5a7a), 0, 2.4, -0.2)); g.add(boxMesh(3.4, 2.3, 0.05, glass, 0, 1.2, -0.85));
+  for (const sx of [-1, 1]){ g.add(boxMesh(0.08, 2.4, 0.08, mat(0x2a2a30), sx*1.7, 1.2, -0.85)); g.add(boxMesh(0.05, 2.3, 1.2, glass, sx*1.72, 1.2, -0.25)); }
+  g.add(boxMesh(2.4, 0.08, 0.45, mat(0x8a5a34), 0, 0.5, -0.55)); for (const sx of [-1, 1]) g.add(boxMesh(0.06, 0.5, 0.4, mat(0x2a2a30), sx*1.1, 0.25, -0.55));
+  const ad = mesh(new THREE.PlaneGeometry(1.0, 1.6), mat(0xffffff, {map: textTex(pick(['MOVIE NIGHT', 'FLY BETTER', 'EAT CRUMBS', 'VOTE PIDGE', 'SALE SALE']), 40, 64, 9), emissive: 0xffffff, emissiveIntensity: 0.25}), 1.2, 1.3, -0.8); g.add(ad);
+  g.add(boxMesh(0.07, 3.0, 0.07, mat(0x2a2a30), 2.3, 1.5, 0.4));
+  const sign = mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.05, 16), mat(0xffffff, {map: textTex('BUS', 48, 48, 18)}), 2.3, 3.1, 0.4); sign.rotation.x = PI/2; g.add(sign);
+  const plate = mesh(new THREE.PlaneGeometry(2.6, 0.32), mat(0xffffff, {map: textTex(name, 160, 20, 11)}), 0, 2.62, 0.52); g.add(plate);
+  freeze47(g);
+  const st = {x, z, ry, name, line, g, wait: [], pos: V47(x + Math.sin(ry)*0.6, 0.6, z + Math.cos(ry)*0.6)};
+  STOPS47.push(st); addSolid(x, z, Math.abs(Math.cos(ry)) > 0.5 ? 3.6 : 1.4, Math.abs(Math.cos(ry)) > 0.5 ? 1.4 : 3.6, 2.35, 2.5, 'shelter');
+  addTalker(`Read the timetable (${name})`, () => st.pos, () => timetable47(st), 2.2);
+  return st;
+}
+
+/* ---------- the buses ---------- */
+function busDress47(M, kind, label){
+  const g = M.g, L = M.L;
+  const sign = (t, w = 1.7, col = '#ffd166') => { const tx = textTex(t, 120, 18, 11); const p = mesh(new THREE.PlaneGeometry(w, 0.3), new THREE.MeshBasicMaterial({map: tx, color: 0xffffff}), 0, 2.42, L/2 + 0.04); g.add(p); return p; };
+  if (kind === 'school'){
+    for (const y of [0.98, 1.56]) for (const s of [-1, 1]) g.add(boxMesh(0.02, 0.07, L - 0.5, mat(0x1a1a1a), s*1.17, y, 0));
+    const t = textTex('SCHOOL BUS', 110, 18, 12); for (const zz of [L/2 + 0.05, -L/2 - 0.05]){ const p = mesh(new THREE.PlaneGeometry(1.7, 0.3), mat(0xffffff, {map: t}), 0, 2.48, zz); if (zz < 0) p.rotation.y = PI; g.add(p); }
+    // the stop arm swings out at every stop, and the lights flash
+    const arm = new THREE.Group(); arm.position.set(-1.2, 1.3, L/2 - 1.5); g.add(arm);
+    const oct = mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.03, 8), mat(0xd43a2a), -0.3, 0, 0); oct.rotation.z = PI/2; oct.rotation.x = PI/8; arm.add(oct); arm.add(boxMesh(0.05, 0.06, 0.06, mat(0x2a2a2a), -0.05, 0, 0));
+    M.arm = arm; M.flash = [];
+    for (const sx of [-0.8, 0.8]){ const fm = mat(0x8a2a10, {emissive: 0xff3010, emissiveIntensity: 0}); const f = boxMesh(0.2, 0.16, 0.05, fm, sx, 2.66, L/2 + 0.02); g.add(f); M.flash.push(fm); }
+  } else if (kind === 'double'){
+    const body = mat(0xd4483a), glassM = mat(0x8fb8cc);
+    g.add(boxMesh(2.32, 0.5, L, body, 0, 2.82, 0)); g.add(boxMesh(2.34, 0.06, L, mat(0xf4ead2), 0, 3.08, 0));
+    for (const s of [-1, 1]) g.add(boxMesh(0.06, 0.55, L - 0.4, glassM, s*1.14, 3.35, 0));
+    g.add(boxMesh(2.3, 0.08, L, mat(0x6b4a2e), 0, 3.06, 0));
+    for (const s of [-1, 1]) g.add(boxMesh(0.06, 0.5, L, body, s*1.14, 3.36, 0)); g.add(boxMesh(2.3, 0.5, 0.06, body, 0, 3.36, L/2 - 0.03)); g.add(boxMesh(2.3, 0.5, 0.06, body, 0, 3.36, -L/2 + 0.03));
+    // tourists on the open top, with cameras
+    M.tourists = []; for (let k = 0; k < 6; k++){ const t = new THREE.Group(); t.position.set((k % 2 ? 0.55 : -0.55), 3.1, -2.6 + Math.floor(k/2)*2.4); g.add(t); t.add(boxMesh(0.42, 0.5, 0.3, mat(pick(SHIRTS)), 0, 0.3, 0)); const h = mesh(SPHERE, mat(pick(SKIN)), 0, 0.72, 0); h.scale.setScalar(0.17); t.add(h); if (k % 2 === 0){ const cam = boxMesh(0.16, 0.1, 0.08, mat(0x2a2a30), 0, 0.68, 0.2); t.add(cam); } M.tourists.push(t); }
+    const tx = textTex('SIGHTSEEING · NEW YOLK', 160, 18, 11); for (const s of [-1, 1]){ const p = mesh(new THREE.PlaneGeometry(4.2, 0.36), mat(0xffffff, {map: tx}), s*1.18, 2.82, 0); p.rotation.y = s*PI/2; g.add(p); }
+    M.tall = 3.7;
+  } else {
+    const stripe = kind === 'shuttle' ? 0xffd166 : 0xf4ead2; for (const s of [-1, 1]) g.add(boxMesh(0.02, 0.16, L - 0.4, mat(stripe), s*1.17, 1.02, 0));
+    if (kind === 'shuttle'){ const tx = textTex('FEATHERSTONE UNIVERSITY', 170, 18, 10); for (const s of [-1, 1]){ const p = mesh(new THREE.PlaneGeometry(4.6, 0.32), mat(0xffffff, {map: tx}), s*1.18, 1.0, 0); p.rotation.y = s*PI/2; g.add(p); } }
+  }
+  if (label) M.label = sign(label);
+  return M;
+}
+function busModel47(kind, label){ const col = {city: 0x3f8ad4, school: 0xf2c12e, double: 0xd4483a, shuttle: 0x7a2a3a, green: 0x3f9a5a}[kind]; return busDress47(vehModel('bus', col), kind === 'green' ? 'city' : kind, label); }
+// buses that join the city's traffic, lights and all
+const TBUS47 = [];
+function trafficBus47(M, axis, road, dir, u, o = {}){
+  const speed = rr(5.2, 6.2), v = Object.assign({kind: 'bus', M, g: M.g, axis, road, dir, u, lat: dir*2, latT: dir*2, speed, cur: speed*0.6, len: M.L, tall: M.tall, hitCd: 0, state: 'drive', t: 0, honkT: 0, ind: 0, fixed: road + dir*2, wantsPark: false, busT: rr(10, 30), bay: null, doorT: 0}, o);
+  v.uMax = v.uMax ?? (axis === 'x' ? 172 : (road >= -240 && road <= 144 ? 412 : 245)); if (axis === 'x' && v.uMin === undefined && road >= -240 && road <= 176) v.uMin = [-16, 16, 48, 80].includes(road) ? -398 : -556;
+  cars.push(v); TBUS47.push(v); return v;
+}
+trafficBus47(busModel47('city', '12  MAPLE GROVE'), 'z', -48, 1, -120);
+trafficBus47(busModel47('city', '7  HARBOUR'), 'x', 48, -1, 60);
+trafficBus47(busModel47('green', '3  OLD TOWN'), 'z', 112, -1, 40);
+trafficBus47(busModel47('double'), 'x', -16, 1, -200, {speed: 4.6, tour: true});
+// Maple Grove's street now runs on as School Lane, and the yellow buses run it
+for (const v of cars) if (v.axis === 'x' && v.road === SCHOOL47.z) v.uMin = -556;
+const SCHOOLBUS47 = [trafficBus47(busModel47('school'), 'x', SCHOOL47.z, -1, -300, {uMin: -556, uMax: 136, busT: 999, school: true}), trafficBus47(busModel47('school'), 'x', SCHOOL47.z, 1, -60, {uMin: -556, uMax: 136, busT: 999, school: true})];
+const SSTOPS47 = [{u: MAPLE47.cx, name: 'Maple Grove High'}, {u: SPARROW47.cx, name: 'Sparrow Hill High'}];
+
+/* ---------- the College Road shuttle: its own loop, from the zoo's north gate to the university and back ---------- */
+function roundPath47(pts, r = 4){
+  const out = [];
+  for (let i = 0; i < pts.length; i++){
+    const p = pts[(i - 1 + pts.length) % pts.length], v = pts[i], n = pts[(i + 1) % pts.length];
+    const d1x = v[0] - p[0], d1z = v[1] - p[1], l1 = Math.hypot(d1x, d1z), d2x = n[0] - v[0], d2z = n[1] - v[1], l2 = Math.hypot(d2x, d2z);
+    const rr_ = Math.min(r, l1/2, l2/2), a = [v[0] - d1x/l1*rr_, v[1] - d1z/l1*rr_], b = [v[0] + d2x/l2*rr_, v[1] + d2z/l2*rr_];
+    for (let k = 0; k <= 5; k++){ const t = k/5, u = 1 - t; out.push([u*u*a[0] + 2*u*t*v[0] + t*t*b[0], u*u*a[1] + 2*u*t*v[1] + t*t*b[1]]); }
+  }
+  return out;
+}
+function mkPath47(pts){ const seg = []; let L = 0; for (let i = 0; i < pts.length; i++){ const a = pts[i], b = pts[(i + 1) % pts.length], l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (l < 1e-4) continue; seg.push({a, b, l, s0: L}); L += l; } return {seg, L}; }
+function pathAt47(P, s, out){ s = ((s % P.L) + P.L) % P.L; let lo = 0, hi = P.seg.length - 1; while (lo < hi){ const m = (lo + hi + 1) >> 1; if (P.seg[m].s0 <= s) lo = m; else hi = m - 1; } const g = P.seg[lo], u = (s - g.s0)/g.l; out.x = g.a[0] + (g.b[0] - g.a[0])*u; out.z = g.a[1] + (g.b[1] - g.a[1])*u; return out; }
+const CR47 = COLLEGE47.z;
+const SHUTTLE_PATH47 = mkPath47(roundPath47([
+  // westbound on the north lane, a spin up the university drive, on to the west end, and back east on the south lane
+  [COLLEGE47.x1 - 6, CR47 - 2], [-426, CR47 - 2], [-426, -297], [-430, -297], [-430, CR47 - 2], [COLLEGE47.x0 + 6, CR47 - 2],
+  [COLLEGE47.x0 + 6, CR47 + 2], [COLLEGE47.x1 - 6, CR47 + 2],
+], 3.5));
+const SHUTTLE47 = [];
+function routeBus47(M, P, s0, stops){
+  const B = {M, g: M.g, P, s: s0, v: 0, vmax: 7.5, wait: 0, stops, next: 0, solid: addSolid(0, 0, 2.6, 2.6, -9, -8.5, 'bus47'), h: 0, ride: 0, rideFrom: null};
+  for (let i = 0; i < stops.length; i++) if (((stops[i].s - s0) % P.L + P.L) % P.L > 0.5){ B.next = i; break; }
+  SHUTTLE47.push(B); return B;
+}
+// the stops along College Road: pass the turning point on the way out and the way back
+setTimeout(() => {
+  const near = (x, z) => { let best = 0, bd = 1e9; for (let s = 0; s < SHUTTLE_PATH47.L; s += 0.5){ pathAt47(SHUTTLE_PATH47, s, _a47); const d = (_a47.x - x)**2 + (_a47.z - z)**2; if (d < bd){ bd = d; best = s; } } return best; };
+  const st = [busStop47(-200, CR47 + 6.3, PI, 'Zoo · Wild Acres', 'U1'), busStop47(-428 + 9, -300 + 2, -PI/2, 'University Gate', 'U1'), busStop47(-520, CR47 - 6.3, 0, 'Fieldside', 'U1')];
+  const stops = [{s: near(-200, CR47 + 2), st: st[0]}, {s: near(-426, -297), st: st[1]}, {s: near(-520, CR47 - 2), st: st[2]}].sort((a, b) => a.s - b.s);
+  routeBus47(busModel47('shuttle', 'U1  UNIVERSITY'), SHUTTLE_PATH47, 2, stops);
+  routeBus47(busModel47('shuttle', 'U1  WILD ACRES'), SHUTTLE_PATH47, SHUTTLE_PATH47.L/2, stops);
+  // School Lane stops for the yellow buses (and anyone waiting)
+  busStop47(MAPLE47.cx + 8, SCHOOL47.z + 5.6, PI, 'Maple Grove High', 'S'); busStop47(SPARROW47.cx + 8, SCHOOL47.z + 5.6, PI, 'Sparrow Hill High', 'S');
+}, 0);
+function timetable47(st){
+  const lines = st.line === 'U1' ? ['U1 University shuttle: every few minutes, "or when Gary finishes his sandwich".', 'Stops: Zoo · Wild Acres, University Gate, Fieldside.', 'Pigeons ride on the roof. Nobody has ever checked a pigeon\'s ticket.']
+    : ['S School buses: morning and afternoon, and whenever the driver feels like it.', 'Stops: Maple Grove High, Sparrow Hill High, and all along Maple Grove.', 'No running. No shouting. No pigeons. (Pigeons: please ignore the last one.)'];
+  say(lines.map(t => L('Timetable', t)));
+}
+
+/* ---------- the places on the map, in the district names and in fast travel ---------- */
+Object.assign(DISTRICTS, {
+  campus47: {name: 'Featherstone University', sub: 'Lectures, lawns and a clock tower'},
+  wild47: {name: 'The Wild Acres', sub: 'Featherstone Zoo goes big'},
+  sparrow47: {name: 'Sparrow Hill High', sub: 'Home of the Hawks (nobody asked the pigeons)'},
+  maple47: {name: 'Maple Grove High', sub: 'Go, Maples!'},
+  college47: {name: 'College Road', sub: 'The U1 shuttle runs both ways'},
+  lane47: {name: 'School Lane', sub: 'Mind the yellow buses'},
+});
+setTimeout(() => Object.assign(DISTRICT_SPOTS, {campus47: [CAMPUS47.cx, CAMPUS47.cz], wild47: [WILD47.cx, WILD47.cz], sparrow47: [SPARROW47.cx, SPARROW47.cz], maple47: [MAPLE47.cx, MAPLE47.cz]}), 0);
+const districtOf47 = districtOf25;
+districtOf25 = function(x, z){
+  if (z < 1500 && x < 2500){ if (in47(CAMPUS47, x, z)) return 'campus47'; if (in47(WILD47, x, z)) return 'wild47'; if (z < -276 && z > -292 && x > COLLEGE47.x0 && x < COLLEGE47.x1) return 'college47'; if (in47(SPARROW47, x, z)) return 'sparrow47'; if (in47(MAPLE47, x, z)) return 'maple47'; if (z > 264 && z < 280 && x > SCHOOL47.x0 && x < SCHOOL47.x1) return 'lane47'; }
+  return districtOf47(x, z);
+};
+setTimeout(() => {
+  const row = $('warpRow');
+  for (const [k, name, p] of [['campus47', 'Featherstone University', [-428, 0.4, -330, PI]], ['wild47', 'Zoo · The Wild Acres', [WILD47.cx, 0.4, WILD47.z1 - 4, PI]], ['schools47', 'School Lane', [-410, 0.4, SCHOOL47.z + 5, -PI/2]]]){
+    WARPS[k] = p; const b = document.createElement('button'); b.className = 'warp'; b.type = 'button'; b.dataset.warp = k; b.textContent = name; row.appendChild(b);
+  }
+}, 0);
+// the bus home: the shuttle plays the zoo's tune near the zoo and the campus song on campus
+// the world's edge moves out: the northern fields (campus, College Road) and School Lane are part of New Yolk now
+const clampWorld47 = clampWorld;
+clampWorld = function(P, pz0){
+  const x = P.pos.x, z = P.pos.z;
+  if (x < -244 && x > -640 && (z < -256 || z > 241) && z > -540 && z < 460){
+    P.pos.x = clamp(x, z < 0 ? -560 : -600, 545); P.pos.z = clamp(z, -526, 446);
+    if (P.pos.x <= (z < 0 ? -559.9 : -599.9) || P.pos.z <= -525.9 || P.pos.z >= 445.9) edgeNote();
+    return;
+  }
+  return clampWorld47(P, pz0);
+};
+
+/* ---------- v47 · the Wild Acres: Featherstone Zoo grows north over College Road ---------- */
+const WA = (lx, lz) => [WILD47.cx + lx, WILD47.cz + lz];
+const waG = igroup(WILD47.cx, WILD47.cz, 170);
+const SPH47 = (p, col, x, y, z, sx, sy, sz) => { const m = mesh(SPHERE, typeof col === 'number' ? mat(col) : col, x, y, z); m.scale.set(sx, sy ?? sx, sz ?? sx); p.add(m); return m; };
+const BX47 = (p, w, h, d, col, x, y, z) => { const m = boxMesh(w, h, d, typeof col === 'number' ? mat(col) : col, x, y, z); p.add(m); return m; };
+const eyes47 = (p, x, y, z, r = 0.05) => { for (const s of [-1, 1]){ SPH47(p, 0xfbfaf6, s*x, y, z, r); SPH47(p, 0x1a1414, s*x, y, z + r*0.55, r*0.6); } };
+const water47 = mat(0x5fa8c8, {transparent: true, opacity: 0.85, emissive: 0x2a5a7a, emissiveIntensity: 0.12});
+
+/* ---------- the animals ---------- */
+function makeElephant(s = 1){
+  const g = new THREE.Group(), c = 0x80808e, dk = 0x6a6a78;
+  SPH47(g, c, 0, 2.0, 0, 1.3, 1.1, 1.75);
+  const head = new THREE.Group(); head.position.set(0, 2.5, 1.55); g.add(head); SPH47(head, c, 0, 0, 0.1, 0.78, 0.74, 0.7);
+  const ears = []; for (const sx of [-1, 1]){ const e = new THREE.Group(); e.position.set(sx*0.62, 0.05, -0.05); head.add(e); SPH47(e, dk, sx*0.32, -0.05, 0, 0.42, 0.6, 0.09); SPH47(e, 0xd8a8a8, sx*0.32, -0.05, 0.05, 0.3, 0.44, 0.05); ears.push(e); }
+  eyes47(head, 0.3, 0.18, 0.62, 0.075);
+  const trunk = []; let par = head; for (let k = 0; k < 5; k++){ const t = new THREE.Group(); t.position.set(0, k === 0 ? -0.15 : -0.32, k === 0 ? 0.72 : 0.02); par.add(t); SPH47(t, c, 0, -0.16, 0, 0.2 - k*0.025, 0.2, 0.2 - k*0.025); trunk.push(t); par = t; }
+  for (const sx of [-1, 1]){ const tu = mesh(new THREE.ConeGeometry(0.07, 0.6, 6), mat(0xf6f0e0), sx*0.28, -0.42, 0.62); tu.rotation.x = 2.3; head.add(tu); }
+  const legs = []; for (const [x, z] of [[-0.62, 0.9], [0.62, 0.9], [-0.62, -0.9], [0.62, -0.9]]){ const l = new THREE.Group(); l.position.set(x, 1.5, z); g.add(l); const m = mesh(new THREE.CylinderGeometry(0.34, 0.36, 1.55, 8), mat(c), 0, -0.75, 0); l.add(m); BX47(l, 0.5, 0.06, 0.4, 0xe8e0d0, 0, -1.5, 0.12); legs.push(l); }
+  const tail = new THREE.Group(); tail.position.set(0, 2.3, -1.7); g.add(tail); BX47(tail, 0.06, 0.8, 0.06, dk, 0, -0.4, 0); SPH47(tail, 0x2a2a2a, 0, -0.85, 0, 0.08);
+  g.scale.setScalar(s); return {g, head, ears, trunk, legs, tail};
+}
+function stripeTex47(a, b){ return pxTex(16, 16, g => { px(g, 0, 0, a, 16, 16); for (let x = 0; x < 16; x += 4) for (let y = 0; y < 16; y++) px(g, x + (y % 8 < 4 ? 0 : 1), y, b, 1, 1); }); }
+const zebraMat47 = (() => { const t = stripeTex47('#f4f2ea', '#1e1e22'); t.repeat.set(3, 1); return mat(0xffffff, {map: t}); })();
+function makeZebra(s = 1){
+  const g = new THREE.Group();
+  SPH47(g, zebraMat47, 0, 1.25, 0, 0.42, 0.42, 0.9);
+  const neck = new THREE.Group(); neck.position.set(0, 1.45, 0.7); neck.rotation.x = 0.45; g.add(neck); BX47(neck, 0.24, 0.8, 0.3, zebraMat47, 0, 0.35, 0); BX47(neck, 0.06, 0.8, 0.12, 0x1e1e22, 0, 0.4, -0.18);
+  const head = new THREE.Group(); head.position.set(0, 0.78, 0.0); head.rotation.x = 1.2; neck.add(head); BX47(head, 0.22, 0.55, 0.28, zebraMat47, 0, 0.2, 0); BX47(head, 0.2, 0.16, 0.24, 0x2a2a2e, 0, 0.5, 0.02);
+  for (const sx of [-1, 1]){ BX47(head, 0.06, 0.06, 0.16, 0xf4f2ea, sx*0.08, -0.05, -0.2); SPH47(head, 0x1a1414, sx*0.12, 0.05, 0.08, 0.035); }
+  const legs = []; for (const [x, z] of [[-0.2, 0.55], [0.2, 0.55], [-0.2, -0.55], [0.2, -0.55]]){ const l = new THREE.Group(); l.position.set(x, 1.0, z); g.add(l); BX47(l, 0.12, 1.0, 0.12, zebraMat47, 0, -0.5, 0); BX47(l, 0.13, 0.08, 0.14, 0x2a2a2e, 0, -0.98, 0); legs.push(l); }
+  const tail = BX47(g, 0.05, 0.6, 0.05, 0x1e1e22, 0, 1.1, -0.92); tail.rotation.x = 0.3;
+  g.scale.setScalar(s); return {g, neck, head, legs, tail};
+}
+function makeRhino(s = 1){
+  const g = new THREE.Group(), c = 0x76705f;
+  SPH47(g, c, 0, 1.3, 0, 0.9, 0.75, 1.4);
+  const head = new THREE.Group(); head.position.set(0, 1.25, 1.35); g.add(head); SPH47(head, c, 0, 0, 0.2, 0.45, 0.42, 0.6);
+  const h1 = mesh(new THREE.ConeGeometry(0.14, 0.55, 7), mat(0xd8d0c0), 0, 0.3, 0.68); h1.rotation.x = 0.4; head.add(h1); const h2 = mesh(new THREE.ConeGeometry(0.08, 0.26, 6), mat(0xd8d0c0), 0, 0.34, 0.36); head.add(h2);
+  for (const sx of [-1, 1]){ SPH47(head, c, sx*0.25, 0.38, -0.15, 0.08, 0.16, 0.05); SPH47(head, 0x1a1414, sx*0.3, 0.12, 0.38, 0.04); }
+  const legs = []; for (const [x, z] of [[-0.45, 0.8], [0.45, 0.8], [-0.45, -0.8], [0.45, -0.8]]){ const l = new THREE.Group(); l.position.set(x, 0.85, z); g.add(l); l.add(mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.9, 7), mat(c), 0, -0.42, 0)); legs.push(l); }
+  g.scale.setScalar(s); return {g, head, legs};
+}
+function makeHippo(s = 1){
+  const g = new THREE.Group(), c = 0x9a8090, pk = 0xe8a8b8;
+  SPH47(g, c, 0, 0.9, 0, 1.0, 0.8, 1.45);
+  const head = new THREE.Group(); head.position.set(0, 1.15, 1.35); g.add(head); SPH47(head, c, 0, 0.1, 0, 0.62, 0.45, 0.5);
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.05, 0.2); head.add(jaw); SPH47(jaw, c, 0, -0.08, 0.35, 0.58, 0.22, 0.45); SPH47(jaw, pk, 0, 0.06, 0.32, 0.5, 0.08, 0.38);
+  const top = new THREE.Group(); top.position.set(0, 0.05, 0.2); head.add(top); SPH47(top, c, 0, 0.12, 0.38, 0.6, 0.28, 0.45); SPH47(top, pk, 0, 0.0, 0.36, 0.5, 0.06, 0.38);
+  for (const sx of [-1, 1]){ BX47(top, 0.08, 0.16, 0.08, 0xf6f0e0, sx*0.3, -0.06, 0.62); SPH47(top, 0x5a3a44, sx*0.2, 0.3, 0.7, 0.05); }
+  for (const sx of [-1, 1]){ SPH47(head, c, sx*0.36, 0.44, -0.12, 0.1, 0.12, 0.06); SPH47(head, 0xfbfaf6, sx*0.25, 0.42, 0.18, 0.08); SPH47(head, 0x1a1414, sx*0.26, 0.42, 0.24, 0.05); }
+  g.scale.setScalar(s); return {g, head, jaw, top};
+}
+function makeMonkey(s = 1){
+  const g = new THREE.Group(), c = 0x8a5a34, f = 0xe8c8a0;
+  SPH47(g, c, 0, 0.55, 0, 0.26, 0.32, 0.24);
+  const head = new THREE.Group(); head.position.set(0, 0.98, 0.02); g.add(head); SPH47(head, c, 0, 0, 0, 0.22); SPH47(head, f, 0, -0.03, 0.14, 0.15, 0.13, 0.1); eyes47(head, 0.06, 0.03, 0.2, 0.035);
+  for (const sx of [-1, 1]) SPH47(head, f, sx*0.22, 0.02, 0, 0.07, 0.08, 0.04);
+  const arms = []; for (const sx of [-1, 1]){ const a = new THREE.Group(); a.position.set(sx*0.24, 0.75, 0); g.add(a); BX47(a, 0.08, 0.5, 0.08, c, 0, -0.25, 0); SPH47(a, f, 0, -0.52, 0, 0.06); arms.push(a); }
+  const legs = []; for (const sx of [-1, 1]){ const l = new THREE.Group(); l.position.set(sx*0.12, 0.35, 0); g.add(l); BX47(l, 0.09, 0.34, 0.09, c, 0, -0.17, 0); legs.push(l); }
+  const tail = []; let par = g; for (let k = 0; k < 4; k++){ const t = new THREE.Group(); t.position.set(0, k === 0 ? 0.4 : 0.14, k === 0 ? -0.22 : -0.1); t.rotation.x = -0.4; par.add(t); BX47(t, 0.05, 0.05, 0.16, c, 0, 0, -0.06); tail.push(t); par = t; }
+  g.scale.setScalar(s); return {g, head, arms, legs, tail};
+}
+function makeBear(s = 1, c = 0xf6f4ee){
+  const g = new THREE.Group();
+  SPH47(g, c, 0, 1.0, 0, 0.75, 0.68, 1.15);
+  const head = new THREE.Group(); head.position.set(0, 1.25, 1.1); g.add(head); SPH47(head, c, 0, 0, 0, 0.42, 0.38, 0.45); SPH47(head, c, 0, -0.08, 0.35, 0.2, 0.17, 0.22); SPH47(head, 0x1a1414, 0, -0.02, 0.56, 0.07, 0.06, 0.05);
+  for (const sx of [-1, 1]){ SPH47(head, c, sx*0.3, 0.3, -0.05, 0.1); SPH47(head, 0x1a1414, sx*0.16, 0.1, 0.36, 0.04); }
+  const legs = []; for (const [x, z] of [[-0.42, 0.65], [0.42, 0.65], [-0.42, -0.65], [0.42, -0.65]]){ const l = new THREE.Group(); l.position.set(x, 0.7, z); g.add(l); l.add(mesh(new THREE.CylinderGeometry(0.2, 0.22, 0.75, 7), mat(c), 0, -0.35, 0)); legs.push(l); }
+  g.scale.setScalar(s); return {g, head, legs};
+}
+function makeGoat47(s = 1, c = 0xf2ece0){
+  const g = new THREE.Group();
+  SPH47(g, c, 0, 0.62, 0, 0.3, 0.3, 0.48);
+  const head = new THREE.Group(); head.position.set(0, 0.85, 0.42); g.add(head); BX47(head, 0.2, 0.22, 0.32, c, 0, 0, 0.08); for (const sx of [-1, 1]){ const h = BX47(head, 0.04, 0.2, 0.04, 0x8a7a62, sx*0.07, 0.18, -0.02); h.rotation.x = -0.5; SPH47(head, 0x1a1414, sx*0.1, 0.04, 0.14, 0.025); BX47(head, 0.14, 0.04, 0.08, c, sx*0.14, 0.04, -0.02); }
+  BX47(head, 0.05, 0.12, 0.05, 0xd8d0c0, 0, -0.14, 0.2);
+  const legs = []; for (const [x, z] of [[-0.14, 0.28], [0.14, 0.28], [-0.14, -0.28], [0.14, -0.28]]){ const l = new THREE.Group(); l.position.set(x, 0.45, z); g.add(l); BX47(l, 0.07, 0.45, 0.07, c, 0, -0.22, 0); legs.push(l); }
+  g.scale.setScalar(s); return {g, head, legs};
+}
+function makeBunny(c = 0xf6f4ee){ const g = new THREE.Group(); SPH47(g, c, 0, 0.14, 0, 0.14, 0.12, 0.17); SPH47(g, c, 0, 0.24, 0.13, 0.09); for (const sx of [-1, 1]){ const e = BX47(g, 0.035, 0.16, 0.05, c, sx*0.04, 0.38, 0.1); e.rotation.z = sx*0.15; SPH47(g, 0x1a1414, sx*0.05, 0.27, 0.2, 0.015); } SPH47(g, 0xffffff, 0, 0.17, -0.17, 0.05); return {g}; }
+function makeMeerkat(){ const g = new THREE.Group(), c = 0xc8a070; const body = new THREE.Group(); g.add(body); SPH47(body, c, 0, 0.25, 0, 0.09, 0.2, 0.09); const head = new THREE.Group(); head.position.set(0, 0.5, 0.02); body.add(head); SPH47(head, c, 0, 0, 0, 0.07, 0.07, 0.08); SPH47(head, c, 0, -0.01, 0.07, 0.035); for (const sx of [-1, 1]) SPH47(head, 0x2a1a10, sx*0.035, 0.02, 0.06, 0.018); for (const sx of [-1, 1]){ const a = BX47(body, 0.03, 0.12, 0.03, c, sx*0.06, 0.32, 0.07); a.rotation.x = -0.6; } return {g, body, head}; }
+
+/* ---------- the place itself ---------- */
+const WAS = {elephants: [], zebras: [], rhino: null, hippos: [], monkeys: [], bears: [], goats: [], bunnies: [], meerkats: [], visitors: [], train: null, keeper: null};
+{
+  const K = kit47(), G = waG;
+  slab47(K, WILD47);
+  mapRects.push({x0: WILD47.x0, z0: WILD47.z0, x1: WILD47.x1, z1: WILD47.z1, color: '#6cbf4a', kind: 'park'});
+  const P = (lx0, lz0, lx1, lz1, m = sand47) => { const [x0, z0] = WA(lx0, lz0), [x1, z1] = WA(lx1, lz1); path47(K, x0, z0, x1, z1, m); };
+  // paths: the spine from the gate, the plaza, and a ring round the middle
+  P(-2, 27, 2, 56); P(-24, 8, 24, 12); P(-24, -38, 24, -34); P(-24, -38, -20, 12); P(20, -38, 24, 12); P(-2, 12, 2, 13);
+  { const [x, z] = WA(0, 20); const pl = mesh(new THREE.CircleGeometry(7.5, 28), sand47, x, 0.17, z); pl.rotation.x = -PI/2; G.add(pl); }
+  // the savanna (west), dusty, with a water hole and acacias
+  const dry = mat(0xffffff, {map: pxTex(16, 16, g => { px(g, 0, 0, '#d8c07a', 16, 16); for (let i = 0; i < 40; i++) px(g, ri(0, 16), ri(0, 16), pick(['#c8b06a', '#e0cc8a', '#b8a868', '#a8b860'])); })});
+  P(-39, -50, -26, 44, dry);
+  { const [x, z] = WA(-32, -2); const wh = mesh(new THREE.CircleGeometry(4.2, 20), water47, x, 0.19, z); wh.rotation.x = -PI/2; G.add(wh); }
+  for (const [lx, lz] of [[-36, -40], [-29, -22], [-36, 20], [-29, 36]]){ const [x, z] = WA(lx, lz); K.inst('acaciaT', new THREE.CylinderGeometry(0.15, 0.22, 3.2, 5), trunkMat, x, 1.75, z); K.inst('acaciaC', new THREE.CylinderGeometry(2.6, 2.2, 0.6, 8), 0x6a9a3a, x, 3.5, z, 1, 1, 0.8, lx); addSolid(x, z, 0.4, 0.4, 0, 3.2, 'trunk'); }
+  // fences: a wooden rail round each enclosure
+  const fence = (lx0, lz0, lx1, lz1, gaps = []) => {
+    const run = (a, b, fixed, along) => { for (let u = a; u < b - 0.01; u += 2){ const u1 = Math.min(b, u + 2); if (gaps.some(([g0, g1, ax]) => ax === along && u1 > g0 && u < g1)) continue; const mid = (u + u1)/2, L = u1 - u; const [x, z] = along === 'x' ? WA(mid, fixed) : WA(fixed, mid); const w = along === 'x' ? L : 0.12, d = along === 'x' ? 0.12 : L; K.box(w, 0.1, d, x, 0.75, z, 0x8a5a34); K.box(w, 0.1, d, x, 1.15, z, 0x8a5a34); const [px_, pz] = along === 'x' ? WA(u, fixed) : WA(fixed, u); K.box(0.16, 1.3, 0.16, px_, 0.8, pz, 0x6b4a2e); addSolid(x, z, Math.max(w, 0.2), Math.max(d, 0.2), 0.15, 1.25, 'fence'); } };
+    run(lx0, lx1, lz0, 'x'); run(lx0, lx1, lz1, 'x'); run(lz0, lz1, lx0, 'z'); run(lz0, lz1, lx1, 'z');
+  };
+  fence(-39.5, -50.5, -25.5, 44.5);
+  // inside the ring: hippo pool (NW), monkey island (NE), meerkats (SW), polar ice (SE)
+  { const [x, z] = WA(-11, -24); K.box(17, 0.3, 17, x, 0.05, z, 0x7a6a52); const pool = mesh(new THREE.BoxGeometry(15.5, 0.1, 15.5), water47, x, 0.2, z); G.add(pool); for (let k = 0; k < 10; k++){ const a = k/10*PI*2; K.inst('rock', new THREE.DodecahedronGeometry(1, 0), 0x8a8478, x + Math.cos(a)*8, 0.3, z + Math.sin(a)*8, rr(0.5, 0.9), rr(0.4, 0.7), rr(0.5, 0.9), a); } for (let k = 0; k < 14; k++){ const a = rr(0, PI*2); K.inst('reed', new THREE.CylinderGeometry(0.03, 0.04, 1.2, 4), 0x6a8a3a, x + Math.cos(a)*7.4, 0.7, z + Math.sin(a)*7.4); } addSolid(x, z, 15, 15, -9, -8.5, 'pool'); }
+  { const [x, z] = WA(11, -24); const moat = mesh(new THREE.RingGeometry(5.2, 8.2, 28), water47, x, 0.2, z); moat.rotation.x = -PI/2; G.add(moat); const isl = mesh(new THREE.CylinderGeometry(5.2, 5.6, 0.6, 24), lawn47, x, 0.3, z); G.add(isl); addSolid(x, z, 10.4, 10.4, 0, 0.6, 'island');
+    for (const [dx, dz] of [[-2.4, -1.5], [2.2, 1.6]]){ K.inst('postM', new THREE.CylinderGeometry(0.14, 0.16, 4.2, 6), 0x8a5a34, x + dx, 2.7, z + dz); }
+    K.box(4.8, 0.1, 0.1, x - 0.1, 4.4, z + 0.05, 0x8a5a34, {ry: Math.atan2(3.1, 4.6)}); K.box(2.2, 0.08, 1.6, x - 2.4, 3.0, z - 1.5, 0x6b4a2e); K.box(2.2, 0.08, 1.6, x + 2.2, 3.4, z + 1.6, 0x6b4a2e);
+    const palm = (dx, dz) => { K.inst('palmT', new THREE.CylinderGeometry(0.16, 0.24, 4.6, 6), 0x9a7a52, x + dx, 2.9, z + dz); for (let k = 0; k < 6; k++){ const a = k/6*PI*2; K.box(2.4, 0.06, 0.5, x + dx + Math.cos(a)*1.0, 5.1, z + dz + Math.sin(a)*1.0, 0x4f9e3a, {ry: -a}); } };
+    palm(1.6, -2.6); palm(-2.8, 2.4);
+    for (let k = 0; k < 7; k++){ const a = k/7*PI*2 + 0.2; const rx = x + Math.cos(a)*1.8, rz = z + Math.sin(a)*1.8; K.box(0.04, 3.0, 0.04, (x + rx)/2 - 0.1, 2.6, (z + rz)/2, 0xc8b080); } }
+  fence(-20.5, -34.5, -1.5, -13.5); fence(1.5, -34.5, 20.5, -13.5);
+  // meerkat mound
+  { const [x, z] = WA(-11, -2); const mound = mesh(new THREE.SphereGeometry(5, 14, 6, 0, PI*2, 0, PI/2), sand47, x, 0.15, z); mound.scale.y = 0.16; G.add(mound); addSolid(x, z, 7, 7, 0, 0.9, 'mound'); for (let k = 0; k < 6; k++){ const a = k/6*PI*2; const h = mesh(new THREE.CircleGeometry(0.28, 10), mat(0x3a2a1a), x + Math.cos(a)*2.4, 0.87, z + Math.sin(a)*2.4); h.rotation.x = -PI/2; G.add(h); } K.box(1.6, 0.9, 0.8, x + 3, 0.6, z + 2.6, 0x8a8478); }
+  fence(-20.5, -11.5, -1.5, 7.5);
+  // the polar ice: white blocks, a blue pool and a little glacier
+  { const [x, z] = WA(11, -2); K.box(18, 0.4, 18, x, 0.2, z, 0xc4dce8, {solid: 'ice'}); const ip = mesh(new THREE.BoxGeometry(8, 0.08, 7), water47, x + 3.5, 0.43, z + 4); G.add(ip); addSolid(x + 3.5, z + 4, 8, 7, -9, -8.5, 'pool');
+    for (const [dx, dz, w, h, d, c] of [[-5.5, -5.5, 4, 2.4, 3.4, 0xa8c8da], [-4, -3, 3, 1.4, 3, 0xb8d4e2], [-6.5, 1.5, 2.6, 1.6, 3.6, 0x9cc0d4], [4, -6.2, 5, 1.8, 2.6, 0xb0cede], [6.5, -4.5, 2.2, 1.0, 2, 0xc8deea], [-1, -6.5, 2, 0.8, 1.8, 0xa0c4d8]]) K.box(w, h, d, x + dx, 0.4 + h/2, z + dz, c, {solid: 'ice'}); }
+  fence(1.5, -11.5, 20.5, 7.5);
+  // the petting farm (east, north): a red barn, hay and a trough
+  P(26, -50, 39, -6, mat(0xffffff, {map: pxTex(16, 16, g => { px(g, 0, 0, '#c8a868', 16, 16); for (let i = 0; i < 30; i++) px(g, ri(0, 16), ri(0, 16), pick(['#b89858', '#d8b878', '#e0c888'])); })}));
+  { const [x, z] = WA(33, -44); K.box(8, 4, 6, x, 2.15, z, 0xb0402e, {solid: 'building'}); K.box(8.6, 0.3, 3.6, x, 4.6, z - 1.4, 0x5a3a2a, {ry: 0}); K.box(8.6, 0.3, 3.6, x, 4.6, z + 1.4, 0x5a3a2a); K.box(2.2, 2.6, 0.1, x, 1.45, z + 3.02, 0xf4ead2); K.box(0.1, 2.6, 2.2, x, 1.45, z + 3.06, 0xf4ead2, {ry: 0.7}); K.box(0.1, 2.6, 2.2, x, 1.45, z + 3.06, 0xf4ead2, {ry: -0.7}); }
+  for (const [lx, lz] of [[28, -30], [37, -26], [29, -14]]){ const [x, z] = WA(lx, lz); K.inst('hay', new THREE.CylinderGeometry(0.7, 0.7, 1.1, 10), 0xe0c060, x, 0.7, z, 1, 1, 1, 0); }
+  { const [x, z] = WA(34, -18); K.box(2.6, 0.5, 0.7, x, 0.4, z, 0x6b4a2e, {solid: 'trough'}); }
+  fence(25.5, -50.5, 39.5, -5.5, [[26, 30, 'z']]);
+  // kiosks, a gift shop and a playground (east, south)
+  const kiosk = (lx, lz, col, name, ry = -PI/2) => { const [x, z] = WA(lx, lz); K.box(3.2, 2.4, 2.6, x, 1.35, z, 0xf4ead2, {solid: 'kiosk'}); for (let k = 0; k < 4; k++) K.box(0.8, 0.12, 3.0, x - 1.2 + k*0.8, 2.75, z, k % 2 ? 0xf4ead2 : col); const s = mesh(new THREE.PlaneGeometry(2.8, 0.45), mat(0xffffff, {map: textTex(name, 150, 24, 12)}), x - 1.62, 3.15, z); s.rotation.y = ry; G.add(s); };
+  kiosk(36, 4, 0xe880a0, 'ICE CREAM'); kiosk(36, 14, 0x3f9a5a, 'SQUAWK SHOP'); kiosk(36, 24, 0xe0a33a, 'SNACKS');
+  { const [x, z] = WA(30, 36); K.box(1.2, 2.6, 1.2, x, 1.45, z, 0xd4483a, {solid: 'slide'}); K.box(1, 0.1, 4, x, 1.6, z + 2.2, 0x3f8ad4, {ry: 0}); const sl = boxMesh(1, 0.1, 4.2, mat(0x3f8ad4), x, 1.5, z + 2.3); sl.rotation.x = 0.55; G.add(sl);
+    for (const s of [-1, 1]) K.box(0.12, 2.6, 0.12, x - 5 + s*1.6, 1.45, z, 0x2a2a30); K.box(3.4, 0.12, 0.12, x - 5, 2.75, z, 0x2a2a30); }
+  // the gate on College Road, and picnic lawns either side of the spine
+  { const [x, z] = WA(0, 55.5); K.box(0.8, 5, 0.8, x - 3.4, 2.65, z, 0x8a5a34, {solid: 'gate'}); K.box(0.8, 5, 0.8, x + 3.4, 2.65, z, 0x8a5a34, {solid: 'gate'}); K.box(7.8, 0.8, 0.7, x, 5.2, z, 0x6b4a2e, {solid: 'gate'});
+    for (const s of [-1, 1]){ const sg = mesh(new THREE.PlaneGeometry(6.4, 0.6), mat(0xffffff, {map: textTex('THE WILD ACRES', 200, 22, 14), emissive: 0xffd890, emissiveIntensity: 0.15}), x, 5.2, z + s*0.37); if (s < 0) sg.rotation.y = PI; G.add(sg); }
+    for (const s of [-1, 1]){ const e = mesh(new THREE.ConeGeometry(0.5, 1.2, 5), mat(0x4f9e3a), x + s*3.4, 5.7, z); G.add(e); } }
+  for (const [lx, lz] of [[-12, 34], [-10, 46], [12, 40], [-30, 50], [30, 50], [-16, 26], [16, 28]]){ const [x, z] = WA(lx, lz); tree47(K, x, z, rr(0.9, 1.2)); }
+  for (const [lx, lz] of [[-8, 38], [9, 46], [7, 32]]){ const [x, z] = WA(lx, lz); K.box(1.8, 0.1, 0.9, x, 0.85, z, 0x8a5a34); for (const s of [-1, 1]) K.box(1.8, 0.08, 0.35, x, 0.55, z + s*0.75, 0x8a5a34); addSolid(x, z, 1.8, 0.9, 0.15, 0.9, 'table'); }
+  // the big baobab in the plaza
+  { const [x, z] = WA(0, 20); K.inst('baoT', new THREE.CylinderGeometry(0.9, 1.5, 6, 9), 0xa88a6a, x, 3.15, z); for (let k = 0; k < 5; k++){ const a = k/5*PI*2; K.box(0.3, 0.3, 2.6, x + Math.cos(a)*1.2, 6.4, z + Math.sin(a)*1.2, 0xa88a6a, {ry: -a + PI/2}); K.inst('baoL', leafGeo, 0x6aa040, x + Math.cos(a)*2.4, 7.0, z + Math.sin(a)*2.4, 1.4, 0.8, 1.4, a); } addSolid(x, z, 2.4, 2.4, 0, 6.2, 'trunk');
+    for (let k = 0; k < 8; k++){ const a = k/8*PI*2; K.box(1.6, 0.1, 0.45, x + Math.cos(a)*4.6, 0.6, z + Math.sin(a)*4.6, 0x8a5a34, {ry: -a + PI/2}); } }
+  // the reptile house at the far end
+  { const [x, z] = WA(0, -46); K.bld(x, z, 22, 9, 6, FAC47.sci, {trim: 0x3f7a4a, mapCol: '#7fb58f'}); const s = mesh(new THREE.PlaneGeometry(9, 0.9), mat(0xffffff, {map: textTex('REPTILE HOUSE', 200, 22, 14)}), x, 4.6, z + 4.52); G.add(s); K.box(2, 2.6, 0.1, x, 1.45, z + 4.52, 0x2a3a2a); }
+  // the little train's track: two rails on ties, all the way round
+  const TR = roundPath47([[-41.5, -53], [41.5, -53], [41.5, 51], [-41.5, 51]], 6).map(([lx, lz]) => WA(lx, lz));
+  WAS.trackPath = mkPath47(TR);
+  { const Pth = WAS.trackPath; for (let s = 0; s < Pth.L; s += 1.2){ pathAt47(Pth, s, _a47); pathAt47(Pth, s + 0.4, _b47); const h = Math.atan2(_b47.x - _a47.x, _b47.z - _a47.z); K.inst('tie', BOX, 0x6b4a2e, _a47.x, 0.17, _a47.z, 1.5, 0.06, 0.25, h); for (const o of [-0.45, 0.45]) K.inst('rail', BOX, 0x8a8f94, _a47.x + Math.cos(h)*o, 0.22, _a47.z - Math.sin(h)*o, 0.06, 0.06, 1.25, h); } }
+  { const [x, z] = WA(41.5, 36); K.box(2.2, 0.5, 10, x - 2.6, 0.4, z, 0xb8b0a0, {solid: 'platform'}); K.box(2.4, 0.12, 6, x - 2.6, 3.2, z, 0x3f7a4a); for (const dz of [-2.5, 2.5]) K.box(0.12, 2.6, 0.12, x - 3.4, 1.9, z + dz, 0x2a2a30); const s = mesh(new THREE.PlaneGeometry(3, 0.4), mat(0xffffff, {map: textTex('SAFARI EXPRESS', 140, 20, 11)}), x - 3.7, 2.9, z); s.rotation.y = -PI/2; G.add(s); }
+  K.build(G);
+  freeze47(G);
+}
+
+/* ---------- the residents ---------- */
+{
+  const add = (o, lx, lz, y = 0.15) => { const [x, z] = WA(lx, lz); o.g.position.set(x, y, z); o.g.rotation.y = rand()*PI*2; waG.add(o.g); return o; };
+  for (const [s, lx, lz] of [[1, -32, -30], [0.95, -34, 10], [0.5, -31, -26]]){ const e = add(makeElephant(s), lx, lz); Object.assign(e, {t: rr(2, 6), tgt: null, sp: s < 0.6 ? 1.1 : 0.8, spray: 0, baby: s < 0.6, ph: rand()*6}); WAS.elephants.push(e); }
+  for (let k = 0; k < 5; k++){ const z_ = add(makeZebra(rr(0.9, 1.05)), rr(-37, -28), rr(-46, 40)); Object.assign(z_, {t: rr(1, 8), tgt: null, sp: 1.4, graze: 0, ph: rand()*6}); WAS.zebras.push(z_); }
+  WAS.rhino = Object.assign(add(makeRhino(1), -33, 28), {t: 4, tgt: null, sp: 0.7, ph: 0});
+  for (const [lx, lz] of [[-14, -27], [-8, -20]]){ const h = add(makeHippo(1), lx, lz, -0.5); Object.assign(h, {home: h.g.position.clone(), t: rr(3, 9), yawn: 0, ph: rand()*6, up: 0}); WAS.hippos.push(h); }
+  const [mx, mz] = WA(11, -24); WAS.monkeyHome = V47(mx, 0, mz);
+  WAS.mspots = [[0, 0.6, 0], [-2.4, 3.1, -1.5], [2.2, 3.5, 1.6], [1.6, 0.6, -2.6], [-2.8, 0.6, 2.4], [-0.2, 4.45, 0], [3.2, 0.6, -0.6], [-3.4, 0.6, -0.4]].map(([a, b, c]) => V47(mx + a, b, mz + c));
+  for (let k = 0; k < 5; k++){ const m = makeMonkey(rr(0.85, 1.1)); const sp = pick(WAS.mspots); m.g.position.copy(sp); waG.add(m.g); WAS.monkeys.push(Object.assign(m, {from: sp.clone(), to: sp.clone(), t: 1, dur: 1, wait: rr(1, 5), ph: rand()*6})); }
+  for (const [s, lx, lz] of [[1, 8, -4], [0.55, 10, -2]]){ const b = add(makeBear(s), lx, lz, 0.4); Object.assign(b, {t: rr(2, 5), tgt: null, sp: s < 0.6 ? 1.2 : 0.8, swim: 0, ph: rand()*6}); WAS.bears.push(b); }
+  for (let k = 0; k < 4; k++){ const g = add(makeGoat47(rr(0.85, 1.05), pick([0xf2ece0, 0x8a6a4a, 0x3a3330, 0xd8c8a8])), rr(28, 37), rr(-38, -10)); Object.assign(g, {t: rr(1, 5), tgt: null, sp: 1.0, bleat: rr(4, 12), ph: rand()*6}); WAS.goats.push(g); }
+  for (let k = 0; k < 5; k++){ const b = add(makeBunny(pick([0xf6f4ee, 0xc8a080, 0x8a7060])), rr(27, 37), rr(-40, -12)); Object.assign(b, {t: rr(0.5, 3), hop: 0, vy: 0, ph: rand()*6}); WAS.bunnies.push(b); }
+  for (let k = 0; k < 6; k++){ const a = k/6*PI*2; const [x, z] = WA(-11 + Math.cos(a)*2.4, -2 + Math.sin(a)*2.4); const m = makeMeerkat(); m.g.position.set(x, 0.3, z); waG.add(m.g); WAS.meerkats.push(Object.assign(m, {up: 0, hole: V47(x, 0.86, z), ph: rand()*6})); }
+}
+// the Safari Express: a little engine and two open carriages full of waving people
+{
+  const g = new THREE.Group(); waG.add(g); const cars = [];
+  const eng = new THREE.Group(); g.add(eng); BX47(eng, 1.6, 1.3, 2.6, 0x3f7a4a, 0, 0.95, 0); BX47(eng, 1.5, 1.0, 1.0, 0x3f7a4a, 0, 2.0, -0.7); BX47(eng, 1.7, 0.1, 1.2, 0x2a2a30, 0, 2.55, -0.7); eng.add(mesh(new THREE.CylinderGeometry(0.2, 0.28, 0.8, 8), mat(0x2a2a30), 0, 2.0, 0.8)); BX47(eng, 1.62, 0.18, 2.62, 0xe0b040, 0, 1.55, 0);
+  for (const z of [0.9, -0.9]) for (const x of [-0.7, 0.7]){ const w = mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.12, 10), mat(0xd43a2a), x, 0.42, z); w.rotation.z = PI/2; eng.add(w); }
+  cars.push(eng);
+  for (let k = 0; k < 2; k++){ const c = new THREE.Group(); g.add(c); BX47(c, 1.6, 0.5, 2.6, 0xe0a33a, 0, 0.7, 0); BX47(c, 1.7, 0.08, 2.8, 0xf4ead2, 0, 2.3, 0); for (const x of [-0.75, 0.75]) for (const z of [-1.2, 1.2]) BX47(c, 0.08, 1.4, 0.08, 0x2a2a30, x, 1.6, z);
+    for (let p = 0; p < 4; p++){ const H = new THREE.Group(); H.position.set(p % 2 ? 0.4 : -0.4, 0.95, p < 2 ? 0.6 : -0.6); c.add(H); BX47(H, 0.38, 0.45, 0.28, pick(SHIRTS), 0, 0.22, 0); SPH47(H, pick(SKIN), 0, 0.62, 0, 0.16); }
+    for (const z of [0.9, -0.9]) for (const x of [-0.7, 0.7]){ const w = mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.1, 10), mat(0x2a2a30), x, 0.35, z); w.rotation.z = PI/2; c.add(w); }
+    cars.push(c); }
+  WAS.train = {g, cars, s: 0, v: 0, wait: 0, stopS: 0, solid: addSolid(0, 0, 2, 2, -9, -8.5, 'train47')};
+  { let best = 0, bd = 1e9; const [sx, sz] = WA(41.5, 36); for (let s = 0; s < WAS.trackPath.L; s += 0.5){ pathAt47(WAS.trackPath, s, _a47); const d = (_a47.x - sx)**2 + (_a47.z - sz)**2; if (d < bd){ bd = d; best = s; } } WAS.train.stopS = best; WAS.train.s = best + 30; }
+}
+// zoo visitors: families stroll from enclosure to enclosure, kids hold balloons
+// walkers wander a little network of paths, so nobody strolls through a fence or a wall
+function nav47(pts, edges){ const adj = pts.map(() => []); for (const [a, b] of edges){ adj[a].push(b); adj[b].push(a); } return {pts, adj}; }
+const WAYS47 = nav47([[0, 52], [0, 28], [-8, 18], [8, 18], [-22, 10], [-22, -12], [-22, -36], [0, -36], [22, -36], [22, -12], [22, 10], [30, 10], [30, 22], [26, 32], [-14, 40], [12, 44], [0, -40]].map(([a, b]) => WA(a, b)),
+  [[0, 1], [1, 2], [1, 3], [2, 4], [4, 5], [5, 6], [6, 7], [7, 8], [7, 16], [8, 9], [9, 10], [10, 3], [10, 11], [11, 12], [12, 13], [13, 3], [1, 14], [1, 15], [2, 3]]);
+const CROWD47 = [];
+function crowd47(H, nav, o = {}){ const c = Object.assign({H, nav, i: Math.floor(rand()*nav.pts.length), prev: -1, wait: rr(0, 4), sp: rr(1.1, 1.5), ph: rand()*6, y: 0.15}, o); const [x, z] = nav.pts[c.i]; H.g.position.set(x + rr(-0.8, 0.8), c.y, z + rr(-0.8, 0.8)); CROWD47.push(c); return c; }
+function navNext47(c){ const A = c.nav.adj && c.nav.adj[c.i]; if (!A || !A.length){ c.prev = c.i; c.i = Math.floor(rand()*c.nav.pts.length); return; } const opts = A.length > 1 ? A.filter(j => j !== c.prev) : A; c.prev = c.i; c.i = pick(opts); }
+function kid47(o = {}){ const H = makeHuman(Object.assign({shirt: pick([0xff8a5a, 0x5ab8e0, 0xffd166, 0x8ad07a, 0xe880c0, 0xa88ae0])}, o)); H.g.scale.setScalar(0.66); H.snack.visible = false; return H; }
+function balloon47(H, col){ const b = new THREE.Group(); b.position.set(0, -0.6, 0.05); H.arms[1].add(b); b.add(boxMesh(0.01, 1.4, 0.01, mat(0xeeeeee), 0, 0.7, 0)); const s = mesh(SPHERE, mat(col, {emissive: col, emissiveIntensity: 0.15}), 0, 1.6, 0); s.scale.set(0.24, 0.3, 0.24); b.add(s); H.arms[1].rotation.x = -0.4; return b; }
+for (let k = 0; k < 12; k++){
+  const adult = makeHuman(); adult.snack.visible = rand() < 0.3; scene.remove(adult.g); waG.add(adult.g);
+  const c = crowd47(adult, WAYS47); WAS.visitors.push(c);
+  if (k % 2 === 0){ const kid = kid47(); scene.remove(kid.g); waG.add(kid.g); if (rand() < 0.6) balloon47(kid, pick([0xff4a5a, 0x4a9aff, 0xffd166, 0x7ad07a])); crowd47(kid, WAYS47, {follow: c, sp: c.sp}); }
+}
+// Keeper Kofi, and Mango the escape artist
+const KOFI47 = (() => {
+  const H = npc27('Keeper Kofi', {shirt: 0x6b7a4a, pants: 0x5a4a3a, skin: 0x6b4630, hair: 0x1a1410, extra: 'cap'}, 'Keeper Kofi runs the Wild Acres. Knows every animal by name, and every name by heart. Has lost his keys more than once.', H => H.g.add(boxMesh(0.58, 0.3, 0.32, mat(0x8a7a4a), 0, 1.0, 0)));
+  scene.remove(H.g); waG.add(H.g); const [x, z] = WA(4, 30); H.g.position.set(x, 0.15, z); H.g.rotation.y = PI; VOICES['Keeper Kofi'] = {kind: 'human', base: 150, range: 0.3, rate: 12, cps: 46};
+  return {H, pos: V47(x, 0.9, z)};
+})();
+const MANGO47 = (() => { const m = makeMonkey(0.8); m.g.visible = false; waG.add(m.g); const keys = new THREE.Group(); keys.position.set(0, -0.55, 0.05); m.arms[0].add(keys); keys.add(mesh(new THREE.TorusGeometry(0.08, 0.015, 4, 10), mat(0xe0c040))); keys.add(boxMesh(0.03, 0.14, 0.01, mat(0xe0c040), 0.06, -0.08, 0)); return Object.assign(m, {keys, mode: 'home', pos: V47(), to: V47(), from: V47(), t: 0, dur: 1, rest: 0}); })();
+const MANGO_SPOTS47 = [[0, 20, 7.2], [-30, 50, 0.15], [30, 50, 0.15], [36, 4, 2.9], [36, 14, 2.9], [0, -46, 6.6], [-24, 30, 0.15], [22, -36, 0.15], [-22, -36, 0.15], [33, -44, 6.5], [-12, 34, 0.15], [30, 36, 2.9]].map(([a, b, y]) => { const [x, z] = WA(a, b); return V47(x, y, z); });
+FAV.mango47 = {giver: 'Keeper Kofi', title: 'Monkey Business', xp: 120, get text(){ return MANGO47.mode === 'caught' || player.item === 'keys47' ? 'You have Keeper Kofi\'s keys. Bring them back to him by the plaza in the Wild Acres.' : 'Mango the monkey has escaped with Keeper Kofi\'s keys and is bouncing round the Wild Acres. Catch him (fly at him and press E) and bring the keys back.'; }};
+marker38('mango47', KOFI47.pos.x, KOFI47.pos.y + 1.8, KOFI47.pos.z);
+const KO = (t, c) => L('Keeper Kofi', t, c);
+nt47('Talk to Keeper Kofi', 'Keeper Kofi', () => KOFI47.pos, () => {
+  const st = favState('mango47');
+  if (st === 'none') return say([KO('Welcome to the Wild Acres, little bird! Elephants, zebras, a very moody rhino, hippos, monkeys...'), KO('...one monkey fewer than I would like. Mango. Mango has my keys. ALL my keys. The fish freezer. The goat shed. The ice-cream kiosk.'), KO('He jumps from roof to roof like a furry little thief. You have wings. Can you get them back?', [
+    {label: 'I\'ll catch him.', fn: () => say([KO('Fly fast, and grab when he stops to eat. He always stops to eat. He is a monkey.')], () => { startFav('mango47'); MANGO47.mode = 'run'; mangoJump47(true); })},
+    {label: 'Maybe later.', fn: () => say([KO('No hurry. The penguins only need their fish... today.')])}])]);
+  if (st === 'active' && player.item === 'keys47') return say([KO('My keys! All of them! Even the little one I don\'t know what it\'s for!'), KO('Mango is back on his island, eating a banana as if nothing happened. Here. A keeper\'s thank-you.')], () => { dropItem(); finishFav('mango47'); S.crumbs += 20; const it = lootLegend('Kofi\'s Lucky Key Ring', 'key'); it.named = 1; giveTreasure(it); MANGO47.mode = 'home'; MANGO47.g.visible = false; });
+  if (st === 'active') return say([KO(mpick(['He was on the reptile house a moment ago. Then the barn. Then my head.', 'Wait until he stops for a snack, then grab!', 'The ice-cream lady says he took a cone too. Of course he did.']))]);
+  say([KO(mpick(['The elephants get a bath when the hose works. The hose works on Tuesdays.', 'Never stare at the rhino. He takes it personally.', 'Mango\'s been very good since you caught him. Very suspicious.', 'Those meerkats watch everyone. Like little security guards.']))]);
+}, 2.6);
+nt47('Grab the keys from Mango', 'Mango', () => _c47.copy(MANGO47.g.position).setY(MANGO47.g.position.y + 0.6), () => {
+  if (MANGO47.rest <= 0 && MANGO47.t < MANGO47.dur) return floatText(player.pos, 'Too slow! Wait for him to stop', '#ffd166', 1.2);
+  MANGO47.mode = 'caught'; MANGO47.g.visible = false; giveItem('keys47'); sfx.pop(); emit('confetti', MANGO47.g.position, 12, 1, 1.5); toast('Got the keys! Take them back to <b>Keeper Kofi</b>.'); renderFavour();
+}, 1.9, () => favState('mango47') === 'active' && MANGO47.mode === 'run' && player.item !== 'keys47');
+function mangoJump47(first){ const M = MANGO47; M.g.visible = true; M.from.copy(first ? WAS.monkeyHome.clone().setY(0.6) : M.g.position); let to; for (let k = 0; k < 8; k++){ to = pick(MANGO_SPOTS47); if (to.distanceTo(player.pos) > 8 && to.distanceTo(M.from) > 6) break; } M.to.copy(to); M.t = 0; M.dur = clamp(M.from.distanceTo(M.to)/9, 0.8, 3.2); M.rest = 0; }
+const makeItem47 = makeItem;
+makeItem = function(kind){ if (kind === 'keys47'){ const g = new THREE.Group(); g.add(mesh(new THREE.TorusGeometry(0.06, 0.012, 4, 10), mat(0xe0c040), 0, 0, 0.06)); for (let k = 0; k < 3; k++) g.add(boxMesh(0.02, 0.1, 0.01, mat(0xe0c040), -0.04 + k*0.04, -0.07, 0.06)); return g; } return makeItem47(kind); };
+// old zoo: a few more visitors and an ice-cream cart
+{
+  const ways = nav47([[0, -5], [5, 0], [0, 5], [-5, 0], [0, -14], [0, -23], [0, 14], [0, 23], [-14, 0], [-23, 0], [14, 0], [23, 0]].map(([a, b]) => [ZC.x + a, ZC.z + b]), [[0, 1], [1, 2], [2, 3], [3, 0], [0, 4], [4, 5], [2, 6], [6, 7], [3, 8], [8, 9], [1, 10], [10, 11]]);
+  for (let k = 0; k < 7; k++){ const H = k % 3 === 2 ? kid47() : makeHuman(); if (k % 3 === 2 && rand() < 0.7) balloon47(H, pick([0xff4a5a, 0x4a9aff, 0xffd166])); scene.remove(H.g); zG.add(H.g); crowd47(H, ways); }
+  const cart = new THREE.Group(); cart.position.set(ZC.x + 6, 0.15, ZC.z + 8); zG.add(cart); BX47(cart, 1.6, 0.9, 0.9, 0xf4ead2, 0, 0.75, 0); for (let k = 0; k < 4; k++) BX47(cart, 0.4, 0.08, 1.1, k % 2 ? 0xf4ead2 : 0xe880a0, -0.6 + k*0.4, 2.0, 0); BX47(cart, 0.05, 1.3, 0.05, 0xd8d0c0, 0, 1.4, 0);
+  for (const x of [-0.6, 0.6]){ const w = mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.08, 10), mat(0x2a2a30), x, 0.22, 0.48); w.rotation.x = PI/2; cart.add(w); }
+  const seller = makeHuman({shirt: 0xf4ead2, hat: 0xe880a0}); scene.remove(seller.g); zG.add(seller.g); seller.g.position.set(ZC.x + 6, 0.15, ZC.z + 9.1); seller.g.rotation.y = 0; seller.snack.visible = false;
+  addTalker('Buy an ice cream (2 crumbs)', () => _b47.set(ZC.x + 6, 0.8, ZC.z + 9.4), () => { if (S.crumbs < 2) return say([L('Ice-cream seller', 'Two crumbs, birdie. Come back when you\'re rich.')]); S.crumbs -= 2; spawnFood(player.pos.x + 0.5, 0.17, player.pos.z, pick(['bun', 'crumb']), null); say([L('Ice-cream seller', mpick(['Pistachio for the pigeon! Don\'t tell the gulls.', 'One cone, extra sprinkles. You look like a sprinkles bird.']))]); }, 2.2);
+}
+
+/* ---------- per frame ---------- */
+const _w47 = new THREE.Vector3();
+function wander47(a, dt, box, sp, legs, time){
+  if (!a.tgt || a.t <= 0){ a.t -= dt; if (a.t <= 0 || !a.tgt){ a.tgt = V47(rr(box[0], box[1]), 0, rr(box[2], box[3])); a.t = rr(4, 12); } }
+  const g = a.g, dx = a.tgt.x - g.position.x, dz = a.tgt.z - g.position.z, dl = Math.hypot(dx, dz);
+  if (dl > 0.4){ const st = Math.min(dl, sp*dt); g.position.x += dx/dl*st; g.position.z += dz/dl*st; g.rotation.y = angLerp(g.rotation.y, Math.atan2(dx, dz), damp(2.5, dt)); a.ph += dt*sp*3.2; if (legs) legs.forEach((l, i) => l.rotation.x = Math.sin(a.ph + (i % 2 ? PI : 0) + (i > 1 ? PI/2 : 0))*0.4); return true; }
+  a.t -= dt; if (legs) for (const l of legs) l.rotation.x *= 0.9; return false;
+}
+const boxW47 = (lx0, lx1, lz0, lz1) => { const [x0, z0] = WA(lx0, lz0), [x1, z1] = WA(lx1, lz1); return [x0, x1, z0, z1]; };
+const SAV47 = boxW47(-38, -27, -48, 42), ICE47 = boxW47(3, 19, -10, 6), FARM47 = boxW47(27, 38, -40, -8);
+let waSoundT47 = 3;
+function updateWild47(dt, time){
+  const P = player.pos, playing = state === 'play';
+  // Mango, on the loose
+  { const M = MANGO47; if (M.mode === 'run'){ M.t += dt; const u = clamp(M.t/M.dur, 0, 1); _w47.lerpVectors(M.from, M.to, u); _w47.y += Math.sin(u*PI)*Math.min(6, M.dur*3); M.g.position.copy(_w47); M.g.rotation.y = Math.atan2(M.to.x - M.from.x, M.to.z - M.from.z);
+      for (const a of M.arms) a.rotation.x = u < 1 ? -2.6 : -0.4 + Math.sin(time*6)*0.3;
+      if (u >= 1){ if (M.rest <= 0) M.rest = rr(2.2, 3.6); M.rest -= dt; M.head.rotation.y = Math.sin(time*3)*0.5; if (M.rest <= 0 || M.g.position.distanceTo(P) < 1.0 && rand() < dt*0.6) mangoJump47(false); else if (P.distanceTo(M.g.position) < 5 && rand() < dt*0.25) mangoJump47(false); if (playing && rand() < dt*0.4) floatText(M.g.position, mpick(['ook!', 'eek eek!', '*jingle*', 'nyah!']), '#ffd166', 0.9, {yoff: 1.1}); }
+      else M.rest = 0; } }
+  if (!waG.visible) return;
+  // elephants amble, flap their ears, swing their trunks, and now and then spray water
+  for (const e of WAS.elephants){ const moving = wander47(e, dt, SAV47, e.sp, e.legs, time); e.ph += dt; for (const [i, ea] of e.ears.entries()) ea.rotation.y = (i ? -1 : 1)*(0.15 + Math.sin(e.ph*2.2)*0.15); e.trunk.forEach((t, i) => { t.rotation.x = Math.sin(e.ph*1.4 - i*0.5)*0.12 + (e.spray > 0 ? -0.5 : 0.05); t.rotation.z = Math.sin(e.ph*0.9 - i*0.4)*0.08; }); e.tail.rotation.z = Math.sin(e.ph*3)*0.3;
+    if (!moving && e.spray <= 0 && rand() < dt*0.05){ e.spray = 2.4; if (P.distanceTo(e.g.position) < 30) tone(rr(160, 220), 0.7, 'sawtooth', 0.025, rr(420, 520)); }
+    if (e.spray > 0){ e.spray -= dt; e.trunk[4].getWorldPosition(_a47); if (rand() < dt*30) emit('splash', _a47, 2, 0.2, 2.2); } }
+  for (const z_ of WAS.zebras){ const moving = wander47(z_, dt, SAV47, z_.sp, z_.legs, time); z_.neck.rotation.x = lerp(z_.neck.rotation.x, moving ? 0.45 : 1.45 + Math.sin(time*0.7 + z_.ph)*0.08, damp(2, dt)); z_.tail.rotation.z = Math.sin(time*4 + z_.ph)*0.3;
+    if (P.distanceTo(z_.g.position) < 4 && !player.grounded){ z_.tgt = V47(clamp(z_.g.position.x + (z_.g.position.x - P.x)*2, SAV47[0], SAV47[1]), 0, clamp(z_.g.position.z + (z_.g.position.z - P.z)*2, SAV47[2], SAV47[3])); z_.t = 3; z_.sp = 4; } else z_.sp = lerp(z_.sp, 1.4, dt*0.5); }
+  { const R = WAS.rhino; wander47(R, dt, SAV47, R.sp, R.legs, time); R.head.rotation.x = Math.sin(time*0.8)*0.06; if (playing && P.distanceTo(R.g.position) < 3 && rand() < dt*0.6) floatText(R.g.position, mpick(['HMPH.', '*snort*', 'Don\'t.']), '#fff6dc', 1.2, {yoff: 2.2}); }
+  // hippos sink and surface, and yawn enormously
+  for (const h of WAS.hippos){ h.ph += dt; h.t -= dt; if (h.t <= 0){ h.t = rr(5, 11); h.up = h.up > 0.5 ? 0 : 1; if (h.up && rand() < 0.6) h.yawn = 2.4; }
+    h.g.position.y = lerp(h.g.position.y, h.up ? -0.35 : -0.95, damp(1.2, dt)) + Math.sin(h.ph*1.3)*0.004; h.g.rotation.y += Math.sin(h.ph*0.3)*dt*0.1;
+    if (h.yawn > 0){ h.yawn -= dt; const o = Math.sin(clamp(h.yawn/2.4, 0, 1)*PI); h.top.rotation.x = -o*0.9; h.jaw.rotation.x = o*0.25; if (h.yawn > 1.2 && h.yawn - dt <= 1.2 && P.distanceTo(h.g.position) < 25) tone(110, 0.9, 'sawtooth', 0.03, 80); } }
+  // monkeys hop between the platforms, ropes and ground of their island
+  for (const m of WAS.monkeys){ m.ph += dt; if (m.t < 1){ m.t = Math.min(1, m.t + dt/m.dur); _w47.lerpVectors(m.from, m.to, m.t); _w47.y += Math.sin(m.t*PI)*1.6; m.g.position.copy(_w47); for (const a of m.arms) a.rotation.x = -2.4; }
+    else { m.wait -= dt; for (const [i, a] of m.arms.entries()) a.rotation.x = -0.3 + Math.sin(m.ph*5 + i)*0.25; m.head.rotation.y = Math.sin(m.ph*1.7)*0.6; m.tail.forEach((t, i) => t.rotation.x = -0.4 + Math.sin(m.ph*2 + i)*0.2);
+      if (m.wait <= 0){ m.from.copy(m.g.position); m.to.copy(pick(WAS.mspots)).add(_a47.set(rr(-0.4, 0.4), 0, rr(-0.4, 0.4))); m.t = 0; m.dur = clamp(m.from.distanceTo(m.to)/5, 0.5, 1.2); m.g.rotation.y = Math.atan2(m.to.x - m.from.x, m.to.z - m.from.z); m.wait = rr(1.5, 6); if (playing && P.distanceTo(m.g.position) < 20 && rand() < 0.3) tone(rr(900, 1300), 0.12, 'square', 0.012, rr(1400, 1800)); } } }
+  // the polar bears: a lumber about, and a swim
+  for (const b of WAS.bears){ wander47(b, dt, ICE47, b.sp, b.legs, time); b.head.rotation.y = Math.sin(time*0.6 + b.ph)*0.3; b.g.position.y = 0.4 + (in47({x0: ICE47[0] + 7.5, x1: ICE47[0] + 15.5, z0: ICE47[2] + 8.5, z1: ICE47[2] + 15.5}, b.g.position.x, b.g.position.z) ? -0.55 : 0); }
+  // the petting farm
+  for (const g of WAS.goats){ wander47(g, dt, FARM47, g.sp, g.legs, time); g.bleat -= dt; if (g.bleat <= 0){ g.bleat = rr(8, 20); if (playing && P.distanceTo(g.g.position) < 18){ BIRDS27.baa(0.014); floatText(g.g.position, 'MEHHH', '#fff6dc', 1, {yoff: 1.2}); } } g.head.rotation.x = Math.sin(time*2 + g.ph)*0.15; }
+  for (const b of WAS.bunnies){ b.t -= dt; if (b.hop > 0){ b.hop -= dt; b.vy -= 14*dt; b.g.position.y = Math.max(0.15, b.g.position.y + b.vy*dt); b.g.position.x += Math.sin(b.g.rotation.y)*dt*1.6; b.g.position.z += Math.cos(b.g.rotation.y)*dt*1.6; b.g.position.x = clamp(b.g.position.x, FARM47[0], FARM47[1]); b.g.position.z = clamp(b.g.position.z, FARM47[2], FARM47[3]); }
+    else if (b.t <= 0){ b.t = rr(0.6, 3); b.hop = 0.35; b.vy = 2.4; b.g.rotation.y += rr(-1.4, 1.4); } }
+  // meerkats pop up and stare at the pigeon
+  for (const m of WAS.meerkats){ const d = P.distanceTo(m.hole), want = d < 14 ? 1 : (Math.sin(time*0.4 + m.ph) > 0.6 ? 1 : 0); m.up = lerp(m.up, want, damp(want ? 6 : 2, dt)); m.g.position.y = m.hole.y - 0.55 + m.up*0.55; m.head.rotation.y = angLerp(m.head.rotation.y, Math.atan2(P.x - m.hole.x, P.z - m.hole.z), damp(4, dt)); m.body.rotation.y = 0; }
+  // the Safari Express, with a stop at the station
+  { const T = WAS.train, Pth = WAS.trackPath, L = Pth.L, ds = ((T.stopS - T.s) % L + L) % L; let target = 4.2;
+    if (T.wait > 0){ T.wait -= dt; target = 0; } else { target = Math.min(target, Math.sqrt(2*1.2*Math.max(0, ds - 0.1)) + 0.25); if (ds < 0.25){ T.wait = 8; T.v = 0; if (playing && P.distanceTo(T.g.position) < 30){ tone(1568, 0.4, 'sine', 0.03); tone(1318, 0.5, 'sine', 0.03, null, 0.25); } } }
+    T.v += clamp(target - T.v, -3*dt, 1.2*dt); const ox = T.cars[2].position.x, oz = T.cars[2].position.z; T.s = (T.s + T.v*dt) % L;
+    T.cars.forEach((c, i) => { const s = T.s - i*3.1; pathAt47(Pth, s, _a47); pathAt47(Pth, s + 0.8, _b47); c.position.set(_a47.x, 0.15, _a47.z); c.rotation.y = Math.atan2(_b47.x - _a47.x, _b47.z - _a47.z); });
+    if (T.v > 0.5 && rand() < dt*3) emit('wisp', _a47.copy(T.cars[0].position).setY(3), 1, 0.1, 0.8);
+    // ride along in the back carriage
+    const c = T.cars[2]; if (playing && Math.hypot(P.x - ox, P.z - oz) < 1.25 && P.y > 0.4 && P.y < 2.4){ P.x += c.position.x - ox; P.z += c.position.z - oz; if (!Q47().train){ Q47().train = 1; addXP(15); toast('All aboard the <b>Safari Express</b>!'); save(); } }
+    T.solid.minX = c.position.x - 0.9; T.solid.maxX = c.position.x + 0.9; T.solid.minZ = c.position.z - 0.9; T.solid.maxZ = c.position.z + 0.9; T.solid.minY = 0; T.solid.maxY = 0.95; }
+  // ambient: a trumpet or a whoop now and then
+  waSoundT47 -= dt; if (waSoundT47 <= 0){ waSoundT47 = rr(10, 22); if (playing && in47(WILD47, P.x, P.z, 10)){ if (rand() < 0.5) tone(rr(300, 380), 1.0, 'sawtooth', 0.016, rr(620, 760)); else for (let k = 0; k < 4; k++) tone(rr(700, 900) + k*80, 0.12, 'square', 0.008, null, k*0.13); } }
+}
+
+/* ---------- v47 · Featherstone University, in the northern fields ---------- */
+const UNI47 = {x0: CAMPUS47.x0, x1: CAMPUS47.x1, z0: CAMPUS47.z0, z1: -306};
+const uniG = igroup(CAMPUS47.cx, CAMPUS47.cz, 230);
+const bookTex47 = pxTex(16, 16, g => { px(g, 0, 0, '#5a3a22', 16, 16); for (let y = 0; y < 16; y += 4){ let x = 0; while (x < 16){ const w = ri(1, 3); px(g, x, y + 1, pick(['#a83a2a', '#2f5f7a', '#3f7a4a', '#c8a050', '#6a3a6a', '#e8dcc0', '#2a3a5a']), w, 3); x += w; } px(g, 0, y, '#3a2414', 16, 1); } });
+const clockTex47 = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#f6f0dc'; g.beginPath(); g.arc(32, 32, 30, 0, PI*2); g.fill(); g.strokeStyle = '#2a2a30'; g.lineWidth = 3; g.stroke(); g.fillStyle = '#2a2a30'; for (let k = 0; k < 12; k++){ const a = k/12*PI*2; g.fillRect(32 + Math.cos(a)*24 - 2, 32 + Math.sin(a)*24 - 2, 4, 4); } const t = new THREE.CanvasTexture(c); return t; })();
+const UNI = {clocks: [], pages: [], grads: null, ball: null, players: [], band: null};
+const uniLibRoom = hollow({cx: -492, cz: -370, w: 18, d: 40, h: 9, style: 4, door: 'e', inner: wallpaper('#e8dcc0', '#d8c8a8'), name: 'University Library', doorColor: 0x3f5a3a, noLight: true, ceil: 0xf4ead2});
+{
+  const K = kit47(), G = uniG;
+  slab47(K, UNI47);
+  mapRects.push({x0: UNI47.x0, z0: UNI47.z0, x1: UNI47.x1, z1: UNI47.z1, color: '#7fbf5a', kind: 'park'});
+  // the gate, a low brick wall along College Road, and Founders Walk up to the quad
+  for (const x of [-434, -422]){ K.box(2, 5.2, 2, x, 2.75, -306, FAC47.brick, {solid: 'gate', uv: f => [0.4, 1.4]}); K.box(2.4, 0.4, 2.4, x, 5.5, -306, 0xe0d4b8); }
+  K.box(10, 0.3, 0.3, -428, 5.3, -306, 0x2a2a30); for (let k = 0; k < 9; k++) K.box(0.08, 1.2 - Math.abs(k - 4)*0.18, 0.08, -432 + k, 5.9 - Math.abs(k - 4)*0.09, -306, 0x2a2a30);
+  { const s = mesh(new THREE.PlaneGeometry(9, 0.8), mat(0xffffff, {map: textTex('FEATHERSTONE UNIVERSITY · EST. 1822', 260, 24, 12), emissive: 0xffe0a0, emissiveIntensity: 0.2}), -428, 6.6, -305.85); G.add(s); const s2 = s.clone(); s2.rotation.y = PI; s2.position.z = -306.15; G.add(s2); }
+  for (const [x0, x1] of [[UNI47.x0, -435], [-421, UNI47.x1]]) K.box(x1 - x0, 1.1, 0.6, (x0 + x1)/2, 0.7, -306.3, FAC47.brick, {solid: 'wall', uv: f => [(x1 - x0)/8, 0.3]});
+  path47(K, -431, -340, -425, -306.5);
+  // the quad: a lawn framed by paths, with diagonals to the statue
+  path47(K, -472, -402, -384, -398); path47(K, -472, -342, -384, -338); path47(K, -472, -402, -468, -338); path47(K, -388, -402, -384, -338);
+  for (const s of [-1, 1]){ const L = Math.hypot(40, 28); K.box(L, 0.03, 2.4, -428, 0.166, -370, pave47, {ry: s*Math.atan2(28, 40), uv: UVT(L, 2.4, 3)}); }
+  { const pl = mesh(new THREE.CircleGeometry(4.5, 24), pave47, -428, 0.17, -370); pl.rotation.x = -PI/2; G.add(pl); K.box(2.4, 2.2, 2.4, -428, 1.25, -370, 0xc8bca0, {solid: 'statue'}); K.box(2.8, 0.3, 2.8, -428, 0.3, -370, 0xb8ac90); }
+  // Old Main: a long stone hall with a portico and the clock tower
+  K.bld(-428, -418, 56, 16, 13, FAC47.stone, {trim: 0x8a7a62, mapCol: '#d8ccb0'});
+  for (let k = 0; k < 6; k++) K.inst('col47', new THREE.CylinderGeometry(0.5, 0.55, 10, 10), 0xf0e8d8, -438 + k*4, 5.15, -407.5);
+  K.box(24, 1.0, 3.6, -428, 10.6, -407.8, 0xe8e0cc); for (let k = 0; k < 3; k++) K.box(24 - k*0.8, 0.3, 4.4 - k*1.2, -428, 0.3 + k*0.3, -406.6 + k*0.6, 0xd8ccb0, {solid: k === 0 ? 'step' : null});
+  { const ped = mesh(new THREE.CylinderGeometry(2.2, 2.2, 24, 3, 1, false, PI/2), mat(0xe8e0cc), -428, 11.65, -407.8); ped.rotation.z = PI/2; ped.scale.set(0.5, 1, 0.7); G.add(ped); }
+  K.box(2.6, 4.2, 0.2, -428, 2.25, -409.9, 0x4a3a2a);
+  K.box(8, 18, 8, -428, 22.15, -418, FAC47.stone, {solid: 'building', uv: f => [1, 5]}); K.box(8.6, 0.5, 8.6, -428, 31.4, -418, 0xb8ac90); K.box(9, 0.4, 9, -428, 13.4, -418, 0xb8ac90);
+  for (const [dx, dz, ry] of [[0, 4.06, 0], [0, -4.06, PI], [4.06, 0, PI/2], [-4.06, 0, -PI/2]]){ const cf = mesh(new THREE.CircleGeometry(2.2, 24), mat(0xffffff, {map: clockTex47, emissive: 0xfff0c0, emissiveIntensity: 0.1}), -428 + dx, 25, -418 + dz); cf.rotation.y = ry; G.add(cf); for (const len of [1.2, 1.7]){ const h = new THREE.Group(); h.position.set(-428 + dx*1.01, 25, -418 + dz*1.01); h.rotation.y = ry; G.add(h); const hand = boxMesh(0.14, len, 0.04, mat(0x2a2a30), 0, len/2, 0.03); h.add(hand); UNI.clocks.push({h, hand, len}); } }
+  K.box(8.4, 0.3, 1.0, -428, 22.4, -413.4, 0xb8ac90);
+  for (const [dx, dz] of [[0, 4.02], [0, -4.02], [4.02, 0], [-4.02, 0]]) K.box(dz ? 3 : 0.1, 3.2, dz ? 0.1 : 3, -428 + dx, 29.2, -418 + dz, 0x2a2a30);
+  { const roof = mesh(new THREE.ConeGeometry(6.2, 6, 4), mat(0x3f6b5a), -428, 34.6, -418); roof.rotation.y = PI/4; G.add(roof); K.box(0.12, 2.4, 0.12, -428, 38.6, -418, 0x2a2a30); }
+  // the University Library (you can go in), with a copper dome
+  path47(K, -483, -371.5, -468, -368.5);
+  { const dome = mesh(new THREE.SphereGeometry(4, 16, 8, 0, PI*2, 0, PI/2), mat(0x5fa88a), -492, 9.5, -370); G.add(dome); K.box(0.6, 1.6, 0.6, -492, 14.2, -370, 0xe0b040); }
+  // the Science Hall, with an observatory on the roof
+  K.bld(-364, -370, 18, 40, 12, FAC47.sci, {trim: 0x3a4a5a, mapCol: '#e8e4dc'}); K.box(0.15, 3.2, 2.6, -373.1, 1.75, -370, 0x3a4a5a); path47(K, -384, -371.5, -373, -368.5);
+  { const dome = mesh(new THREE.SphereGeometry(4, 18, 9, 0, PI*2, 0, PI/2), mat(0xf4f4f0), -364, 12.6, -362); G.add(dome); const slit = boxMesh(1.1, 0.2, 4.2, mat(0x2a2a30), -364, 15, -362); slit.rotation.x = -0.55; slit.position.z -= 1.4; G.add(slit); K.box(5.2, 0.6, 5.2, -364, 12.4, -362, 0xd8d4cc); const tel = mesh(new THREE.CylinderGeometry(0.25, 0.35, 3.6, 8), mat(0x3a4a5a), -364, 16.2, -364.4); tel.rotation.x = -0.9; G.add(tel); }
+  { const s = mesh(new THREE.PlaneGeometry(10, 0.8), mat(0xffffff, {map: textTex('SCIENCE HALL', 200, 22, 14)}), -373.2, 10.2, -370); s.rotation.y = -PI/2; G.add(s); }
+  // the Student Union and its café terrace
+  K.bld(-352, -326, 30, 14, 7, FAC47.board, {trim: 0x3a5a7a, mapCol: '#f2efe6'}); K.box(2.4, 2.8, 0.15, -352, 1.55, -318.9, 0x3a5a7a);
+  { const s = mesh(new THREE.PlaneGeometry(12, 0.9), mat(0xffffff, {map: textTex('STUDENT UNION · CAFÉ', 220, 22, 13)}), -352, 6.0, -318.85); G.add(s); }
+  path47(K, -368, -318, -336, -310, pave47);
+  for (const [x, z] of [[-362, -313.5], [-355, -313.5], [-348, -313.5], [-341, -313.5]]){ K.box(1.2, 0.08, 1.2, x, 1.0, z, 0xf4ead2); K.box(0.1, 0.85, 0.1, x, 0.6, z, 0x2a2a30); K.box(0.08, 2.6, 0.08, x, 1.45, z, 0x8a8f94); const u = mesh(new THREE.ConeGeometry(1.5, 0.6, 8), mat(pick([0xd4483a, 0x3f8ad4, 0xe0a33a, 0x3f9a5a])), x, 2.8, z); G.add(u); addSolid(x, z, 1.2, 1.2, 0.15, 1.05, 'table'); }
+  // two dorms
+  K.bld(-500, -322, 40, 12, 17.5, FAC47.dorm, {trim: 0x4a2a1e, mapCol: '#8a4a3a'}); K.box(2.4, 2.8, 0.15, -500, 1.55, -315.9, 0x3f6b4c);
+  K.bld(-542, -372, 12, 40, 17.5, FAC47.dorm, {trim: 0x4a2a1e, mapCol: '#8a4a3a'}); K.box(0.15, 2.8, 2.4, -535.9, 1.55, -372, 0x3f6b4c);
+  for (const [t, x, y, z, ry] of [['MAPLE HALL', -500, 16.4, -315.85, 0], ['OAK HALL', -535.85, 16.4, -372, PI/2]]){ const s = mesh(new THREE.PlaneGeometry(7, 0.8), mat(0xffffff, {map: textTex(t, 150, 22, 13)}), x, y, z); s.rotation.y = ry; G.add(s); }
+  // the stadium: an oval track, a pitch, goals, bleachers and a scoreboard
+  { const T = mat(0xb8604a), F = mat(0x5fae4a);
+    for (const [r, m, y] of [[22, T, 0.17], [16, F, 0.185]]){ for (const s of [-1, 1]){ const c = mesh(new THREE.CylinderGeometry(r, r, 0.03, 36), m, -500 + s*22, y, -470); G.add(c); } K.box(44, 0.03, r*2, -500, y, -470, m); }
+    for (const dz of [-3.5, 0, 3.5]) K.box(44, 0.012, 0.1, -500, 0.2, -470 + 19 + dz/3.5*1.5, 0xf4ead2);
+    K.box(0.12, 0.012, 32, -500, 0.205, -470, 0xf4ead2); { const cc = mesh(new THREE.RingGeometry(4, 4.2, 24), mat(0xf4ead2), -500, 0.21, -470); cc.rotation.x = -PI/2; G.add(cc); }
+    for (const s of [-1, 1]){ const x = -500 + s*31; K.box(0.15, 2.2, 0.15, x, 1.25, -473.6, 0xf4f4f0); K.box(0.15, 2.2, 0.15, x, 1.25, -466.4, 0xf4f4f0); K.box(0.15, 0.15, 7.4, x, 2.35, -470, 0xf4f4f0); }
+    for (let k = 0; k < 4; k++) K.box(60, 0.5, 1.4, -500, 0.4 + k*0.5, -444 + k*1.3, k % 2 ? 0x3f6b8a : 0x4f7fa8, {solid: 'bleacher', lift: 0});
+    K.box(0.6, 6, 0.6, -546, 3.15, -474, 0x2a2a30); K.box(0.6, 6, 0.6, -546, 3.15, -466, 0x2a2a30); K.box(1, 3.4, 10, -546, 6.8, -470, 0x2a3a2a, {solid: 'board'});
+    const sb = mesh(new THREE.PlaneGeometry(9.4, 3), mat(0xffffff, {map: textTex('FEATHERS 3 · CROWS 1', 200, 64, 18), emissive: 0xffd890, emissiveIntensity: 0.6}), -545.45, 6.8, -470); sb.rotation.y = PI/2; G.add(sb); }
+  // the outdoor classroom: three curved benches and a lectern
+  { const cx = -352, cz = -456; for (let r = 0; r < 3; r++){ const R = 6 + r*2.2; for (let k = 0; k < 7; k++){ const a = -PI*0.82 + k/6*PI*0.64 - PI/2 + PI/2; const x = cx + Math.sin(a)*R, z = cz + Math.cos(a)*R; K.box(2.4, 0.35 + r*0.3, 0.6, x, 0.32 + r*0.15, z, 0x8a5a34, {ry: a, solid: 'bench'}); } } K.box(0.9, 1.2, 0.6, cx, 0.75, cz - 1, 0x6b4a2e, {solid: 'lectern'}); }
+  // the pond with a little bridge and some ducks
+  { const pond = mesh(new THREE.CircleGeometry(11, 28), water47, -336, 0.18, -490); pond.rotation.x = -PI/2; G.add(pond); const rim = mesh(new THREE.RingGeometry(11, 11.8, 28), mat(0xb8ac90), -336, 0.19, -490); rim.rotation.x = -PI/2; G.add(rim);
+    K.box(2.4, 0.25, 24, -336, 0.75, -490, 0x8a5a34, {solid: 'bridge'}); for (const s of [-1, 1]) K.box(0.1, 0.5, 24, -336 + s*1.15, 1.1, -490, 0x6b4a2e); path47(K, -337.2, -478, -334.8, -469); path47(K, -337.2, -511, -334.8, -502);
+    for (let k = 0; k < 4; k++){ const d = makeDuck(k ? {body: 0x8a6a4a, head: 0x7a5a3a, s: 1.1} : {body: 0xb0a090, head: 0x2f7a4a, s: 1.15, ring: true}); scene.remove(d); G.add(d); UNI['duck' + k] = {g: d, a: k*1.6, r: rr(4, 8)}; } }
+  // trees and lamps along the walks
+  for (let z = -336; z >= -400; z -= 8) for (const x of [-476, -380]) tree47(K, x, z, rr(0.9, 1.15), 0x5a9e3a);
+  for (let z = -312; z >= -334; z -= 7) for (const x of [-436, -420]) tree47(K, x, z, 0.95, 0x6aa840);
+  for (let k = 0; k < 26; k++){ const x = rr(UNI47.x0 + 6, UNI47.x1 - 6), z = rr(UNI47.z0 + 6, UNI47.z1 - 6); const clear = [[-484, -372, -440, -400], [-394, -332, -428, -308], [-556, -478, -500, -440], [-386, -340, -470, -350], [-548, -478, -392, -310], [-372, -310, -505, -472], [-366, -334, -335, -310], [-476, -380, -406, -334], [-500, -456, -440, -425]]; if (clear.some(([a, b, c, d]) => x > a && x < b && z > c && z < d)) continue; tree47(K, x, z, rr(0.9, 1.3), pick([0x4f9e3a, 0x5a9e3a, 0x6aa840, 0xc8a040])); }
+  for (const [x, z] of [[-431.5, -320], [-424.5, -330], [-466, -345], [-390, -345], [-466, -395], [-390, -395]]){ K.inst('lampP', new THREE.CylinderGeometry(0.07, 0.1, 3.6, 6), 0x2a2a30, x, 1.95, z); K.inst('lampH', SPHERE, lampHeadMat, x, 3.9, z, 0.3, 0.3, 0.3); lampSpots.push([x, z]); }
+  // hedges along the quad, flowers round the statue, benches, ivy on Old Main and a welcome banner
+  for (const [x0, x1, z] of [[-461, -432, -343.5], [-424, -395, -343.5], [-461, -432, -396.5], [-424, -395, -396.5]]){ K.box(x1 - x0, 0.7, 0.7, (x0 + x1)/2, 0.5, z, 0x3f7a3a, {solid: 'hedge'}); }
+  for (const [x, z0, z1] of [[-465.5, -391, -373], [-465.5, -367, -349], [-390.5, -391, -373], [-390.5, -367, -349]]){ K.box(0.7, 0.7, z1 - z0, x, 0.5, (z0 + z1)/2, 0x3f7a3a, {solid: 'hedge'}); }
+  for (let k = 0; k < 24; k++){ const a = k/24*PI*2, r = 5.4; K.inst('flw' + (k % 4), SPHERE, [0xff6a8a, 0xffd166, 0xffffff, 0xc88aff][k % 4], -428 + Math.cos(a)*r, 0.4, -370 + Math.sin(a)*r, 0.28, 0.22, 0.28); K.inst('flwL', SPHERE, 0x3f8a3a, -428 + Math.cos(a)*r, 0.25, -370 + Math.sin(a)*r, 0.34, 0.16, 0.34); }
+  for (const [x, z, ry] of [[-450, -344.8, 0], [-406, -344.8, 0], [-450, -395.2, PI], [-406, -395.2, PI], [-467, -360, PI/2], [-389, -380, -PI/2]]){ K.box(1.8, 0.1, 0.5, x, 0.62, z, 0x8a5a34, {ry, solid: 'bench'}); K.box(1.8, 0.45, 0.08, x - Math.sin(ry)*0.22, 0.95, z - Math.cos(ry)*0.22, 0x8a5a34, {ry}); for (const s of [-0.7, 0.7]) K.box(0.08, 0.5, 0.45, x + Math.cos(ry)*s, 0.4, z - Math.sin(ry)*s, 0x2a2a30, {ry}); }
+  for (let k = 0; k < 14; k++){ const x = -454 + rr(0, 52), h = rr(3, 9); if (Math.abs(x + 428) < 13) continue; K.box(rr(1.2, 2.6), h, 0.12, x, 0.15 + h/2, -409.9, pick([0x3f7a3a, 0x4f8a3a, 0x5a9a42])); }
+  for (const x of [-431.6, -424.4]) K.box(0.12, 4, 0.12, x, 2.15, -322, 0x2a2a30);
+  { const b = mesh(new THREE.PlaneGeometry(7, 0.9), mat(0xffffff, {map: textTex('WELCOME, FRESHERS!', 180, 22, 13), side: THREE.DoubleSide, emissive: 0xffe0a0, emissiveIntensity: 0.15}), -428, 3.7, -322); G.add(b); }
+  for (let k = 0; k < 6; k++){ const x = -478 + k*0.9, z = -374.5; K.box(0.06, 0.7, 1.4, x, 0.55, z, 0x2a2a30); K.inst('wheel', new THREE.TorusGeometry(0.32, 0.04, 4, 12), 0x2a2a30, x + 0.08, 0.5, z + 0.5, 1, 1, 1, PI/2); K.inst('wheel', new THREE.TorusGeometry(0.32, 0.04, 4, 12), 0x2a2a30, x + 0.08, 0.5, z - 0.5, 1, 1, 1, PI/2); K.box(0.05, 0.05, 1.0, x + 0.08, 0.85, z, pick([0xd4483a, 0x3f8ad4, 0x3f9a5a, 0xe0a33a])); }
+  K.build(G);
+  freeze47(G);
+}
+// the founder: a bronze pigeon in a mortarboard
+{ const P = makePigeon({body: 0x8a6a3a, head: 0x7a5a2a, wing: 0x9a7a4a, bar: 0x6a4a2a, tip: 0x5a3a1a, neckPlain: 0x9a7a4a, beak: 0x6a4a2a, eye: 0x3a2a1a, legs: 0x6a4a2a, noCere: true, noBars: true}); scene.remove(P.g); uniG.add(P.g); P.g.position.set(-428, 2.35, -370); P.g.scale.setScalar(2.2); P.g.rotation.y = 0;
+  const mb = new THREE.Group(); mb.position.set(0, 0.2, 0.02); P.neckP.add(mb); mb.add(boxMesh(0.32, 0.03, 0.32, mat(0x5a4a2a), 0, 0.06, 0)); mb.add(mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.07, 8), mat(0x5a4a2a), 0, 0.02, 0)); mb.add(boxMesh(0.02, 0.12, 0.02, mat(0xe0b040), 0.12, 0.0, 0.12));
+  addTalker('Read the plaque', () => _a47.set(-428, 0.8, -368.6), () => say([L('Plaque', 'PROFESSOR AUGUSTUS FEATHERSBY, 1790 to 1871. Founder. Ornithologist. Pigeon.'), L('Plaque', '"I came for the lectures. I stayed for the crumbs."')]), 2.4); }
+// inside the library: shelves, long tables with green lamps, and quiet
+{
+  const r = uniLibRoom, K = kit47(), books = mat(0xffffff, {map: bookTex47});
+  for (const z of [r.minZ + 0.35, r.maxZ - 0.35]) K.box(r.maxX - r.minX - 1, 7, 0.6, (r.minX + r.maxX)/2, 3.65, z, [books, books, 0x5a3a22, 0x5a3a22, books, books], {uv: f => [(r.maxX - r.minX)/2, 3]});
+  for (let z = r.minZ + 4; z < r.maxZ - 3; z += 6){ K.box(0.6, 6, 4.5, r.minX + 0.35, 3.15, z, [books, books, 0x5a3a22, 0x5a3a22, books, books], {solid: 'shelf', uv: f => [2, 3]}); K.box(5, 3, 0.6, r.minX + 4, 1.65, z + 1.5, [books, books, 0x5a3a22, 0x5a3a22, books, books], {solid: 'shelf', uv: f => [2, 1.5]}); }
+  const lampM = mat(0x3f8a5a, {emissive: 0x3f8a5a, emissiveIntensity: 0.4}), glowM = new THREE.MeshBasicMaterial({color: 0xfff0b0});
+  for (let k = 0; k < 4; k++){ const z = r.minZ + 6 + k*8, x = r.maxX - 4.5; K.box(2.2, 0.12, 5, x, 0.95, z, 0x7a4a24, {solid: 'table'}); for (const dz of [-1.5, 1.5]){ K.box(0.6, 0.12, 0.3, x, 1.2, z + dz, lampM); K.box(0.4, 0.04, 0.15, x, 1.12, z + dz, glowM); } for (const s of [-1, 1]) for (const dz of [-1.6, 0, 1.6]) K.box(0.5, 0.5, 0.5, x + s*1.5, 0.45, z + dz, 0x5a3a22); }
+  K.box(4, 1.1, 1.2, r.maxX - 3, 0.7, r.maxZ - 4, 0x6b4a2e, {solid: 'desk'});
+  K.box(0.1, 3, 6, r.minX + 0.2, 5.5, (r.minZ + r.maxZ)/2, 0xffffff);
+  K.build(uniG);
+  const quill = npc27('Ms. Quill', {shirt: 0x6a5a7a, pants: 0x3a3340, skin: 0xf2d0b0, hair: 0xb0aaa0, extra: 'glasses'}, 'Ms. Quill, the university librarian. Has shushed four prime ministers and a brass band.');
+  scene.remove(quill.g); uniG.add(quill.g); quill.g.position.set(r.maxX - 3, 0.15, r.maxZ - 5.2); quill.g.rotation.y = PI; VOICES['Ms. Quill'] = {kind: 'human', base: 260, range: 0.2, rate: 10, cps: 40};
+  UNI.quill = quill;
+  addNamedTalker('Talk to Ms. Quill', 'Ms. Quill', () => _b47.set(r.maxX - 3, 0.8, r.maxZ - 5.6), () => say([L('Ms. Quill', mpick(['Shhh. This is a library. Even the dust is quiet.', 'Overdue: "Flight for Beginners", borrowed by a Mr. Coo in 1974. Any relation?', 'We have three books about pigeons. All of them are checked out. By pigeons, I suspect.', 'You may perch on the reading lamps. Silently.']))]), 2.4);
+  for (let k = 0; k < 6; k++){ const H = makeHuman(); H.snack.visible = false; scene.remove(H.g); uniG.add(H.g); sitPose(H); const z = r.minZ + 6 + Math.floor(k/2)*8 + (k % 2 ? 1.6 : -1.6), x = r.maxX - 4.5 + (k % 2 ? 1.5 : -1.5); H.g.position.set(x, 0.12, z); H.g.rotation.y = k % 2 ? -PI/2 : PI/2; H.arms[0].rotation.x = H.arms[1].rotation.x = -1.1; H.g.add(boxMesh(0.4, 0.04, 0.3, mat(pick([0xa83a2a, 0x2f5f7a, 0x3f7a4a])), 0, 1.0, 0.45)); }
+}
+// students: walking between the halls, lying on the quad, kicking a ball about
+const UWAYS47 = nav47([[-428, -310], [-428, -325], [-428, -340], [-470, -340], [-386, -340], [-470, -400], [-386, -400], [-428, -407], [-428, -400], [-482, -370], [-470, -370], [-374, -370], [-386, -370], [-428, -373], [-352, -316], [-372, -330], [-500, -315], [-490, -336], [-535, -372], [-525, -345], [-500, -440], [-470, -430], [-336, -476], [-372, -430], [-352, -446]],
+  [[0, 1], [1, 2], [2, 3], [2, 4], [3, 10], [10, 5], [4, 12], [12, 6], [5, 8], [8, 6], [8, 7], [10, 9], [12, 11], [13, 3], [13, 4], [13, 5], [13, 6], [4, 15], [15, 14], [3, 17], [17, 16], [17, 19], [19, 18], [5, 21], [21, 20], [6, 23], [23, 22], [23, 24]]);
+for (let k = 0; k < 26; k++){ const H = makeHuman(); H.snack.visible = rand() < 0.2; if (rand() < 0.6){ const bp = boxMesh(0.38, 0.45, 0.2, mat(pick([0xd4483a, 0x3f8ad4, 0x2a2a30, 0x3f9a5a, 0xe0a33a])), 0, 1.3, -0.26); H.g.add(bp); } if (rand() < 0.3) H.arms[0].add(boxMesh(0.06, 0.32, 0.24, mat(pick([0xa83a2a, 0x2f5f7a])), 0, -0.55, 0.12)); scene.remove(H.g); uniG.add(H.g); crowd47(H, UWAYS47, {y: 0.15}); }
+{
+  const lie = (x, z, mode) => { const H = makeHuman(); H.snack.visible = false; scene.remove(H.g); uniG.add(H.g); H.g.position.set(x, 0.15, z);
+    if (mode === 'sit'){ sitPose(H); H.g.position.y = 0.1; H.g.rotation.y = rand()*6; }
+    if (mode === 'nap'){ H.g.rotation.set(-PI/2, rand()*6, 0); H.g.position.y = 0.3; H.g.add(boxMesh(0.4, 0.05, 0.3, mat(0x2f5f7a), 0, 1.86, 0.2)); }
+    if (mode === 'guitar'){ sitPose(H); H.g.position.y = 0.1; const gt = new THREE.Group(); gt.position.set(0, 1.1, 0.3); gt.rotation.z = 0.9; H.g.add(gt); gt.add(mesh(SPHERE, mat(0xc8803a), 0, 0, 0)).scale.set(0.22, 0.28, 0.08); gt.add(boxMesh(0.06, 0.6, 0.04, mat(0x5a3a22), 0, 0.42, 0)); UNI.guitar = H; }
+    return H; };
+  for (const [x, z] of [[-448, -360], [-446, -361.5], [-408, -384], [-410, -385.5], [-412, -352]]) lie(x, z, 'sit');
+  lie(-440, -390, 'nap'); lie(-416, -362, 'guitar');
+  // frisbee on the quad
+  const a = lie(-452, -386, 'stand'), b = lie(-440, -372, 'stand'); a.g.lookAt(b.g.position.x, a.g.position.y, b.g.position.z); b.g.lookAt(a.g.position.x, b.g.position.y, a.g.position.z);
+  const disc = mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.03, 12), mat(0xff6a3a), 0, 0, 0); uniG.add(disc); UNI.frisbee = {a, b, disc, t: 0, dir: 1};
+  // a kickabout on the pitch
+  UNI.ball = mesh(SPHERE, mat(0xf4f4f0), -500, 0.4, -470); UNI.ball.scale.setScalar(0.22); uniG.add(UNI.ball); UNI.ballV = V47(); UNI.ballT = 0;
+  for (let k = 0; k < 8; k++){ const H = makeHuman({shirt: k < 4 ? 0xd4483a : 0x3f8ad4, pants: 0xf4f4f0}); H.snack.visible = false; scene.remove(H.g); uniG.add(H.g); H.g.position.set(-500 + rr(-20, 20), 0.15, -470 + rr(-10, 10)); UNI.players.push({H, ph: rand()*6, home: V47(-500 + (k < 4 ? -1 : 1)*rr(4, 22), 0, -470 + rr(-10, 10))}); }
+}
+// the people with something to ask
+const PLUM47 = npc27('Professor Plumtree', {shirt: 0x6b5a3a, pants: 0x4a3a2a, skin: 0xf2d0b0, hair: 0xe8e4dc, extra: 'glasses'}, 'Professor Plumtree, Chair of Avian Aerodynamics. His thesis has been "nearly finished" since 1989.');
+scene.remove(PLUM47.g); uniG.add(PLUM47.g); PLUM47.g.position.set(-421, 0.95, -405); PLUM47.g.rotation.y = 0.3; VOICES['Professor Plumtree'] = {kind: 'human', base: 130, range: 0.35, rate: 11, cps: 44};
+const WREN47 = npc27('Dr. Wren', {shirt: 0x3f6b8a, pants: 0x2a2a30, skin: 0x8a5a3a, hair: 0x1a1410, extra: 'bun'}, 'Dr. Wren teaches Urban Ornithology 101 outdoors, because the subjects keep coming to class.');
+scene.remove(WREN47.g); uniG.add(WREN47.g); WREN47.g.position.set(-352, 0.15, -457.6); WREN47.g.rotation.y = 0; VOICES['Dr. Wren'] = {kind: 'human', base: 240, range: 0.3, rate: 13, cps: 50};
+for (let k = 0; k < 7; k++){ const H = makeHuman(); H.snack.visible = false; scene.remove(H.g); uniG.add(H.g); sitPose(H); const R = 6 + (k % 3)*2.2, a = -0.6 + k*0.2; H.g.position.set(-352 + Math.sin(a)*R, 0.3 + (k % 3)*0.3, -456 + Math.cos(a)*R); H.g.rotation.y = a + PI; }
+const FLAPPY47 = (() => {
+  const H = npc27('Ruffles', {shirt: 0x8a8f9a, pants: 0x8a8f9a, skin: 0xf2be92, hair: 0x5a3a22}, 'Ruffles, the Featherstone University mascot. Well, a sophomore called Dylan in a very warm pigeon suit.', H => { H.g.add(boxMesh(0.7, 0.9, 0.5, mat(0x8a8f9a), 0, 1.25, 0)); for (const s of [-1, 1]){ const w = boxMesh(0.1, 0.7, 0.45, mat(0x6a6f7a), s*0.42, 1.3, -0.05); w.rotation.z = s*0.3; H.g.add(w); } });
+  scene.remove(H.g); uniG.add(H.g); H.g.position.set(-425, 0.15, -309); H.g.rotation.y = 0; VOICES.Ruffles = {kind: 'human', base: 200, range: 0.4, rate: 14, cps: 52};
+  const head = new THREE.Group(); head.position.set(0, 1.9, 0); H.g.add(head); SPH47(head, 0x8a8f9a, 0, 0.1, 0, 0.42, 0.4, 0.42); SPH47(head, 0x6fae8a, 0, -0.18, 0.05, 0.36, 0.14, 0.36); eyes47(head, 0.17, 0.2, 0.34, 0.1); const bk = mesh(new THREE.ConeGeometry(0.1, 0.3, 6), mat(0xe0b040), 0, 0.05, 0.46); bk.rotation.x = PI/2; head.add(bk);
+  return {H, head, pos: V47(-425, 0.9, -309), dance: 0};
+})();
+// the stolen head sits on Maple Grove High's roof until someone fetches it
+const MHEAD47 = (() => { const g = new THREE.Group(); scene.add(g); g.position.set(-306, 0.15 + 9.5 + 0.35, 300); SPH47(g, 0x8a8f9a, 0, 0.4, 0, 0.42, 0.4, 0.42); SPH47(g, 0x6fae8a, 0, 0.12, 0.05, 0.36, 0.14, 0.36); eyes47(g, 0.17, 0.5, 0.34, 0.1); const bk = mesh(new THREE.ConeGeometry(0.1, 0.3, 6), mat(0xe0b040), 0, 0.35, 0.46); bk.rotation.x = PI/2; g.add(bk); g.add(boxMesh(1.4, 0.5, 0.04, mat(0xffffff, {map: textTex('GO MAPLES! LOL', 80, 20, 11)}), 0, 0.25, -0.6)); g.visible = false; return g; })();
+const makeItem47c = makeItem;
+makeItem = function(kind){ if (kind === 'mhead47'){ const g = new THREE.Group(); SPH47(g, 0x8a8f9a, 0, 0.02, 0.1, 0.17); SPH47(g, 0x6fae8a, 0, -0.08, 0.12, 0.15, 0.06, 0.15); eyes47(g, 0.07, 0.07, 0.24, 0.04); return g; } if (kind === 'page47'){ return boxMesh(0.24, 0.02, 0.32, mat(0xfff8e8), 0, 0, 0.1); } return makeItem47c(kind); };
+
+/* ---------- favours on campus ---------- */
+const PAGE_SPOTS47 = [[-410, 13.95, -418, 'on the roof of Old Main'], [-428, 22.75, -413.4, 'on the clock tower\'s ledge'], [-492, 9.85, -358, 'on the library roof'], [-364, 16.75, -362, 'on top of the observatory dome'], [-546, 8.75, -470, 'on the stadium scoreboard'], [-336, 1.2, -486, 'on the pond bridge']];
+for (const [x, y, z] of PAGE_SPOTS47){ const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g); g.add(boxMesh(0.5, 0.02, 0.7, mat(0xfff8e8, {emissive: 0xfff0c0, emissiveIntensity: 0.35}), 0, 0, 0)); for (let k = 0; k < 4; k++) g.add(boxMesh(0.36, 0.022, 0.03, mat(0x5a5a6a), 0, 0.001, -0.25 + k*0.12)); g.visible = false; UNI.pages.push(g); }
+const pagesGot47 = () => (Q47().pages || 0), pageCount47 = () => { let n = 0, b = pagesGot47(); while (b){ n += b & 1; b >>= 1; } return n; };
+FAV.thesis47 = {giver: 'Professor Plumtree', title: 'The Thesis', xp: 180, get text(){ const n = pageCount47(); return n >= 6 ? 'All six pages! Bring the thesis back to Professor Plumtree on the steps of Old Main.' : `A gust scattered Professor Plumtree's thesis across the campus. Pages found: ${n} / 6. They glint on roofs and high places.`; }};
+marker38('thesis47', -421, 3.1, -405);
+const PL47 = (t, c) => L('Professor Plumtree', t, c);
+nt47('Talk to Professor Plumtree', 'Professor Plumtree', () => _c47.set(-421, 1.7, -405), () => {
+  const st = favState('thesis47');
+  if (st === 'none') return say([PL47('Ah! A pigeon! A real one! Do you know I have written four hundred pages about you? Well. About your species. On the Aerodynamics of the Common Pigeon.'), PL47('Thirty-six years of work. I brought it out here to read it to the statue, and then...'), PL47('...WHOOSH. A gust. The pages went up like a flock of... well, like you. Six of them are still out there. On roofs, mostly.', [
+    {label: 'I\'ll find the pages.', fn: () => say([PL47('Splendid! They will be somewhere high. Pages, like pigeons, love a ledge. Do not read the footnotes. The footnotes are... spicy.')], () => { startFav('thesis47'); for (const p of UNI.pages) p.visible = true; })},
+    {label: 'Sounds like a draft.', fn: () => say([PL47('Ha! Very good. A draft. I shall put that in the introduction. Do come back.')])}])]);
+  if (st === 'active' && pageCount47() >= 6) return say([PL47('All six! In order! Well, in an order.'), PL47('"Chapter Nine: The Pigeon Is, In Fact, Showing Off." It is all here. I shall submit it tomorrow. Or next year. These things take time.'), PL47('By the powers vested in me by a committee that meets twice a decade, I name you Doctor of Flight, honoris causa.')], () => { finishFav('thesis47'); S.crumbs += 30; const it = lootLegend('Honorary Doctorate in Flight', 'medal'); it.named = 1; giveTreasure(it); for (const p of UNI.pages) p.visible = false; });
+  if (st === 'active') return say([PL47(`${pageCount47()} of 6. Where did the rest go? I last saw one heading for ${PAGE_SPOTS47.find((_, i) => !(pagesGot47() & (1 << i)))?.[3] || 'somewhere high'}.`)]);
+  say([PL47(mpick(['Did you know a pigeon can fly at ninety kilometres an hour? I can walk at four. On a good day.', 'My students call me "Plum". I call them "late".', 'The thesis is with the committee. The committee is with lunch.']))]);
+}, 2.6);
+// the pop quiz with Dr. Wren
+const QUIZ47 = [
+  ['Who runs the Shrimp Shack at Red Crook Docks?', ['Big Shrimpo', 'Boris Kempinski', 'Clawdio the crab'], 0],
+  ['What is the zoo\'s runaway penguin called?', ['Kevin', 'Pebble', 'Pingu'], 1],
+  ['What does President Pootin ride round Palace Square?', ['A tank', 'A dumpling rocket', 'A bear'], 2],
+  ['Where does Old Gus spend his days?', ['On a park bench', 'On the Empire deck', 'At Mama Pica\'s'], 0],
+  ['Which family runs Market Lane?', ['The Starlings', 'The Magpies', 'The Shellfish'], 1],
+  ['What did Larry the lobster drive down Nevsky Perchspect?', ['A tram', 'A museum tank', 'A catering van'], 1],
+  ['What is the Tsar Pelmen?', ['A dumpling rocket', 'A Russian bakery', 'A very large hat'], 0],
+  ['How fast can a pigeon fly, says Professor Plumtree?', ['Nine km/h', 'Ninety km/h', 'Nine hundred km/h'], 1],
+];
+FAV.quiz47 = {giver: 'Dr. Wren', title: 'Pop Quiz', xp: 100, text: 'Dr. Wren is giving a pop quiz on Crumb City at the outdoor classroom. Three right answers out of four to pass.'};
+marker38('quiz47', -352, 2.6, -457.6);
+const WR47 = (t, c) => L('Dr. Wren', t, c);
+function quiz47(qs, i = 0, score = 0){
+  if (i >= qs.length){ if (score >= 3) return say([WR47(`${score} out of ${qs.length}! Top marks, little bird.`), WR47('Here: an official student card. You may now attend any lecture, eat in any canteen, and nap in any library. Ms. Quill will still shush you.')], () => { finishFav('quiz47'); S.crumbs += 15; const it = lootLegend('Featherstone Student Card', 'badge'); it.named = 1; giveTreasure(it); });
+    Q47().quizT = performance.now(); return say([WR47(`${score} out of ${qs.length}. See me after class. Or in a minute. Revise, and come back.`)]); }
+  const [q, ans, right] = qs[i];
+  say([WR47(`Question ${i + 1}. ${q}`, ans.map((a, k) => ({label: a, fn: () => { const ok = k === right; floatText(player.pos, ok ? 'correct!' : 'wrong!', ok ? '#7ad07a' : '#ff7a6b', 1); if (ok) tone(880, 0.12, 'triangle', 0.04, 1320); else tone(220, 0.25, 'sawtooth', 0.03, 160); quiz47(qs, i + 1, score + (ok ? 1 : 0)); }})))]);
+}
+nt47('Talk to Dr. Wren', 'Dr. Wren', () => _c47.set(-352, 0.9, -457.6), () => {
+  const st = favState('quiz47');
+  if (st === 'done') return say([WR47(mpick(['Today: why pigeons nod their heads. (It keeps the world still while they walk. Try it.)', 'Our star pupil! Sit anywhere. Not on my head.', 'Homework: watch a pigeon for one hour. You may watch yourself.']))]);
+  if (st === 'active' && Q47().quizT && performance.now() - Q47().quizT < 45000) return say([WR47('Revising? Good. Come back in a little while and we\'ll try again.')]);
+  say([WR47(st === 'none' ? 'Welcome to Urban Ornithology 101! Today, a guest. You! And a pop quiz. About this city.' : 'Ready for another go?', [
+    {label: 'Bring it on.', fn: () => { if (favState('quiz47') === 'none') startFav('quiz47'); quiz47([...QUIZ47].sort(() => Math.random() - 0.5).slice(0, 4)); }},
+    {label: 'I didn\'t revise.', fn: () => say([WR47('Nobody ever does. Come back when you\'re ready.')])}])]);
+}, 2.6);
+// Ruffles and the missing head
+FAV.mascot47 = {giver: 'Ruffles', title: 'Heads Will Roll', xp: 110, get text(){ return player.item === 'mhead47' ? 'You have Ruffles\'s head. Bring it back to the university gate.' : 'Pranksters from Maple Grove High stole the head of Ruffles\'s pigeon costume. Word is it\'s on the roof of Maple Grove High, on School Lane.'; }};
+marker38('mascot47', -425, 3.2, -309);
+const FL47 = (t, c) => L('Ruffles', t, c);
+nt47('Talk to Ruffles', 'Ruffles', () => FLAPPY47.pos, () => {
+  const st = favState('mascot47');
+  if (st === 'none') return say([FL47('Oh, hey. Yeah. I\'m Ruffles. The mascot. Usually I have a head. A big friendly pigeon head.'), FL47('The Maple Grove High kids took it. Every year. The big game is Saturday. I can\'t cheer without a head! Well, I can. It\'s just weird.'), FL47('They always put it on their roof. You can fly, right? Like, for real?', [
+    {label: 'Head retrieval, coming up.', fn: () => say([FL47('You\'re the best. Maple Grove High is down on School Lane, south-west of the city. Look for a big grey head and a rude sign.')], () => { startFav('mascot47'); MHEAD47.visible = true; })},
+    {label: 'Have you tried a hat?', fn: () => say([FL47('A hat on WHAT, my friend?')])}])]);
+  if (st === 'active' && player.item === 'mhead47') return say([FL47('MY HEAD! My beautiful, sweaty head!'), FL47('*muffled* That\'s better. Watch this. The Ruffles Shuffle!')], () => { dropItem(); finishFav('mascot47'); FLAPPY47.head.visible = true; FLAPPY47.dance = 6; S.crumbs += 15; const it = lootLegend('Ruffles\'s Spare Feather', 'badge'); it.named = 1; giveTreasure(it); });
+  if (st === 'active') return say([FL47(mpick(['It\'s on Maple Grove High\'s roof. On School Lane. Probably wearing sunglasses by now.', 'I\'m just going to stand here. Headless. With dignity.']))]);
+  say([FL47(mpick(['GO FEATHERS! *flap flap*', 'Wanna learn the Ruffles Shuffle? Left wing, right wing, peck, peck, spin!', 'It is SO hot in here.']))], () => { FLAPPY47.dance = 3; });
+}, 2.6);
+nt47('Take Ruffles\'s head', 'Ruffles\'s head', () => _c47.copy(MHEAD47.position).setY(MHEAD47.position.y + 0.4), () => { MHEAD47.visible = false; giveItem('mhead47'); sfx.pop(); toast('Got it! Take the head back to <b>Ruffles</b> at the university gate.'); renderFavour(); }, 2.0, () => favState('mascot47') === 'active' && MHEAD47.visible);
+FLAPPY47.head.visible = false;
+setTimeout(() => { if (favState('mascot47') === 'done') FLAPPY47.head.visible = true; if (favState('mascot47') === 'active' && player.item !== 'mhead47') MHEAD47.visible = true; if (favState('thesis47') === 'active') UNI.pages.forEach((p, i) => p.visible = !(pagesGot47() & (1 << i))); }, 0);
+
+/* ---------- the two high schools on School Lane ---------- */
+const sparG = igroup(SPARROW47.cx, SPARROW47.cz, 160), mapleG = igroup(MAPLE47.cx, MAPLE47.cz, 160);
+const SCH47 = {sparKids: [], mapleKids: [], band: [], flags: [], hoops: [], bellT: 40, recess: false, footy: []};
+function parkedBus47(G, x, z, ry){ const M = busModel47('school'); scene.remove(M.g); G.add(M.g); M.g.position.set(x, 0.15, z); M.g.rotation.y = ry; addSolid(x, z, Math.abs(Math.sin(ry)) > 0.5 ? 8.6 : 2.4, Math.abs(Math.sin(ry)) > 0.5 ? 2.4 : 8.6, 0.15, 2.8, 'bus'); return M; }
+{
+  // Sparrow Hill High: brick, a white cupola, a flagpole, a football field and a basketball court
+  const K = kit47(), G = sparG, R = {x0: SPARROW47.x0, x1: SPARROW47.x1, z0: SPARROW47.z0 - 1, z1: SPARROW47.z1};
+  slab47(K, R); mapRects.push({x0: R.x0, z0: R.z0, x1: R.x1, z1: R.z1, color: '#7fbf5a', kind: 'park'});
+  K.bld(-484, 297, 72, 12, 8, FAC47.brick, {trim: 0x5a4a48, mapCol: '#b0563c'}); K.bld(-514, 318, 12, 30, 8, FAC47.brick, {trim: 0x5a4a48, map: false}); K.bld(-454, 318, 12, 30, 8, FAC47.brick, {trim: 0x5a4a48, map: false});
+  for (let k = 0; k < 4; k++) K.inst('colS', new THREE.CylinderGeometry(0.35, 0.38, 5, 8), 0xf4f0e6, -490 + k*4, 2.65, 289.6); K.box(15, 0.6, 3, -484, 5.4, 289.8, 0xf4f0e6); K.box(14, 0.3, 3.6, -484, 0.3, 289.2, 0xd8ccb0, {solid: 'step'}); K.box(2.4, 3, 0.15, -484, 1.65, 290.9, 0x2f5f7a);
+  K.box(3.6, 3, 3.6, -484, 9.65, 297, 0xf4f0e6); { const dm = mesh(new THREE.SphereGeometry(1.9, 12, 6, 0, PI*2, 0, PI/2), mat(0x3f7a6a), -484, 11.15, 297); G.add(dm); K.box(0.1, 1.6, 0.1, -484, 13.6, 297, 0x2a2a30); }
+  { const s = mesh(new THREE.PlaneGeometry(12, 1.0), mat(0xffffff, {map: textTex('SPARROW HILL HIGH SCHOOL', 230, 22, 13)}), -484, 7.0, 290.9); s.rotation.y = PI; G.add(s); }
+  { K.box(0.25, 1.8, 0.25, -472, 1.05, 284, 0x6b4a2e); K.box(0.25, 1.8, 0.25, -463, 1.05, 284, 0x6b4a2e); K.box(9.6, 1.6, 0.3, -467.5, 1.9, 284, 0x2a4a6a, {solid: 'sign'}); const s = mesh(new THREE.PlaneGeometry(9.2, 1.3), mat(0xffffff, {map: textTex('SPARROW HILL HIGH · HOME OF THE HAWKS', 360, 36, 13)}), -467.5, 1.9, 283.84); s.rotation.y = PI; G.add(s); }
+  K.box(0.18, 10, 0.18, -500, 5.15, 285, 0xd8d4cc); { const f = new THREE.Group(); f.position.set(-500, 9.4, 285); G.add(f); const fl = mesh(new THREE.PlaneGeometry(2.2, 1.3), mat(0xffffff, {map: textTex('HAWKS', 60, 36, 14), side: THREE.DoubleSide}), 1.15, 0, 0); f.add(fl); SCH47.flags.push(f); }
+  // the courtyard inside the U
+  for (const [x, z] of [[-494, 312], [-484, 318], [-474, 312], [-494, 326], [-474, 326]]){ K.box(2.4, 0.1, 1.2, x, 0.95, z, 0xd4483a); for (const s of [-1, 1]) K.box(2.4, 0.08, 0.35, x, 0.6, z + s*0.9, 0xd4483a); addSolid(x, z, 2.4, 1.2, 0.15, 1.0, 'table'); }
+  tree47(K, -484, 328, 1.1, 0xc8a040);
+  // the football field, with yard lines and yellow goalposts
+  K.box(92, 0.03, 42, -484, 0.17, 395, mat(0x5fae4a)); for (let k = 0; k <= 10; k++) K.box(0.18, 0.012, 42, -530 + 9.2*k, 0.19, 395, 0xf4ead2); for (const s of [-1, 1]) K.box(9, 0.02, 42, -484 + s*41.5, 0.18, 395, s > 0 ? 0x2f5f7a : 0xb0563c);
+  for (const s of [-1, 1]){ const x = -484 + s*47; K.box(0.2, 3.2, 0.2, x, 1.75, 395, 0xf2c12e); K.box(0.2, 0.2, 5.6, x, 3.35, 395, 0xf2c12e); for (const dz of [-2.8, 2.8]) K.box(0.16, 4, 0.16, x, 5.35, 395 + dz, 0xf2c12e); }
+  for (let k = 0; k < 4; k++) K.box(66, 0.5, 1.4, -484, 0.4 + k*0.5, 369 - k*1.3, k % 2 ? 0xb0563c : 0xd4d0c8, {solid: 'bleacher'});
+  // the basketball court
+  K.box(14, 0.03, 26, -538, 0.17, 345, mat(0xc87a4a)); for (const z of [333, 345, 357]) K.box(14, 0.012, 0.12, -538, 0.19, z, 0xf4ead2);
+  for (const s of [-1, 1]){ const z = 345 + s*12.4; K.box(0.15, 3.4, 0.15, -538, 1.85, z + s*0.4, 0x2a2a30); K.box(1.6, 1.0, 0.08, -538, 3.4, z, 0xf4f4f0); const h = mesh(new THREE.TorusGeometry(0.3, 0.03, 4, 12), mat(0xff6a1a), -538, 3.05, z - s*0.35); h.rotation.x = PI/2; G.add(h); SCH47.hoops.push(V47(-538, 3.05, z - s*0.35)); }
+  // trees, and a bus bay out front
+  for (const [x, z] of [[-546, 290], [-424, 290], [-420, 340], [-548, 420], [-422, 432], [-430, 300]]) tree47(K, x, z, rr(0.95, 1.2), pick([0x4f9e3a, 0xc8a040, 0xd87a3a]));
+  path47(K, -548, 280, -526, 288, asphalt47, 0.165);
+  K.build(G); freeze47(G);
+  parkedBus47(G, -537, 284, PI/2);
+}
+// a lawn and a walk between the two schools
+{ const K = kit47(); slab47(K, {x0: -416, x1: -404, z0: 279, z1: 440}); path47(K, -412, 279, -408, 440); for (let z = 292; z < 440; z += 14) tree47(K, -414, z, 0.9, pick([0xd87a3a, 0xc8a040, 0x4f9e3a])); K.build(mapleG); }
+{
+  // Maple Grove High: a long modern block, a glass atrium, a gym, a baseball diamond, tennis and the marching band's field
+  const K = kit47(), G = mapleG, R = {x0: MAPLE47.x0, x1: MAPLE47.x1, z0: MAPLE47.z0 - 1, z1: MAPLE47.z1};
+  slab47(K, R); mapRects.push({x0: R.x0, z0: R.z0, x1: R.x1, z1: R.z1, color: '#7fbf5a', kind: 'park'});
+  K.bld(-333, 300, 84, 14, 9.5, FAC47.maple, {trim: 0x6b3a1e, mapCol: '#c8a060'});
+  K.box(14, 9, 4, -333, 4.65, 291.2, glassMat, {solid: 'building'}); K.box(14.6, 0.4, 4.6, -333, 9.3, 291.2, 0x6b3a1e);
+  { const s = mesh(new THREE.PlaneGeometry(14, 1.1), mat(0xffffff, {map: textTex('MAPLE GROVE HIGH SCHOOL', 230, 22, 13)}), -333, 10.3, 289.1); s.rotation.y = PI; G.add(s); }
+  K.bld(-380, 334, 28, 24, 10.5, FAC47.sci, {trim: 0x6b3a1e, mapCol: '#e8e4dc'});
+  { const s = mesh(new THREE.PlaneGeometry(10, 1.6), mat(0xffffff, {map: textTex('GO MAPLES!', 120, 22, 16), emissive: 0xffa040, emissiveIntensity: 0.2}), -365.85, 7.5, 334); s.rotation.y = PI/2; G.add(s); }
+  K.box(0.18, 10, 0.18, -350, 5.15, 285, 0xd8d4cc); { const f = new THREE.Group(); f.position.set(-350, 9.4, 285); G.add(f); const fl = mesh(new THREE.PlaneGeometry(2.2, 1.3), mat(0xffffff, {map: textTex('MAPLES', 60, 36, 13), side: THREE.DoubleSide}), 1.15, 0, 0); f.add(fl); SCH47.flags.push(f); }
+  // the baseball diamond
+  { const cx = -372, cz = 404; K.box(90, 0.02, 60, -366, 0.165, 410, mat(0x5fae4a)); K.box(20, 0.03, 20, cx, 0.18, cz, mat(0xc89a6a), {ry: PI/4});
+    for (const [dx, dz] of [[0, 14], [14, 0], [0, -14], [-14, 0]]){ const b = boxMesh(0.5, 0.08, 0.5, mat(0xf4f4f0), cx + dx*0.7, 0.21, cz + dz*0.7); b.rotation.y = PI/4; G.add(b); }
+    const mound = mesh(new THREE.CylinderGeometry(1.4, 1.6, 0.25, 12), mat(0xc89a6a), cx, 0.25, cz); G.add(mound);
+    const wire = new THREE.MeshBasicMaterial({color: 0x8a8f94, transparent: true, opacity: 0.35, side: THREE.DoubleSide});
+    for (const s of [-1, 1]){ const w = mesh(new THREE.PlaneGeometry(10, 5), wire, cx - 10 + s*3.5, 2.65, cz - 10 + s*-3.5 + 0); w.rotation.y = s*PI/4; G.add(w); }
+    for (let k = 0; k < 3; k++) K.box(16, 0.5, 1.3, cx - 14, 0.4 + k*0.5, cz - 16 - k*1.2, 0xd4d0c8, {ry: PI/4, solid: null}); }
+  // tennis courts
+  for (const x of [-285, -271]){ K.box(12, 0.03, 24, x, 0.17, 334, mat(0x3f7a8a)); K.box(10.5, 0.012, 22, x, 0.18, 334, mat(0x4f8a9a)); K.box(11, 1.0, 0.05, x, 0.65, 334, 0xf4f4f0); }
+  // the band's practice field
+  K.box(44, 0.02, 34, -295, 0.165, 392, mat(0x6ab84a)); for (let k = 0; k <= 4; k++) K.box(0.15, 0.012, 34, -317 + k*11, 0.18, 392, 0xf4ead2);
+  for (const [x, z] of [[-398, 290], [-268, 290], [-266, 420], [-400, 436], [-300, 432], [-340, 350], [-320, 350]]) tree47(K, x, z, rr(0.95, 1.2), pick([0xd87a3a, 0xc8a040, 0xb0402e, 0x4f9e3a]));
+  path47(K, -300, 280, -278, 288, asphalt47, 0.165);
+  K.build(G); freeze47(G);
+  parkedBus47(G, -289, 284, -PI/2);
+}
+// the kids
+const SWAYS47 = {
+  spar: nav47([[-484, 287.5], [-440, 286], [-530, 286], [-538, 300], [-536, 345], [-530, 365], [-484, 345], [-484, 320], [-440, 345], [-436, 300], [-484, 366]], [[0, 1], [0, 2], [2, 3], [3, 4], [4, 5], [5, 10], [10, 6], [6, 7], [6, 8], [8, 9], [9, 1], [4, 6], [5, 6]]),
+  maple: nav47([[-333, 287], [-385, 288], [-280, 288], [-398, 312], [-360, 316], [-300, 316], [-280, 335], [-372, 384], [-300, 370], [-398, 352]], [[0, 1], [0, 2], [1, 3], [3, 9], [9, 7], [3, 4], [4, 5], [5, 2], [5, 6], [6, 8], [8, 7], [4, 7], [4, 8]]),
+};
+for (const [key, G, list] of [['spar', sparG, SCH47.sparKids], ['maple', mapleG, SCH47.mapleKids]]) for (let k = 0; k < 14; k++){ const H = makeHuman(); H.g.scale.setScalar(rr(0.82, 0.92)); H.snack.visible = rand() < 0.2; H.g.add(boxMesh(0.36, 0.42, 0.18, mat(pick([0xd4483a, 0x3f8ad4, 0x2a2a30, 0xe880c0, 0x3f9a5a])), 0, 1.3, -0.25)); scene.remove(H.g); G.add(H.g); list.push(crowd47(H, SWAYS47[key], {sp: rr(1.3, 1.8)})); }
+// hoops at Sparrow Hill
+{ const ball = mesh(SPHERE, mat(0xe0702a), -538, 0.4, 345); ball.scale.setScalar(0.18); sparG.add(ball); SCH47.bball = {ball, t: 0, from: V47(), to: V47(), dur: 1, shooters: []};
+  for (let k = 0; k < 3; k++){ const H = makeHuman({shirt: pick([0xf4f4f0, 0x2a4a6a])}); H.g.scale.setScalar(0.9); H.snack.visible = false; scene.remove(H.g); sparG.add(H.g); H.g.position.set(-538 + rr(-4, 4), 0.15, 345 + rr(-8, 8)); SCH47.bball.shooters.push(H); } }
+// the Maple Grove marching band
+{
+  const uni = mat(0x7a1a2a), white = mat(0xf4f4f0), gold = mat(0xe0b040);
+  for (let k = 0; k < 13; k++){
+    const H = makeHuman({shirt: 0x7a1a2a, pants: 0xf4f4f0}); H.snack.visible = false; scene.remove(H.g); mapleG.add(H.g);
+    const hat = mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.36, 8), white, 0, 2.1, 0); H.g.add(hat); H.g.add(mesh(new THREE.ConeGeometry(0.06, 0.3, 6), mat(0xffd166), 0, 2.42, 0));
+    const kind = k === 0 ? 'major' : k < 5 ? 'drum' : k < 9 ? 'brass' : 'tuba';
+    if (kind === 'drum'){ const d = mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.3, 12), white, 0, 1.05, 0.3); d.rotation.x = PI/2; H.g.add(d); }
+    if (kind === 'brass'){ H.arms[0].rotation.x = H.arms[1].rotation.x = -1.4; const t = mesh(new THREE.ConeGeometry(0.1, 0.5, 8), gold, 0, 1.75, 0.55); t.rotation.x = -PI/2; H.g.add(t); }
+    if (kind === 'tuba'){ const t = mesh(new THREE.TorusGeometry(0.32, 0.1, 6, 12), gold, 0, 1.5, 0.15); H.g.add(t); const b = mesh(new THREE.ConeGeometry(0.3, 0.4, 10, 1, true), gold, 0.1, 2.2, 0.1); b.rotation.x = PI; H.g.add(b); }
+    if (kind === 'major'){ const baton = boxMesh(0.04, 0.8, 0.04, white, 0, -0.65, 0.1); H.arms[1].add(baton); hat.scale.set(1.1, 1.6, 1.1); }
+    const row = k === 0 ? -1 : Math.floor((k - 1)/4), col = k === 0 ? 1.5 : (k - 1) % 4;
+    SCH47.band.push({H, kind, row, col, ph: 0});
+  }
+  SCH47.bandT = 0;
+}
+const TIMMY47 = npc27('Timmy', {shirt: 0x3f8ad4, pants: 0x3a3330, skin: 0xf2be92, hair: 0xc0522a, extra: 'cap'}, 'Timmy, Sparrow Hill High, tenth grade. Has never once handed his homework in on time.');
+scene.remove(TIMMY47.g); sparG.add(TIMMY47.g); TIMMY47.g.scale.setScalar(0.88); TIMMY47.g.position.set(-479, 0.65, 288.4); TIMMY47.g.rotation.y = PI; VOICES.Timmy = {kind: 'human', base: 230, range: 0.45, rate: 15, cps: 54};
+const GRIM47 = npc27('Mrs. Grimsby', {shirt: 0x5a3a5a, pants: 0x3a3040, skin: 0xf6cfa8, hair: 0x6a6a72, extra: 'glasses'}, 'Mrs. Grimsby teaches English at Sparrow Hill. Has heard every excuse. Believes none of them.');
+scene.remove(GRIM47.g); sparG.add(GRIM47.g); GRIM47.g.position.set(-490, 0.65, 288.4); GRIM47.g.rotation.y = PI; VOICES['Mrs. Grimsby'] = {kind: 'human', base: 210, range: 0.25, rate: 11, cps: 42};
+FAV.homework47 = {giver: 'Timmy', title: 'A Pigeon Ate My Homework', xp: 80, text: 'Timmy swears a pigeon ate his homework. Mrs. Grimsby doesn\'t believe him. Go and be the pigeon: talk to Mrs. Grimsby on the school steps.'};
+marker38('homework47', -479, 2.7, 288.4);
+const TI47 = (t, c) => L('Timmy', t, c), GR47 = (t, c) => L('Mrs. Grimsby', t, c);
+nt47('Talk to Timmy', 'Timmy', () => _c47.set(-479, 1.2, 288.4), () => {
+  const st = favState('homework47');
+  if (st === 'none') return say([TI47('Okay, so, this is going to sound fake. A pigeon ate my homework. A real one. Grey. Like you. Kind of exactly like you.'), TI47('Mrs. Grimsby says "a pigeon ate my homework" is the oldest excuse in the book. Older than "the dog ate it". She has a list.'), TI47('Could you, like... go and look guilty at her? Please? I\'ll owe you forever.', [
+    {label: 'I\'ll be your pigeon.', fn: () => say([TI47('YES. She\'s right there on the steps. Look hungry. Look sorry. Look like a pigeon.')], () => startFav('homework47'))},
+    {label: 'Did you do the homework?', fn: () => say([TI47('...Define "do".')])}])]);
+  if (st === 'done') return say([TI47(mpick(['Best. Pigeon. Ever. I got a B minus! For honesty!', 'I named my essay after you. "The Pigeon". It\'s about a pigeon.']))]);
+  say([TI47('Go on, she\'s right there! Look guilty!')]);
+}, 2.2);
+nt47('Talk to Mrs. Grimsby', 'Mrs. Grimsby', () => _c47.set(-490, 1.2, 288.4), () => {
+  const st = favState('homework47');
+  if (st === 'active') return say([GR47('"A pigeon ate my homework." Timothy. Really. In thirty-one years I have never once seen a pigeon eat homew—'), GR47('...'), GR47('Is that a pigeon? On my steps? Looking at me like that?', [
+    {label: '*burp up a scrap of paper*', fn: () => say([GR47('That says "The Causes of the First World War"! In Timothy\'s handwriting! With a drawing of a sword!'), GR47('Well. I owe you an apology, Timothy. And you, pigeon, owe Timothy four hundred words.'), TI47('VINDICATED!')], () => { finishFav('homework47'); S.crumbs += 12; addXP(20); emit('feather', player.pos, 6, 0.6, 1); })},
+    {label: '*coo innocently*', fn: () => say([GR47('Do not "coo" at me. I know that coo. That is a guilty coo.'), GR47('...Fine. Timothy, you are excused. This once. And you, bird: no more paper. It\'s bad for you.'), TI47('YESSS!')], () => { finishFav('homework47'); S.crumbs += 12; addXP(20); })}])]);
+  say([GR47(mpick(['No running in the corridors. No flying, either.', 'Their, there and they\'re, pigeon. Learn them. Live them.', 'I\'ve read every excuse. "My homework was eaten by a gull" is new this year.']))]);
+}, 2.2);
+
+/* ---------- the walkers, the clocks, the graduation, the bell and the band ---------- */
+function updateCrowd47(dt, time){
+  const P = player.pos;
+  for (const c of CROWD47){
+    const g = c.H.g; if (!g.parent || !g.parent.visible) continue;
+    const far = (g.position.x - P.x)**2 + (g.position.z - P.z)**2 > 75*75; g.visible = !far; if (far) continue;
+    let tx, tz;
+    if (c.follow){ const f = c.follow.H.g.position; tx = f.x + 0.9; tz = f.z + 0.5; }
+    else { if (c.wait > 0){ c.wait -= dt; for (const l of c.H.legs) l.rotation.x *= 0.85; continue; } [tx, tz] = c.nav.pts[c.i]; }
+    const dx = tx - g.position.x, dz = tz - g.position.z, dl = Math.hypot(dx, dz);
+    if (dl < (c.follow ? 0.6 : 0.8)){ if (!c.follow){ c.wait = rand() < 0.5 ? rr(1.5, 7) : rr(0, 0.6); navNext47(c); } for (const l of c.H.legs) l.rotation.x *= 0.85; continue; }
+    const sp = c.sp*(c.run ? 2 : 1), st = Math.min(dl, sp*dt); g.position.x += dx/dl*st; g.position.z += dz/dl*st; g.rotation.y = angLerp(g.rotation.y, Math.atan2(dx, dz), damp(6, dt));
+    c.ph += dt*sp*4.2; const sw = Math.sin(c.ph)*0.55; c.H.legs[0].rotation.x = sw; c.H.legs[1].rotation.x = -sw; c.H.arms[0].rotation.x = -sw*0.5;
+  }
+}
+const GRAD47 = (() => {
+  const g = new THREE.Group(); uniG.add(g); g.visible = false; const people = [], caps = [];
+  for (let k = 0; k < 14; k++){ const H = makeHuman(); H.snack.visible = false; scene.remove(H.g); g.add(H.g); H.g.add(boxMesh(0.62, 1.2, 0.38, mat(0x1a1a2a), 0, 1.0, 0)); const cap = new THREE.Group(); cap.add(boxMesh(0.5, 0.04, 0.5, mat(0x1a1a2a), 0, 0, 0)); cap.add(boxMesh(0.03, 0.18, 0.03, mat(0xe0b040), 0.2, -0.08, 0.2)); H.g.add(cap); cap.position.set(0, 2.02, 0); const x = -440 + (k % 7)*4, z = -386 + Math.floor(k/7)*3.5; H.g.position.set(x, 0.15, z); H.g.rotation.y = PI; people.push(H); caps.push({cap, H, v: V47(), on: false, home: V47(0, 2.02, 0)}); }
+  const dean = makeHuman({shirt: 0x7a1a2a, pants: 0x1a1a2a}); dean.snack.visible = false; scene.remove(dean.g); g.add(dean.g); dean.g.position.set(-428, 0.15, -394); dean.g.rotation.y = 0; g.add(boxMesh(1.0, 1.2, 0.6, mat(0x6b4a2e), -428, 0.75, -392.8));
+  return {g, people, caps, dean, t: 0, phase: 'off', cd: 40};
+})();
+let uniBellT47 = 0, lastHour47 = -1;
+function updateUni47(dt, time){
+  const P = player.pos, playing = state === 'play', near = uniG.visible;
+  // the clock tells the game's time, and the bell tolls the hour
+  { const hrs = (dayT*24 + 24) % 24, ha = -((hrs % 12)/12)*PI*2, ma = -((hrs*60) % 60)/60*PI*2; for (const c of UNI.clocks) c.h.rotation.z = c.len < 1.5 ? ha : ma;
+    const H = Math.floor(hrs); if (H !== lastHour47){ if (lastHour47 >= 0 && playing && in47(CAMPUS47, P.x, P.z, 80)){ const n = H % 12 || 12; for (let k = 0; k < Math.min(n, 6); k++) setTimeout(() => BIRDS27.bellToll(0.03), k*1100); } lastHour47 = H; } }
+  // pages of the thesis
+  if (favState('thesis47') === 'active') UNI.pages.forEach((p, i) => { if (!p.visible) return; p.rotation.y += dt*1.5; p.position.y = PAGE_SPOTS47[i][1] + Math.sin(time*2 + i)*0.12; if (p.position.distanceTo(P) < 1.6){ p.visible = false; Q47().pages = pagesGot47() | (1 << i); sfx.pop(); emit('confetti', p.position, 8, 0.6, 1); floatText(P, `page ${pageCount47()} / 6`, '#fff6dc', 1.4); addXP(8); renderFavour(); save(); if (pageCount47() >= 6) toast('All six pages! Take the thesis back to <b>Professor Plumtree</b>.'); } });
+  if (!near) return;
+  // ducks on the pond
+  for (let k = 0; k < 4; k++){ const d = UNI['duck' + k]; d.a += dt*0.12*(k % 2 ? 1 : -1); d.g.position.set(-336 + Math.cos(d.a)*d.r, 0.17, -490 + Math.sin(d.a)*d.r); d.g.rotation.y = -d.a + (k % 2 ? 0 : PI); }
+  // frisbee
+  { const F = UNI.frisbee; F.t += dt*0.55; if (F.t >= 1){ F.t = 0; F.dir *= -1; } const A = F.dir > 0 ? F.a : F.b, B = F.dir > 0 ? F.b : F.a; F.disc.position.lerpVectors(A.g.position, B.g.position, F.t); F.disc.position.y = 1.4 + Math.sin(F.t*PI)*2.2; F.disc.rotation.y += dt*14; A.arms[1].rotation.x = F.t < 0.15 ? -1.6 : -0.3; B.arms[1].rotation.x = F.t > 0.85 ? -1.6 : -0.3; }
+  if (UNI.guitar && playing && P.distanceTo(UNI.guitar.g.position) < 14){ UNI.guitar.arms[1].rotation.x = -0.8 + Math.sin(time*9)*0.15; if (rand() < dt*3) tone(pick([196, 247, 294, 330, 392]), 0.4, 'triangle', 0.012); }
+  // the kickabout
+  { const B = UNI.ball; UNI.ballT -= dt; if (UNI.ballT <= 0){ UNI.ballT = rr(1.2, 3); UNI.ballV.set(rr(-8, 8), rr(1, 4), rr(-5, 5)); } UNI.ballV.y -= 12*dt; B.position.addScaledVector(UNI.ballV, dt); if (B.position.y < 0.37){ B.position.y = 0.37; UNI.ballV.y *= -0.4; UNI.ballV.x *= 0.96; UNI.ballV.z *= 0.96; } B.position.x = clamp(B.position.x, -528, -472); B.position.z = clamp(B.position.z, -484, -456);
+    const near2 = [...UNI.players].sort((a, b) => a.H.g.position.distanceToSquared(B.position) - b.H.g.position.distanceToSquared(B.position)).slice(0, 2); for (const pl of UNI.players){ const g = pl.H.g, chase = near2.includes(pl); const tx = chase ? B.position.x : pl.home.x + (B.position.x + 500)*0.35, tz = chase ? B.position.z : pl.home.z + (B.position.z + 470)*0.3, dx = tx - g.position.x, dz = tz - g.position.z, dl = Math.hypot(dx, dz); if (dl > 0.6){ const st = Math.min(dl, (chase ? 3.6 : 1.5)*dt); g.position.x += dx/dl*st; g.position.z += dz/dl*st; g.rotation.y = Math.atan2(dx, dz); pl.ph += dt*12; const sw = Math.sin(pl.ph)*0.8; pl.H.legs[0].rotation.x = sw; pl.H.legs[1].rotation.x = -sw; } else if (B.position.y < 0.6 && UNI.ballT > 0.4){ UNI.ballT = 0; } } }
+  // Ruffles dances when happy
+  if (FLAPPY47.dance > 0){ FLAPPY47.dance -= dt; const H = FLAPPY47.H; H.g.rotation.y = Math.sin(time*6)*0.8; H.arms[0].rotation.z = Math.sin(time*10)*0.8 + 0.6; H.arms[1].rotation.z = -Math.sin(time*10)*0.8 - 0.6; if (FLAPPY47.dance <= 0){ H.g.rotation.y = 0; H.arms[0].rotation.z = H.arms[1].rotation.z = 0; } } else if (playing && P.distanceTo(FLAPPY47.H.g.position) < 6){ FLAPPY47.H.arms[1].rotation.z = -0.6 - Math.abs(Math.sin(time*5))*0.8; }
+  // graduation on the quad, now and then in the afternoon
+  { const Gd = GRAD47; Gd.cd -= dt;
+    if (Gd.phase === 'off' && Gd.cd <= 0 && dayT > 0.45 && dayT < 0.68 && in47(CAMPUS47, P.x, P.z, 40)){ Gd.phase = 'speech'; Gd.t = 16; Gd.g.visible = true; if (playing) toast('Graduation day on the quad! 🎓', '', 2400); speak(Gd.dean.g, 'Graduates of Featherstone University...'); }
+    if (Gd.phase === 'speech'){ Gd.t -= dt; Gd.dean.arms[1].rotation.x = -0.6 + Math.sin(time*2)*0.4; if (Gd.t < 11 && Gd.t + dt >= 11) speak(Gd.dean.g, '...you may now throw your hats!'); if (Gd.t <= 8){ Gd.phase = 'throw'; Gd.t = 7; for (const c of Gd.caps){ c.H.g.updateMatrixWorld(true); c.cap.getWorldPosition(_a47); Gd.g.attach(c.cap); c.v.set(rr(-1, 1), rr(7, 10), rr(-1, 1)); c.on = true; c.H.arms[0].rotation.x = c.H.arms[1].rotation.x = -2.8; } if (playing && P.distanceTo(Gd.dean.g.position) < 60){ for (let k = 0; k < 6; k++) noise(0.3, 1800 + k*200, 0.03, k*0.1); emit('confetti', _a47.set(-428, 3, -384), 40, 6, 3); } } }
+    if (Gd.phase === 'throw'){ Gd.t -= dt; for (const c of Gd.caps){ if (!c.on) continue; c.v.y -= 9*dt; c.cap.position.addScaledVector(c.v, dt); c.cap.rotation.x += dt*6; c.cap.rotation.z += dt*4; if (c.cap.position.y < 0.2){ c.cap.position.y = 0.2; c.v.set(0, 0, 0); } }
+      if (Gd.t <= 0){ Gd.phase = 'off'; Gd.cd = rr(240, 420); Gd.g.visible = false; for (const c of Gd.caps){ c.H.g.add(c.cap); c.cap.position.copy(c.home); c.cap.rotation.set(0, 0, 0); c.on = false; c.H.arms[0].rotation.x = c.H.arms[1].rotation.x = 0; } } } }
+}
+function updateSchools47(dt, time){
+  const P = player.pos, playing = state === 'play';
+  for (const f of SCH47.flags) f.rotation.y = Math.sin(time*2.2 + f.position.x)*0.25;
+  // school buses: stop at the schools, swing the stop arm out, and flash
+  for (const v of SCHOOLBUS47){ const M = v.M;
+    if (v.state === 'drive' && !v.ss){ for (const st of SSTOPS47){ const ahead = (st.u - v.u)*v.dir; if (ahead > 8 && ahead < 22 && (!v.lastStop || v.lastStop !== st.name)){ v.state = 'curb'; v.curbU = st.u; v.t = 9; v.ind = 1; v.lastStop = st.name; v.ss = st; break; } } }
+    if (v.ss && v.state !== 'curb'){ v.ss = null; }
+    const stopped = v.state === 'curb' && v.cur < 0.4; M.arm.rotation.y = lerp(M.arm.rotation.y, stopped ? -PI/2 : 0, damp(5, dt)); for (const [i, fm] of M.flash.entries()) fm.emissiveIntensity = stopped ? (Math.sin(time*9 + i*PI) > 0 ? 2 : 0.1) : 0;
+    if (stopped && v.ss && !v.kidsOut && playing && v.g.position.distanceTo(P) < 70){ v.kidsOut = true; const list = v.ss.name.startsWith('Maple') ? SCH47.mapleKids : SCH47.sparKids; const door = v.ss.name.startsWith('Maple') ? [-333, 287] : [-484, 288]; for (let k = 0; k < 4; k++){ const c = list[(k + Math.floor(time)) % list.length]; c.H.g.position.set(v.g.position.x + rr(-2, 2), 0.15, v.g.position.z + 3.2); c.wait = 0; c.prev = -1; c.i = Math.max(0, c.nav.pts.findIndex(p => Math.abs(p[0] - door[0]) < 1 && Math.abs(p[1] - door[1]) < 1)); } floatText(v.g.position, mpick(['Bye, Mr. Dale!', 'Don\'t run!', 'BYEEE!']), '#fff6dc', 1.4, {yoff: 3}); }
+    if (!stopped) v.kidsOut = false; }
+  // the bell, and a recess rush
+  SCH47.bellT -= dt; if (SCH47.bellT <= 0){ SCH47.bellT = rr(80, 120); SCH47.recess = !SCH47.recess;
+    for (const [G, pos] of [[sparG, V47(-484, 10, 297)], [mapleG, V47(-333, 11, 300)]]) if (G.visible){ floatText(pos, 'RIIIIIING!', '#ffd166', 1.8); if (playing && P.distanceTo(pos) < 90) for (let k = 0; k < 8; k++) tone(1250, 0.07, 'square', 0.014, 1180, k*0.08); }
+    for (const c of [...SCH47.sparKids, ...SCH47.mapleKids]){ c.wait = rr(0, 1.5); c.run = SCH47.recess; navNext47(c); } }
+  if (sparG.visible){
+    const Bb = SCH47.bball; Bb.t += dt; if (Bb.t >= Bb.dur){ const sh = pick(Bb.shooters); Bb.from.copy(Bb.ball.position); Bb.to.copy(pick(SCH47.hoops)); if (rand() < 0.5) Bb.to.set(-538 + rr(-5, 5), 0.35, 345 + rr(-9, 9)); Bb.t = 0; Bb.dur = rr(0.9, 1.5); Bb.sh = sh; sh.arms[0].rotation.x = sh.arms[1].rotation.x = -2.6; setTimeout(() => { sh.arms[0].rotation.x = sh.arms[1].rotation.x = 0; }, 400); }
+    const u = Bb.t/Bb.dur; Bb.ball.position.lerpVectors(Bb.from, Bb.to, u); Bb.ball.position.y += Math.sin(u*PI)*2.4; if (Bb.to.y < 1 && u > 0.98) Bb.ball.position.y = 0.35;
+    for (const sh of Bb.shooters){ const dx = Bb.ball.position.x - sh.g.position.x, dz = Bb.ball.position.z - sh.g.position.z, dl = Math.hypot(dx, dz); if (dl > 1.5 && sh !== Bb.sh){ const st = Math.min(dl - 1.4, 2.4*dt); sh.g.position.x += dx/dl*st; sh.g.position.z += dz/dl*st; sh.g.rotation.y = Math.atan2(dx, dz); } }
+  }
+  if (mapleG.visible){
+    // the band marches up and down, turning at each end, and plays when you're near
+    SCH47.bandT += dt; const beat = SCH47.bandT*2.2, cyc = (SCH47.bandT*1.1) % 60, fwd = cyc < 30, u = fwd ? cyc/30 : 1 - (cyc - 30)/30;
+    for (const b of SCH47.band){ const lead = -312 + u*34, sgn = fwd ? 1 : -1, xx = b.kind === 'major' ? lead + sgn*2.5 : lead - (b.row + 1)*2.4*sgn, z = b.kind === 'major' ? 388 : 384.7 + b.col*2.2; b.H.g.position.set(xx, 0.15, z); b.H.g.rotation.y = fwd ? PI/2 : -PI/2; const sw = Math.sin(beat*PI)*0.6; b.H.legs[0].rotation.x = sw; b.H.legs[1].rotation.x = -sw; if (b.kind === 'major') b.H.arms[1].rotation.x = -1.8 + Math.sin(beat*PI)*0.7; if (b.kind === 'drum'){ b.H.arms[0].rotation.x = -0.9 + Math.abs(Math.sin(beat*PI*2))*0.5; b.H.arms[1].rotation.x = -0.9 + Math.abs(Math.cos(beat*PI*2))*0.5; } }
+    const nearBand = playing && P.distanceTo(_a47.set(-295, 0, 390)) < 42, bi = Math.floor(beat);
+    if (nearBand && bi !== SCH47.lastBeat){ SCH47.lastBeat = bi; const vol = 0.022*clamp(1 - P.distanceTo(_a47)/42, 0.1, 1); noise(0.06, 1400, vol*0.7); if (bi % 2 === 0) tone(80, 0.15, 'sine', vol*1.3, 60); const MEL = [392, 392, 523, 523, 494, 440, 392, 0, 440, 440, 523, 587, 523, 494, 440, 0]; const n = MEL[bi % 16]; if (n){ tone(n, 0.4, 'sawtooth', vol*0.5); tone(n/2, 0.4, 'square', vol*0.25); } }
+  }
+}
+
+/* ---------- v47 · more of the Shellfish saga: Larry learns to drive, the Countess gets visitors, and the shellfish get out more ---------- */
+const SAGA47 = {};
+const _s47 = new THREE.Vector3();
+
+/* =====================================================================
+   LARRY'S LICENCE: Larry drove a museum tank down Nevsky Perchspect, so
+   Big Shrimpo won't let him near the catering van without a licence.
+   Doris Shelldon's driving school, on the Red Crook promenade, is strict
+   ===================================================================== */
+const LOT47 = {x: 351.5, z: 34};
+const lotG47 = igroup(LOT47.x, LOT47.z, 90);
+{
+  const K = kit47(), G = lotG47;
+  K.box(9, 0.04, 16, LOT47.x, 0.03, LOT47.z, asphalt47, {uv: UVT(9, 16, 4)});
+  for (const dz of [-8, 8]) K.box(9, 0.015, 0.15, LOT47.x, 0.057, LOT47.z + dz, 0xf4ead2); for (const dx of [-4.5, 4.5]) K.box(0.15, 0.015, 16, LOT47.x + dx, 0.057, LOT47.z, 0xf4ead2);
+  K.box(0.15, 2.4, 0.15, LOT47.x + 4.3, 1.2, LOT47.z - 7.6, 0x2a2a30); K.box(3.4, 1.4, 0.12, LOT47.x + 4.3, 2.6, LOT47.z - 7.6, 0xf4ead2, {solid: 'sign'});
+  const s = mesh(new THREE.PlaneGeometry(3.2, 1.2), mat(0xffffff, {map: textTex('DORIS\'S DRIVING SCHOOL · NO TANKS', 150, 56, 11)}), LOT47.x + 4.3, 2.6, LOT47.z - 7.53); G.add(s); const s2 = s.clone(); s2.rotation.y = PI; s2.position.z = LOT47.z - 7.67; G.add(s2);
+  K.build(G); freeze47(G);
+}
+// the cones (they fly when Larry hits them)
+SAGA47.cones = [[0, -5], [-1.6, -2.5], [1.6, 0], [-1.6, 2.5], [0, 5]].map(([dx, dz]) => { const c = new THREE.Group(); c.add(mesh(new THREE.ConeGeometry(0.22, 0.6, 8), mat(0xff7a1a), 0, 0.3, 0)); c.add(boxMesh(0.4, 0.04, 0.4, mat(0xff7a1a), 0, 0.02, 0)); c.add(mesh(new THREE.CylinderGeometry(0.13, 0.17, 0.08, 8), mat(0xf4f4f0), 0, 0.35, 0)); c.position.set(LOT47.x + dx, 0.02, LOT47.z + dz); lotG47.add(c); return {g: c, home: c.position.clone(), v: V47(), fly: 0}; });
+// the learner car: little, red, L-plates, Larry at the wheel
+SAGA47.car = (() => { const M = vehModel('car', 0xd4483a); scene.remove(M.g); lotG47.add(M.g); M.g.position.set(LOT47.x - 2.6, 0, LOT47.z - 6); M.g.scale.setScalar(0.85);
+  for (const z of [M.L/2 + 0.1, -M.L/2 - 0.1]){ const p = mesh(new THREE.PlaneGeometry(0.4, 0.4), mat(0xffffff, {map: textTex('L', 24, 24, 20)}), 0, 1.0, z); if (z < 0) p.rotation.y = PI; M.g.add(p); }
+  const larry = makeLobster(1.1); larry.position.set(-0.4, 0.9, -0.3); M.g.add(larry); M.larry = larry; M.larry.visible = false; return M; })();
+SAGA47.doris = (() => { const g = makeHermit(1.6, 'spiral'); g.position.set(LOT47.x + 3, 0.02, LOT47.z - 5.5); g.rotation.y = -PI/2; lotG47.add(g); const clip = boxMesh(0.24, 0.3, 0.02, mat(0x8a6a4a), 0.3, 0.55, 0.45); g.add(clip); const hat = makeHat('cap', 0x2a4a6a); hat.scale.setScalar(0.4); hat.position.set(0, 0.95, 0.18); g.add(hat);
+  PORTRAITS['Doris Shelldon'] = renderPortrait((() => { const p = makeHermit(1.0, 'spiral'); p.rotation.y = 0.5; return p; })(), V47(0.2, 0.7, 1.3), V47(0, 0.45, 0)); VOICES['Doris Shelldon'] = {kind: 'click', base: 300, range: 0.25, rate: 12, cps: 44};
+  FOLK.push(['Doris Shelldon', 'A hermit crab who runs the strictest driving school on the Red Crook promenade. Has failed everyone, including herself, twice.']); return g; })();
+const LAR47 = (t, c) => L('Larry', t, c), DOR47 = (t, c) => L('Doris Shelldon', t, c);
+const LC47 = () => Q47().lic || 0, setLC47 = n => { Q47().lic = n; renderFavour(); save(); };
+FAV.licence47 = {giver: 'Larry', title: 'Larry\'s Licence', xp: 160, get text(){ return ['', 'Larry wants a driving licence. Doris Shelldon runs a driving school on the Red Crook promenade, just up from the piers. Ask her.', 'Doris will test Larry in the lot. Talk to her to start the test. When she shouts an instruction, coo (Q) to help Larry: he only listens to pigeons.', 'Larry passed! Tell Big Shrimpo at the Shrimp Shack.'][LC47()] || ''; }};
+marker38('licence47', LOT47.x + 3, 2.4, LOT47.z - 5.5);
+// Larry, home at the Shrimp Shack, now has something to say
+nt47('Talk to Larry', 'Larry', () => _s47.set(SK.cx + 1.8, 1.4, SK.z + 2.2), () => {
+  const st = favState('licence47');
+  if (st === 'none') return say([LAR47('Little bird! My pal! Larry has a problem. Big Shrimpo needs a driver for the van. Pavel is on holiday. In a pot. A hot tub, I mean. A hot tub.'), LAR47('Larry says: Larry drove a TANK through a WALL. Down NEVSKY. With POLICE. Shrimpo says: "you need a licence, Larry".'), LAR47('A licence! For a van! Help Larry get one, eh?', [
+    {label: 'Let\'s get you licensed.', fn: () => say([LAR47('Doris Shelldon. Driving school. On the promenade, up the road from the piers. She failed Clawdio eleven times. She failed herself twice.')], () => { startFav('licence47'); setLC47(1); })},
+    {label: 'Maybe walk for a bit.', fn: () => say([LAR47('Walk? Larry has ten legs and none of them like walking.')])}])]);
+  if (st === 'active' && LC47() === 3) return say([LAR47('Larry is LEGAL! Go tell Shrimpo! Larry would tell him but Larry is busy hugging the licence.')]);
+  if (st === 'active') return say([LAR47(mpick(['Doris is on the promenade. She has a clipboard. Larry is scared of clipboards.', 'Mirror, signal, manoeuvre. Mirror, signal... what was the third one? TANK?']))]);
+  if (st === 'done') return say([LAR47(mpick(['Licence says "No tanks". Larry reads it every morning. Larry respects it. Mostly.', 'Larry drives the van now! Shrimpo says Larry drives like a lobster. Larry says THANK YOU.', 'Beep beep! That is Larry\'s new horn. Larry paid extra.']))]);
+}, 2.4, () => shStage() >= 4 && !!SHELL.larry && !inPeter30());
+nt47('Talk to Doris Shelldon', 'Doris Shelldon', () => _s47.set(LOT47.x + 3, 0.9, LOT47.z - 5.5), () => {
+  const st = favState('licence47'), lc = LC47();
+  if (st === 'active' && lc === 1) return say([DOR47('Larry. THE Larry. The tank Larry. I saw it on the news. Seventeen traffic offences in one minute. A record.'), DOR47('Well. Everybody deserves a test. Not a pass. A test.'), DOR47('Here are the rules. I give instructions. He follows them. He won\'t listen to me, of course. Lobsters never do. But they listen to pigeons. Everybody knows that.'), DOR47('So when I shout, you coo. Press Q the moment I shout. Ready when he is.')], () => { setLC47(2); SAGA47.car.larry.visible = true; toast('Talk to <b>Doris</b> again to start the test. Coo (<b>Q</b>) when she shouts!'); });
+  if (st === 'active' && lc === 2){ if (SAGA47.test) return say([DOR47('Eyes on the road, pigeon!')]); return say([DOR47('Seat belt. Mirrors. Claws at ten and two. Begin!')], () => startTest47()); }
+  if (st === 'done') return say([DOR47(mpick(['Larry passed. I\'ve updated my religion.', 'Nobody passes first time. Nobody. Except, apparently, lobsters with a pigeon.', 'Next week: parallel parking. For crabs. It is sideways anyway.']))]);
+  say([DOR47(mpick(['Driving school. Strictly no tanks, no rockets and no sharks.', 'Mirror, signal, manoeuvre. In that order. ALWAYS in that order.', 'I failed my own test twice. Standards are standards.']))]);
+}, 2.4);
+// Big Shrimpo hears the news
+nt47('Tell Big Shrimpo about Larry\'s licence', 'Big Shrimpo', () => _s47.set(SK.cx - 2, 1.4, SK.z), () => say([L('Big Shrimpo', 'A LICENCE? Larry? OUR Larry? Tank Larry?'), L('Big Shrimpo', '...Let me see that. "Provisional. No tanks." Ha! Ha ha! Larry, you magnificent crustacean!'), L('Big Shrimpo', 'Little bird, the Shellfish owe you. Again. Take this. And take the van keys away from me before I change my mind.')], () => { finishFav('licence47'); S.crumbs += 25; const it = lootLegend('Larry\'s L-Plate', 'badge'); it.named = 1; giveTreasure(it); SAGA47.car.larry.visible = false; }), 2.4, () => favState('licence47') === 'active' && LC47() === 3);
+// the test: Larry drives a slalom up and back; Doris shouts; you coo
+const CALLS47 = ['MIRROR!', 'SIGNAL!', 'MANOEUVRE!', 'BRAKE!', 'CONE!', 'CLAWS ON THE WHEEL!'];
+const TESTPATH47 = mkPath47(roundPath47([[-2.6, -6], [0, -3.8], [-0.2, -1.2], [1.9, 1.3], [0, 3.8], [-2.2, 6.6], [2.6, 6.6], [2.8, -6.6], [-2.6, -6.8]].map(([a, b]) => [LOT47.x + a, LOT47.z + b]), 1.4));
+function startTest47(){ SAGA47.test = {s: 0, calls: 0, ok: 0, bad: 0, callT: 2.4, window: 0, call: null}; SAGA47.car.larry.visible = true; toast('The test begins! Coo (<b>Q</b>) when Doris shouts.', '', 2400); }
+const coo47 = coo;
+coo = function(){ const was = player.anim.cooT; coo47(); if (was <= 0 && player.anim.cooT > 0) onCoo47(); };
+function onCoo47(){
+  const T = SAGA47.test; if (T && T.call){ if (T.window > 0){ T.ok++; floatText(SAGA47.car.g.position, mpick(['Larry hears you!', 'Good bird!', 'Smooth!']), '#7ad07a', 1.2, {yoff: 1.8}); tone(880, 0.1, 'triangle', 0.04, 1320); T.call = null; } }
+  // Ms. Quill does not approve of cooing in her library
+  if (roomAt(player.pos) === uniLibRoom && UNI.quill) speak(UNI.quill.g, mpick(['SHHHH!', 'Shh! This is a LIBRARY.', 'Coo quietly, please.']));
+}
+function updateTest47(dt, time){
+  const T = SAGA47.test, M = SAGA47.car; if (!T) return;
+  if (T.callT > 0){ T.callT -= dt; if (T.callT <= 0 && T.calls < 5){ T.call = pick(CALLS47); T.window = 1.7; T.calls++; speak(SAGA47.doris, T.call); tone(520, 0.18, 'square', 0.03); } }
+  if (T.call){ T.window -= dt; if (T.window <= 0){ T.bad++; T.call = null; const c = pick(SAGA47.cones.filter(c => !c.fly)) || SAGA47.cones[0]; c.fly = 2; c.v.set(rr(-3, 3), 6, rr(-3, 3)); noise(0.2, 600, 0.05); floatText(M.g.position, mpick(['CONE!', 'Larry panics!', 'Oops!']), '#ff7a6b', 1.2, {yoff: 1.8}); } }
+  if (!T.call && T.callT <= 0 && T.calls < 5) T.callT = rr(1.6, 3.2);
+  T.s += dt*(T.call ? 1.2 : 2.2); const L = TESTPATH47.L; pathAt47(TESTPATH47, Math.min(T.s, L - 0.01), _a47); pathAt47(TESTPATH47, Math.min(T.s + 0.6, L), _b47); M.g.position.set(_a47.x, 0, _a47.z); M.g.rotation.y = Math.atan2(_b47.x - _a47.x, _b47.z - _a47.z);
+  if (M.larry) M.larry.rotation.z = Math.sin(time*8)*0.1;
+  if (T.s >= L && T.calls >= 5 && !T.call){ const pass = T.ok >= 3; SAGA47.test = null; M.g.position.set(LOT47.x - 2.6, 0, LOT47.z - 6); M.g.rotation.y = 0;
+    if (pass) say([DOR47(`${T.ok} out of 5. That is... that is a pass. I need to sit down.`), DOR47('Provisional licence. Category: van. Restrictions: no tanks, no museums, no Nevsky Perchspect.'), LAR47('LARRY IS LEGAL! Beep beep! BEEP BEEP!')], () => { setLC47(3); emit('confetti', M.g.position, 30, 2, 2); for (let k = 0; k < 3; k++) setTimeout(() => sfx.honk(), k*300); toast('Larry passed! Tell <b>Big Shrimpo</b> at the Shrimp Shack.'); });
+    else say([DOR47(`${T.ok} out of 5. That's a fail. The cones have filed a complaint.`), LAR47('Again! Larry wants again! Larry was nervous. Larry has ten nervous legs.')]); }
+}
+
+/* =====================================================================
+   VISITING HOURS: the Countess is in a cell at the Peter & Paul Fortress.
+   Babushka Zoya sends her pelmeni and knitting needles. Eight needles.
+   For eight arms. What could go wrong
+   ===================================================================== */
+const CELL47 = {x: 2916, z: 128};
+{
+  const g = new THREE.Group(); pgG.add(g); SAGA47.cellG = g; const K = kit47();
+  K.box(8, 5, 10, CELL47.x, 2.5, CELL47.z, 0x9a9488, {solid: 'building'}); K.box(8.6, 0.5, 10.6, CELL47.x, 5.2, CELL47.z, 0x7a746a);
+  K.box(0.12, 1.6, 2.4, CELL47.x + 4.02, 2.2, CELL47.z - 1, 0x1a1a22); for (let k = 0; k < 5; k++) K.box(0.08, 1.7, 0.08, CELL47.x + 4.08, 2.2, CELL47.z - 2 + k*0.5, 0x5a5a62);
+  K.box(0.1, 2.6, 1.4, CELL47.x + 4.02, 1.3, CELL47.z + 2.6, 0x4a3a2a);
+  const s = mesh(new THREE.PlaneGeometry(2.4, 0.4), mat(0xffffff, {map: textTex('CELL No. 8', 100, 18, 12)}), CELL47.x + 4.05, 3.6, CELL47.z - 1); s.rotation.y = PI/2; g.add(s);
+  K.build(g); freeze47(g);
+  // the Countess, seen through the bars, knitting
+  const o = makeOcto(0.8); o.position.set(CELL47.x + 3.86, 1.45, CELL47.z - 1); o.rotation.y = PI/2; g.add(o); SAGA47.octo = o;
+  const doll = makeOcto(0.35); doll.position.set(CELL47.x + 4.0, 1.55, CELL47.z - 1.4); doll.rotation.y = PI/2; g.add(doll); doll.visible = false; SAGA47.doll = doll;
+  const guard = makeHuman({shirt: 0x3a4a3a, pants: 0x2a2a2a}); scene.remove(guard.g); g.add(guard.g); guard.snack.visible = false; guard.g.position.set(CELL47.x + 5.2, 0.05, CELL47.z + 4); guard.g.rotation.y = -PI/2;
+  const hat = mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.32, 10), mat(0x5a4a3a), 0, 2.08, 0); guard.g.add(hat); SAGA47.guard = guard;
+}
+const VH47 = () => Q47().vh || 0, setVH47 = n => { Q47().vh = n; if (n === 2) Q47().vhT = performance.now(); renderFavour(); save(); };
+FAV.visit47 = {giver: 'Babushka Zoya', title: 'Visiting Hours', xp: 150, get text(){ return ['', 'Take Babushka Zoya\'s parcel (pelmeni and eight knitting needles) to Countess Octavia, in Cell No. 8 at the Peter & Paul Fortress.', 'The Countess has her needles. Visiting hours are over. Come back to the fortress a little later.', 'The cell is empty! Ask the guard what happened.'][VH47()] || ''; }};
+const ZO47 = (t, c) => L('Babushka Zoya', t, c), OC47 = (t, c) => L('Countess Octavia', t, c), GU47 = (t, c) => L('Fortress Guard', t, c);
+{ const pz = (o, deco) => { const H = makeHuman(o); scene.remove(H.g); H.snack.visible = false; deco(H); H.g.rotation.y = 0.4; return renderPortrait(H.g, V47(0.3, 1.92, 1.15), V47(0, 1.8, 0)); }; PORTRAITS['Babushka Zoya'] = pz({shirt: 0x3a4a6b, hair: 0xd8d4cc, skin: 0xf2d0b0}, H => H.g.add(boxMesh(0.46, 0.3, 0.46, mat(0x5a8a6a), 0, 1.92, -0.02))); PORTRAITS['Fortress Guard'] = pz({shirt: 0x3a4a3a, pants: 0x2a2a2a, skin: 0xf2be92}, H => H.g.add(mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.32, 10), mat(0x5a4a3a), 0, 2.08, 0))); } VOICES['Babushka Zoya'] = {kind: 'human', base: 250, range: 0.3, rate: 11, cps: 42}; VOICES['Fortress Guard'] = {kind: 'human', base: 120, range: 0.2, rate: 11, cps: 44};
+nt47('Talk to Babushka Zoya', 'Babushka Zoya', () => PBI.attendant.g.getWorldPosition(_s47).setY(1.0), () => {
+  const st = favState('visit47'), vh = VH47();
+  if (st === 'none') return say([ZO47('You. The pigeon with the egg. I remember. I was knitting. I am always knitting.'), ZO47('The octopus lady, the Countess, she is in the fortress now. In a cell. Even a criminal must eat, and must have something to do with her hands. All eight of them.'), ZO47('Here. Pelmeni, still warm. And knitting needles. Eight. For eight arms. Take it to her, little bird?', [
+    {label: 'I\'ll take the parcel.', fn: () => say([ZO47('Cell No. 8. Across the river, inside the fortress walls, by the west wall. Tell her: knit one, purl one.')], () => { startFav('visit47'); setVH47(1); giveItem('parcel47'); })},
+    {label: 'Isn\'t that a bad idea?', fn: () => say([ZO47('Needles? Bad idea? Pfft. What can an octopus do with eight knitting needles?'), ZO47('...Do not answer that.')])}])]);
+  if (st === 'active' && vh === 1 && player.item !== 'parcel47') return say([ZO47('You dropped it? Ai. Here, I made two. I always make two.')], () => giveItem('parcel47'));
+  if (st === 'done') return say([ZO47(mpick(['She sent me a postcard. From Odessa. Knitted.', 'Eight needles. I should have sent seven. Always send seven.']))]);
+  say([ZO47(mpick(['Knit one, purl one. Steal one egg. Purl one.', 'Do not touch the paintings. Do not touch the egg. Do not touch my wool.']))]);
+}, 2.2, () => S.op30 === 'done' && roomAt(player.pos) && roomAt(player.pos).name === 'The Hermit-Age');
+nt47(() => VH47() >= 3 ? 'Look into the empty cell' : 'Talk to Countess Octavia (through the bars)', 'Countess Octavia', () => _s47.set(CELL47.x + 4.6, 1.6, CELL47.z - 1), () => {
+  const vh = VH47();
+  if (vh === 1 && player.item === 'parcel47') return say([OC47('Mr. Coo. How... unexpected. A visitor. With food. Nobody visits the Countess. The Countess usually visits other people\'s vaults.'), OC47('Pelmeni. And... needles? Eight of them? From Zoya?'), OC47('How very thoughtful. Tell her I shall make something long. Very long. Come back later, darling. I shall have something for you.')], () => { dropItem(); setVH47(2); toast('Come back to the fortress <b>a little later</b>.'); });
+  if (vh === 2 && performance.now() - (Q47().vhT || 0) < 75000) return say([OC47(mpick(['Knit one, purl one, knit one... do not watch, darling. It\'s a surprise.', 'Visiting hours are over, Mr. Coo. Come back in a little while.', 'Seven metres so far. Not that I am counting.']))]);
+  if (vh === 2) return say([L('Narrator', 'The cell is empty. On the stool sits a little knitted octopus. Out of the window hangs a very, very long knitted ladder.')], () => { setVH47(3); });
+  if (vh >= 3) return say([L('Narrator', 'Pinned to the knitted octopus is a note: "Dear Mr. Coo. Thank you for the needles. I made a ladder. And a scarf, for you. Do not wait up. Kisses, O." The scarf is on the stool.')]);
+}, 2.6, () => inPeter30() && (VH47() >= 1 && VH47() <= 3) && favState('visit47') === 'active');
+nt47('Talk to the fortress guard', 'Fortress Guard', () => _s47.set(CELL47.x + 5.2, 1.0, CELL47.z + 4), () => {
+  const vh = VH47();
+  if (favState('visit47') === 'active' && vh >= 3) return say([GU47('Escaped? Nyet. Impossible. I was here the whole time. Awake. Mostly awake.'), GU47('...Where did that ladder come from? Is that... is that knitted?'), GU47('Little bird. You saw nothing. I saw nothing. The President sees nothing. Take the scarf. It is a very good scarf. Go.')], () => { finishFav('visit47'); S.crumbs += 20; const it = lootLegend('Octavia\'s Knitted Scarf', 'locket'); it.named = 1; giveTreasure(it); toast('<b>Countess Octavia</b> is on the loose. Somewhere. In a lovely scarf.', '', 3200); });
+  if (S.op30 === 'done') return say([GU47(mpick(['Cell No. 8. Very dangerous prisoner. Very good at knitting.', 'No visitors without a parcel. Parcel is the rule.', 'I guard. That is my job. I guard very hard.']))]);
+  say([GU47('Move along, pigeon. Fortress business.')]);
+}, 2.2, () => inPeter30());
+const makeItem47d = makeItem;
+makeItem = function(kind){ if (kind === 'parcel47'){ const g = new THREE.Group(); g.add(boxMesh(0.24, 0.16, 0.2, mat(0xc8a070), 0, 0, 0.12)); g.add(boxMesh(0.26, 0.02, 0.03, mat(0xd4483a), 0, 0.08, 0.12)); g.add(boxMesh(0.03, 0.02, 0.22, mat(0xd4483a), 0, 0.08, 0.12)); return g; } return makeItem47d(kind); };
+
+/* ---------- shellfish about town ---------- */
+// a krill choir on the Shrimp Shack's pier in the evening, singing a shanty
+SAGA47.choir = [];
+for (let k = 0; k < 6; k++){ const s = makeShrimp(0.45); s.position.set(SK.cx - 9 - (k % 3)*1.0, 0.15, SK.z - 3 + Math.floor(k/3)*1.2 + (k % 2)*0.3); s.rotation.y = -PI/2; skg.add(s); SAGA47.choir.push({g: s, ph: k*0.7}); }
+SAGA47.conductor = (() => { const c = makeCrab(0.7, 0xe8584a); c.position.set(SK.cx - 12.5, 0.15, SK.z - 2.4); c.rotation.y = PI/2; skg.add(c); return c; })();
+// Lev the lobster plays the accordion on Nevsky Perchspect
+SAGA47.lev = (() => { const g = makeLobster(1.6); g.position.set(PB.x + 21, 0.05, PB.z + NEV.z + 8.6); g.rotation.y = PI; pgG.add(g); const acc = new THREE.Group(); acc.position.set(0, 0.16, 0.66); acc.scale.setScalar(0.6); g.add(acc); const L1 = boxMesh(0.2, 0.3, 0.14, mat(0xd4483a), -0.16, 0, 0), R1 = boxMesh(0.2, 0.3, 0.14, mat(0xd4483a), 0.16, 0, 0), bel = boxMesh(0.12, 0.26, 0.12, mat(0xf4ead2), 0, 0, 0); acc.add(L1, R1, bel); const cap = makeHat('cap', 0x2a2a30); cap.scale.setScalar(0.4); cap.position.set(0, 0.5, 0.1); g.add(cap);
+  const hat = mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.06, 10), mat(0x3a2a22), 0.5, 0.03, 0.5); g.add(hat); PORTRAITS.Lev = renderPortrait((() => { const p = makeLobster(1.0); p.rotation.y = 0.5; return p; })(), V47(0.2, 0.5, 1.2), V47(0, 0.3, 0)); VOICES.Lev = {kind: 'click', base: 180, range: 0.3, rate: 11, cps: 44};
+  FOLK.push(['Lev', 'Lev the lobster plays the accordion on Nevsky Perchspect. Escaped a restaurant in 1998. Has been playing the same song since.']); return {g, acc, bel, t: 0}; })();
+addNamedTalker('Listen to Lev', 'Lev', () => _s47.set(PB.x + 21, 0.9, PB.z + NEV.z + 8), () => say([L('Lev', mpick(['Korobeiniki! Again! Requests? Also Korobeiniki.', 'Larry? Larry is my cousin. Twice removed. From a pot.', 'Coins in the hat. Crumbs in the hat. Pigeons NOT in the hat.', 'In 1998 I escaped a restaurant by dancing. This is the same dance. Slower.']))], () => { if (S.crumbs > 0 && rand() < 0.5){ floatText(player.pos, '+1 tip?', '#ffd166', 1); } }), 2.4);
+// crab tourists photographing the Alexander Column
+SAGA47.tourists = [0, 1, 2].map(k => { const c = makeCrab(0.85, [0xe8584a, 0xf08a3a, 0xd4783a][k]); const cam = boxMesh(0.22, 0.14, 0.1, mat(0x2a2a30), 0, 0.42, 0.28); c.add(cam); const fl = mat(0xffffff, {emissive: 0xffffff, emissiveIntensity: 0}); const fb = boxMesh(0.06, 0.04, 0.02, fl, 0.06, 0.48, 0.34); c.add(fb); const hat = makeHat('cap', [0xffd166, 0x5ab8e0, 0xe880c0][k]); hat.scale.setScalar(0.32); hat.position.set(0, 0.42, 0); c.add(hat); c.position.set(PB.x + rr(-12, 12), 0.05, PB.z + 20 + rr(-12, 12)); pgG.add(c); return {g: c, fl, t: rr(1, 4), tgt: null, ph: k*2}; });
+// after the saga, Boris throws a party at the Aquarium: a disco ball and dancing krill
+SAGA47.party = (() => { const g = new THREE.Group(); aqg.add(g); g.visible = false; const ball = new THREE.Group(); ball.position.set(AQ.cx, 5.2, AQ.z); g.add(ball); const core = mesh(new THREE.IcosahedronGeometry(0.6, 1), mat(0xd8d8e0, {emissive: 0x8a8aa0, emissiveIntensity: 0.5, flatShading: true})); ball.add(core); ball.add(boxMesh(0.02, 1.4, 0.02, mat(0x2a2a30), 0, 0.9, 0));
+  const beams = []; for (let k = 0; k < 5; k++){ const bm = new THREE.MeshBasicMaterial({color: [0xff5a8a, 0x5ab8ff, 0xffd166, 0x7ad07a, 0xc88aff][k], transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending}); const b = mesh(new THREE.ConeGeometry(1.2, 5, 10, 1, true), bm, 0, -2.6, 0); const pv = new THREE.Group(); pv.add(b); pv.rotation.z = 0.5; pv.rotation.y = k/5*PI*2; ball.add(pv); beams.push(pv); }
+  const krill = []; for (let k = 0; k < 7; k++){ const s = makeShrimp(0.5); s.position.set(AQ.cx + rr(-4, 4), 0.15, AQ.z + rr(-3, 3)); g.add(s); krill.push({g: s, ph: k}); }
+  const banner = mesh(new THREE.PlaneGeometry(6, 0.7), mat(0xffffff, {map: textTex('CONGRATULATIONS, MR. COO!', 200, 22, 12), emissive: 0xffd890, emissiveIntensity: 0.3}), AQ.cx, 4.2, AQ.z - 4.5); g.add(banner);
+  return {g, ball, beams, krill}; })();
+
+function updateSaga47(dt, time){
+  const P = player.pos, playing = state === 'play';
+  updateTest47(dt, time);
+  for (const c of SAGA47.cones){ if (c.fly > 0){ c.fly -= dt; c.v.y -= 14*dt; c.g.position.addScaledVector(c.v, dt); c.g.rotation.x += dt*8; if (c.g.position.y < 0.02){ c.g.position.y = 0.02; c.v.multiplyScalar(0.4); } if (c.fly <= 0){ c.g.position.copy(c.home); c.g.rotation.set(0, 0, 0); } } }
+  // Doris taps her clipboard
+  if (lotG47.visible) SAGA47.doris.rotation.y = -PI/2 + Math.sin(time*0.8)*0.2;
+  // the choir sings at dusk
+  if (skg.visible){ const sing = nightF > 0.25; for (const k of SAGA47.choir){ k.g.position.y = 0.15 + (sing ? Math.abs(Math.sin(time*3 + k.ph))*0.12 : 0); k.g.rotation.z = sing ? Math.sin(time*2 + k.ph)*0.15 : 0; } SAGA47.conductor.userData.claw1 && (SAGA47.conductor.userData.claw1.rotation.x = sing ? Math.sin(time*6)*0.6 : 0);
+    if (sing && playing && P.distanceTo(SAGA47.conductor.position) < 26){ SAGA47.choirT = (SAGA47.choirT || 0) - dt; if (SAGA47.choirT <= 0){ SAGA47.choirT = 0.42; const MEL = [62, 67, 67, 69, 71, 71, 69, 67, 64, 69, 69, 71, 72, 71, 69, 67]; SAGA47.choirI = ((SAGA47.choirI || 0) + 1) % MEL.length; const f = 440*Math.pow(2, (MEL[SAGA47.choirI] - 69)/12), v = 0.014*clamp(1 - P.distanceTo(SAGA47.conductor.position)/26, 0.15, 1); tone(f, 0.38, 'triangle', v); tone(f*0.75, 0.38, 'sine', v*0.6); } } }
+  if (inPeter30()){
+    // Lev squeezes the accordion
+    const Lv = SAGA47.lev, sq = 1 + Math.sin(time*4)*0.6; Lv.bel.scale.x = 0.12*sq; Lv.acc.children[0].position.x = -0.16 - (sq - 1)*0.06; Lv.acc.children[1].position.x = 0.16 + (sq - 1)*0.06; Lv.g.rotation.z = Math.sin(time*2)*0.05;
+    if (playing && P.distanceTo(Lv.g.position) < 16){ Lv.t -= dt; if (Lv.t <= 0){ Lv.t = 0.3; const MEL = [76, 71, 72, 74, 72, 71, 69, 69, 72, 76, 74, 72, 71, 71, 72, 74, 76, 72, 69, 69]; Lv.i = ((Lv.i || 0) + 1) % MEL.length; const f = 440*Math.pow(2, (MEL[Lv.i] - 69)/12), v = 0.012*clamp(1 - P.distanceTo(Lv.g.position)/16, 0.15, 1); tone(f, 0.28, 'square', v*0.6); tone(f/2, 0.28, 'sawtooth', v*0.35); } }
+    // crab tourists wander round the column and take photos
+    for (const c of SAGA47.tourists){ c.t -= dt; c.fl.emissiveIntensity = Math.max(0, c.fl.emissiveIntensity - dt*8);
+      if (!c.tgt || c.t <= 0){ c.t = rr(3, 7); const a = rand()*PI*2, r = rr(6, 14); c.tgt = V47(PB.x + Math.cos(a)*r, 0.05, PB.z + 20 + Math.sin(a)*r); if (rand() < 0.5){ c.fl.emissiveIntensity = 3; if (playing && P.distanceTo(c.g.position) < 20) floatText(c.g.position, mpick(['*click*', 'Say "krill"!', 'So tall!']), '#fff6dc', 1, {yoff: 0.9}); } }
+      const dx = c.tgt.x - c.g.position.x, dz = c.tgt.z - c.g.position.z, dl = Math.hypot(dx, dz); if (dl > 0.3){ const st = Math.min(dl, 1.2*dt); c.g.position.x += dx/dl*st; c.g.position.z += dz/dl*st; c.g.rotation.y = Math.atan2(PB.x - c.g.position.x, PB.z + 20 - c.g.position.z); c.g.position.y = 0.05 + Math.abs(Math.sin(time*10 + c.ph))*0.03; } }
+    // the empty cell
+    const vh = VH47(); SAGA47.octo.visible = S.op30 === 'done' && vh < 3 && favState('visit47') !== 'done'; SAGA47.doll.visible = vh >= 3 || favState('visit47') === 'done';
+    if (SAGA47.octo.visible && SAGA47.octo.userData.arms) SAGA47.octo.userData.arms.forEach((a, i) => a.rotation.x = Math.sin(time*(vh === 2 ? 9 : 2) + i)*0.25);
+    if (vh >= 3 || favState('visit47') === 'done'){ SAGA47.guard.g.rotation.x = 0; }
+  }
+  // Boris's party at the Aquarium
+  { const on = shStage() >= 11, Pt = SAGA47.party; Pt.g.visible = on && aqg.visible; if (Pt.g.visible){ Pt.ball.rotation.y += dt*0.8; for (const k of Pt.krill){ k.g.position.y = 0.15 + Math.abs(Math.sin(time*5 + k.ph))*0.25; k.g.rotation.y += dt*2; } } }
+}
+
+/* ---------- v47 · the shuttle, the tunes, the Almanac, and the frame ---------- */
+const _e47 = new THREE.Vector3();
+function arrive47(B, st){
+  // a few get off and walk away; whoever was waiting gets on
+  const n = 1 + Math.floor(rand()*2);
+  for (let k = 0; k < n; k++){ const p = poolGet(); if (!p) break; p.H.g.position.set(B.g.position.x + Math.cos(B.h)*1.6, 0.15, B.g.position.z - Math.sin(B.h)*1.6); const a = rand()*PI*2; walkTo(p, st.x + Math.cos(a)*8, st.z + Math.sin(a)*8); }
+  if (B.rideFrom && B.rideFrom !== st){ const R = Q47(); R.rides = (R.rides || 0) + 1; addXP(12); toast(`Bus ride: <b>${B.rideFrom.name}</b> to <b>${st.name}</b>. Nobody checked your ticket.`, '', 2600); save(); }
+  B.rideFrom = B.riding ? st : null;
+}
+function updateShuttle47(dt, time){
+  const P = player.pos, playing = state === 'play';
+  for (const B of SHUTTLE47){
+    const L = B.P.L, stop = B.stops[B.next], ds = ((stop.s - B.s) % L + L) % L;
+    let target = B.vmax;
+    if (B.wait > 0){ B.wait -= dt; target = 0; if (B.wait <= 0){ B.next = (B.next + 1) % B.stops.length; } }
+    else { target = Math.min(target, Math.sqrt(2*1.8*Math.max(0, ds - 0.15)) + 0.25); if (ds < 0.3){ B.v = 0; B.wait = 7; arrive47(B, stop.st); } }
+    // slow down for the bends
+    pathAt47(B.P, B.s + 7, _a47); pathAt47(B.P, B.s + 5, _b47); const hAhead = Math.atan2(_a47.x - _b47.x, _a47.z - _b47.z); if (Math.abs(angDiff(B.h, hAhead)) > 0.25) target = Math.min(target, 3.0);
+    // a pigeon in the road
+    if (playing && P.y < 1.2){ const fx = Math.sin(B.h), fz = Math.cos(B.h), dx = P.x - B.g.position.x, dz = P.z - B.g.position.z, along = dx*fx + dz*fz, lat = Math.abs(dx*fz - dz*fx); if (along > 4 && along < 12 && lat < 1.5){ target = 0; B.honk = (B.honk || 0) + dt; if (B.honk > 1.2){ B.honk = -2.5; sfx.honk(); floatText(B.g.position, mpick(['BEEP!', 'Off the road, bird!', 'Next stop: you!']), '#ff7a6b', 1.2, {yoff: 3.2}); } } }
+    B.v += clamp(target - B.v, -4.5*dt, 1.6*dt);
+    // is the pigeon riding on the roof?
+    const ox = B.g.position.x, oz = B.g.position.z, oh = B.h; let lx = 0, lz = 0;
+    { const dx = P.x - ox, dz = P.z - oz, c = Math.cos(oh), s = Math.sin(oh); lx = dx*c - dz*s; lz = dx*s + dz*c; }
+    B.riding = playing && player.grounded && Math.abs(lx) < 1.25 && Math.abs(lz) < 4.3 && P.y > 2.3 && P.y < 3.3;
+    if (B.riding && !B.rideFrom) B.rideFrom = B.stops[B.wait > 0 ? B.next : (B.next - 1 + B.stops.length) % B.stops.length].st;
+    if (!B.riding && B.v > 1) B.rideFrom = null;
+    B.s = (B.s + B.v*dt) % L;
+    pathAt47(B.P, B.s, _a47); pathAt47(B.P, B.s + 1.6, _b47); pathAt47(B.P, B.s - 1.6, _c47);
+    const h = Math.atan2(_b47.x - _c47.x, _b47.z - _c47.z);
+    B.g.position.set(_a47.x, 0, _a47.z); B.g.rotation.y = h; B.h = h;
+    if (B.riding){ const c = Math.cos(h), s = Math.sin(h); P.x = _a47.x + lx*c + lz*s; P.z = _a47.z - lx*s + lz*c; const dh = angDiff(oh, h); player.heading += dh; player.prevHeading += dh; cam.yaw += dh; if (!Q47().busTip){ Q47().busTip = 1; tip('bus47', 'You\'re riding the U1 shuttle on the roof. Stay on until the next stop for a free ride.'); } }
+    // its solid box, so you can land on the roof and can't walk through it
+    { const c = Math.abs(Math.cos(h)), s = Math.abs(Math.sin(h)), hx = 1.2*c + 4.25*s, hz = 1.2*s + 4.25*c; Object.assign(B.solid, {minX: _a47.x - hx, maxX: _a47.x + hx, minZ: _a47.z - hz, maxZ: _a47.z + hz, minY: 0, maxY: 2.6}); }
+    B.g.visible = (B.g.position.x - P.x)**2 + (B.g.position.z - P.z)**2 < 200*200;
+    B.M.indMat.emissiveIntensity = B.wait > 0 && Math.sin(time*8) > 0 ? 1.5 : 0;
+    B.M.tailMat.emissiveIntensity = B.v < target - 0.5 || target < B.v - 0.5 ? 0.15 : (target < 0.5 ? 1.2 : 0.15);
+  }
+  // the double-decker's tourists wave at pigeons
+  for (const v of TBUS47){ if (!v.M.tourists || !v.g.visible) continue; for (const [i, t] of v.M.tourists.entries()) t.rotation.y = Math.sin(time*1.5 + i)*0.5; if (playing && v.g.position.distanceTo(P) < 10 && rand() < dt*0.5) floatText(v.g.position, mpick(['Look, a pigeon!', '*click*', 'Is that the famous one?', 'Wave!']), '#fff6dc', 1.2, {yoff: 4.2}); }
+}
+
+/* ---------- three new tunes: the campus song, the Wild Acres, and School Lane ---------- */
+Object.assign(TRACKS, {
+  almamater: {title: 'Alma Mater', bpm: 96, prog: [[48, 52, 55], [53, 57, 60], [48, 52, 55], [43, 47, 50], [45, 48, 52], [41, 45, 48], [43, 47, 50], [48, 52, 55]], melVoice: 'strings', altVoice: 'glock', drums: 'brush', pad: true,
+    mel: [67, _, 72, _, 72, 74, 76, _,  77, _, 76, 74, 72, _, 0, 0,  67, _, 71, 72, 74, _, 79, _,  77, _, 76, _, 74, _, 0, 0,
+          76, _, 77, 79, 81, _, 79, 77,  76, _, 74, 72, 69, _, 72, _,  71, _, 72, 74, 79, _, 77, 74,  72, _, _, _, 0, 0, 0, 0]},
+  safari: {title: 'Safari Shuffle', bpm: 112, prog: [[45, 48, 52], [50, 53, 57], [43, 47, 50], [48, 52, 55], [45, 48, 52], [50, 53, 57], [52, 56, 59], [45, 48, 52]], melVoice: 'glock', altVoice: 'flute', drums: 'brush', pad: false, oompah: false,
+    mel: [69, 72, 76, _, 74, 72, 69, _,  74, _, 77, 74, 72, _, 69, _,  67, 71, 74, _, 72, 71, 67, _,  72, _, 76, 72, 71, _, 0, 0,
+          69, 72, 76, 81, 79, 76, 72, _,  74, 77, 81, _, 79, 77, 74, _,  76, _, 80, 83, 81, _, 76, _,  81, _, _, 76, 69, _, 0, 0]},
+  recess: {title: 'Recess', bpm: 126, prog: [[48, 52, 55], [48, 52, 55], [53, 57, 60], [55, 59, 62], [48, 52, 55], [45, 48, 52], [53, 57, 60], [55, 59, 62]], melVoice: 'whistle', altVoice: 'pluck', drums: 'brush', pad: false,
+    mel: [72, 72, 74, 76, _, 72, 79, _,  77, 76, 74, 72, _, 74, 0, 0,  72, 72, 74, 76, _, 79, 84, _,  83, 81, 79, 77, 79, _, 0, 0,
+          76, _, 76, 77, 79, _, 76, 72,  74, _, 74, 76, 77, _, 74, 71,  72, 74, 76, 77, 79, 81, 83, _,  84, _, _, 79, 72, _, 0, 0]},
+});
+Object.assign(VOL41, {almamater: 0.85, safari: 0.9, recess: 0.8});
+const pickTrack47 = pickTrack;
+pickTrack = function(){
+  const t = pickTrack47(), P = player.pos; if (['heat', 'tankchase', 'countdown', 'chase'].includes(t)) return t;
+  if (roomAt(P) === uniLibRoom) return 'library';
+  if (roomAt(P) || inVillage() || inPeter30()) return t;
+  if (nightF > 0.6) return t;
+  if (in47(CAMPUS47, P.x, P.z, 6)) return 'almamater';
+  if (in47(WILD47, P.x, P.z, 6)) return 'safari';
+  if (in47(SPARROW47, P.x, P.z, 6) || in47(MAPLE47, P.x, P.z, 6)) return 'recess';
+  return t;
+};
+
+/* ---------- the Almanac gets a few more pages ---------- */
+ALM42.push(
+  ['uni1', 'Freshman', 'Walk through the gates of Featherstone University', () => !!(S.visited && S.visited.campus47)],
+  ['bus1', 'Nobody Checks a Pigeon\'s Ticket', 'Ride a bus roof from one stop to the next', () => (Q47().rides || 0) >= 1],
+  ['bus5', 'Season Ticket', 'Ride the bus five times', () => (Q47().rides || 0) >= 5],
+  ['zoo1', 'All Aboard', 'Ride the Safari Express at the Wild Acres', () => !!Q47().train],
+  ['uni2', 'Doctor of Flight', 'Find all six pages of Professor Plumtree\'s thesis', () => favState('thesis47') === 'done'],
+  ['sh1', 'Licence to Krill', 'Help Larry pass his driving test', () => favState('licence47') === 'done'],
+  ['sh2', 'Knit One, Purl One', 'Visit the Countess in her cell', () => favState('visit47') === 'done'],
+);
+// the "now playing" label hides while someone's talking, so it never sits on a dialog
+{ const st = document.createElement('style'); st.textContent = 'body.dlg47 #now41{opacity:0 !important}'; document.head.appendChild(st); }
+
+WHATS_NEW.unshift(['47 · Back to School', 'Featherstone University opens in the northern fields: Old Main with a clock tower that tells the time and tolls the hour, a library you can go into (Ms. Quill will shush you), a science hall with an observatory, dorms, a café, a stadium, a pond and a graduation with flying caps. Two high schools on School Lane: Sparrow Hill High (football, hoops, a bell and a recess rush) and Maple Grove High (baseball, tennis and a marching band). Buses everywhere: city buses, an open-top double-decker, yellow school buses with stop arms, and the U1 shuttle on College Road (ride the roof for a free trip). The zoo grows into the Wild Acres: elephants, zebras, a rhino, yawning hippos, monkeys, polar bears, meerkats, a petting farm and the Safari Express. Six new favours (The Thesis, Pop Quiz, Heads Will Roll, A Pigeon Ate My Homework, Monkey Business, Larry\'s Licence) and one more in St. Petersbird (Visiting Hours). The shellfish get out more: a krill choir, Lev the accordion lobster, crab tourists, and a party at the Aquarium once the saga is done. Three new tunes.']);
+{ const d = document.querySelector('#help .new36'); if (d) d.innerHTML = `<summary style="cursor:pointer;font-weight:700">What's new</summary>${WHATS_NEW.map(([v, t]) => `<p style="margin:6px 0 0"><b>v${v}.</b> ${t}</p>`).join('')}`; }
+
+function updateV47(dt, time){
+  if (state === 'title') return;
+  document.body.classList.toggle('dlg47', !!dlg);
+  for (const [name, fn] of SYS47){ if (SYSOFF47[name] > time) continue; try { fn(dt, time); } catch(e){ SYSOFF47[name] = time + 5; if (!SYSERR47[name]){ SYSERR47[name] = 1; console.error('v47 ' + name, e); } } }
+}
+// each new system runs on its own, so a fault in one can't stop the game
+const SYS47 = [['shuttle', updateShuttle47], ['crowd', updateCrowd47], ['wild', updateWild47], ['uni', updateUni47], ['schools', updateSchools47], ['saga', updateSaga47]], SYSOFF47 = {}, SYSERR47 = {};
+
 /* ---------- progression ---------- */
 const LV = [0, 40, 110, 220, 380, 600, 900, 1300, 1800, 2500]; for (let i = 10; i < 60; i++) LV.push(LV[i - 1] + 600 + (i - 9)*90);
 const S = {level:1, xp:0, crumbs:0, qi:0, qp:0, time:0, handouts:0, gulls:0, eaten:0, won:false, shinies:[], fav:{}, favFocus:null, racersFound:[], met:[], popped:0, rides:0, tramStops:[], photos:0, scarf:false};
@@ -19079,11 +20281,11 @@ addEventListener('keydown', e => {
   if (e.code === 'Space'){ e.preventDefault(); if (e.repeat) return; if (dlg){ advance(); return; } keys.flap = true; hop(); }
   if (e.code === 'KeyE' || e.code === 'Enter'){ if (!e.repeat) interact(); }
   if (e.code === 'KeyQ'){ if (!e.repeat) coo(); }
-  if (e.code === 'Escape' || e.code === 'KeyP'){ if (!locked) toggleHelp(true); }
+  if ((e.code === 'Escape' || e.code === 'KeyP') && !e.defaultPrevented){ if (!locked) toggleHelp(true); }
   if (e.code === 'KeyM') toggleMute();
   if (e.code === 'KeyJ' && !dlg) toggleJournal(true);
   if (e.code === 'KeyH') togglePhoto();
-  if (e.code === 'KeyN') toggleBigMap();
+  if (e.code === 'KeyN' && !e.defaultPrevented) toggleBigMap();
 });
 addEventListener('keyup', e => {
   if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false;
@@ -19892,7 +21094,7 @@ function updateGoal(tg){
 
 /* ---------- save ---------- */
 const SAVE_KEY = 'crumb-city-save-v1';
-function save(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify({level:S.level, xp:S.xp, crumbs:S.crumbs, qi:S.qi, qp:S.qp, time:S.time, handouts:S.handouts, gulls:S.gulls, eaten:S.eaten, won:S.won, shinies:S.shinies, fav:S.fav, favFocus:S.favFocus, racersFound:S.racersFound, met:S.met, popped:S.popped, rides:S.rides, tramStops:S.tramStops, photos:S.photos, scarf:S.scarf, tubeRides:S.tubeRides || 0, riverRides:S.riverRides || 0, riverPiers:S.riverPiers || [], chipGulls:S.chipGulls || 0, tubeStops:S.tubeStops || [], dvis:S.dvis || [], ch2seen:!!S.ch2seen, won2:!!S.won2, pebbleHome:!!S.pebbleHome, giraffeRide:!!S.giraffeRide, fam:S.fam || null, trainRides:S.trainRides || 0, trainStops:S.trainStops || [], events:S.events || [], murals:S.murals || [], passport:S.passport || {}, hugCoo:!!S.hugCoo, alarms:S.alarms || 0, headRides:S.headRides || 0, hats:S.hats || 0, piano:!!S.piano, swung:!!S.swung, slid:!!S.slid, headers:S.headers || 0, props:S.props || {}, bag:S.bag || {}, notes:S.notes || [], qloot:S.qloot || {}, dug:!!S.dug, bellsRung:!!S.bellsRung, hatsCaught:S.hatsCaught || 0, visited:S.visited || {park: true}, wornHat:pidgeHat ? S.wornHat : null, tipsSeen:S.tipsSeen || [], seenV2:!!S.seenV2, planeRide:!!S.planeRide, empireTop:!!S.empireTop, story:S.story || null, tut:S.tut || 0, job:S.job || 0, jobStage:S.jobStage || null, jobAt:S.jobAt || 0, busted:S.busted || 0, fedora:!!S.fedora, lookouts:S.lookouts || [], collectAt:S.collectAt || 0, ticket29:S.ticket29 || null, loyal29:S.loyal29, loyalPaid29:!!S.loyalPaid29, half29:!!S.half29, cooCam29:!!S.cooCam29, chessWins:S.chessWins || 0, chessPigeon:!!S.chessPigeon, view29:!!S.view29, bridge29:!!S.bridge29, libTop29:!!S.libTop29, hoard:S.hoard || [], lootFound:S.lootFound || 0, stashes:S.stashes || 0, raids:S.raids || 0, stellaSales:S.stellaSales || 0, stellaScold:!!S.stellaScold, gear:S.gear || {}, shell30:S.shell30 || 0, peter30:!!S.peter30, cine30:S.cine30 || {}, tank30:!!S.tank30, goldie32:!!S.goldie32, look33:S.look33 || null, fab33:!!S.fab33, kevin33:S.kevin33 || null, selfies33:S.selfies33 || [], crowWins35:S.crowWins35 || 0, seenVer:S.seenVer || 0, op30:S.op30 || null, pbPerch:S.pbPerch || [], shellSide:S.shellSide || null, dash30:S.dash30 || 0, dashDone30:!!S.dashDone30, v38:S.v38 || {}, v39:S.v39 || {}, tree:S.tree || {a: []}, err:S.err || null, alm:S.alm || {got: []}, tunes45:S.tunes45 || []})); } catch(e) {} }
+function save(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify({level:S.level, xp:S.xp, crumbs:S.crumbs, qi:S.qi, qp:S.qp, time:S.time, handouts:S.handouts, gulls:S.gulls, eaten:S.eaten, won:S.won, shinies:S.shinies, fav:S.fav, favFocus:S.favFocus, racersFound:S.racersFound, met:S.met, popped:S.popped, rides:S.rides, tramStops:S.tramStops, photos:S.photos, scarf:S.scarf, tubeRides:S.tubeRides || 0, riverRides:S.riverRides || 0, riverPiers:S.riverPiers || [], chipGulls:S.chipGulls || 0, tubeStops:S.tubeStops || [], dvis:S.dvis || [], ch2seen:!!S.ch2seen, won2:!!S.won2, pebbleHome:!!S.pebbleHome, giraffeRide:!!S.giraffeRide, fam:S.fam || null, trainRides:S.trainRides || 0, trainStops:S.trainStops || [], events:S.events || [], murals:S.murals || [], passport:S.passport || {}, hugCoo:!!S.hugCoo, alarms:S.alarms || 0, headRides:S.headRides || 0, hats:S.hats || 0, piano:!!S.piano, swung:!!S.swung, slid:!!S.slid, headers:S.headers || 0, props:S.props || {}, bag:S.bag || {}, notes:S.notes || [], qloot:S.qloot || {}, dug:!!S.dug, bellsRung:!!S.bellsRung, hatsCaught:S.hatsCaught || 0, visited:S.visited || {park: true}, wornHat:pidgeHat ? S.wornHat : null, tipsSeen:S.tipsSeen || [], seenV2:!!S.seenV2, planeRide:!!S.planeRide, empireTop:!!S.empireTop, story:S.story || null, tut:S.tut || 0, job:S.job || 0, jobStage:S.jobStage || null, jobAt:S.jobAt || 0, busted:S.busted || 0, fedora:!!S.fedora, lookouts:S.lookouts || [], collectAt:S.collectAt || 0, ticket29:S.ticket29 || null, loyal29:S.loyal29, loyalPaid29:!!S.loyalPaid29, half29:!!S.half29, cooCam29:!!S.cooCam29, chessWins:S.chessWins || 0, chessPigeon:!!S.chessPigeon, view29:!!S.view29, bridge29:!!S.bridge29, libTop29:!!S.libTop29, hoard:S.hoard || [], lootFound:S.lootFound || 0, stashes:S.stashes || 0, raids:S.raids || 0, stellaSales:S.stellaSales || 0, stellaScold:!!S.stellaScold, gear:S.gear || {}, shell30:S.shell30 || 0, peter30:!!S.peter30, cine30:S.cine30 || {}, tank30:!!S.tank30, goldie32:!!S.goldie32, look33:S.look33 || null, fab33:!!S.fab33, kevin33:S.kevin33 || null, selfies33:S.selfies33 || [], crowWins35:S.crowWins35 || 0, seenVer:S.seenVer || 0, op30:S.op30 || null, pbPerch:S.pbPerch || [], shellSide:S.shellSide || null, dash30:S.dash30 || 0, dashDone30:!!S.dashDone30, v38:S.v38 || {}, v39:S.v39 || {}, tree:S.tree || {a: []}, err:S.err || null, alm:S.alm || {got: []}, tunes45:S.tunes45 || [], v47:S.v47 || {}})); } catch(e) {} }
 function load(){ try { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return d && typeof d.level === 'number' ? d : null; } catch(e) { return null; } }
 
 /* ---------- screens ---------- */
@@ -20035,12 +21237,14 @@ function resize(){
 addEventListener('resize', resize); resize();
 
 let last = performance.now(), time = 0, saveT = 0, mapT = 0, frameN = 0;
-function frame(now){
+const FRAMEERR47 = new Set();
+function frame(now){ requestAnimationFrame(frame); try { frameBody47(now); } catch(e){ const k = String(e && e.message); if (!FRAMEERR47.has(k)){ FRAMEERR47.add(k); console.error('frame', e); } } }
+function frameBody47(now){
   const dt = Math.min(0.05, (now - last)/1000); last = now; time += dt;
   if (state === 'play'){ updatePlayer(dt); S.time += dt; saveT += dt; if (saveT > 10){ saveT = 0; save(); } }
   else if (state === 'title'){ player.anim.t += dt; animatePigeon(player.P, 'idle', player.anim, dt); player.P.g.position.copy(player.pos); player.P.g.rotation.y = player.heading; }
   updateHumans(dt); updateSitters(dt); updateDogs(dt); updateCars(dt); updateGull(dt); updateSal(dt); updateFood(dt, time);
-  updateFlock(dt); updateGus(dt); updateVents(dt); updateSparrows(dt, time); updateButterflies(dt, time); updateLeaves(dt); updateCharm(dt, time); updateWorld2(dt, time); updatePolish(dt, time); updateExtras(dt, time); updateTransit(dt, time); updateHighrise(dt, time); updateDistricts(dt, time); updateUnderground(dt, time); updateCoast(dt, time); updateLife14(dt, time); updateZoo(dt, time); updatePebble(dt); updateFamily(dt, time); updateRail(dt, time); updateStreets(dt, time); updateEvents(dt, time); updateLife18(dt, time); updatePark(dt, time); updateTraffic2(dt, time); updatePlay20(dt, time); updateV21(dt, time); updateV22(dt, time); updateV25(dt, time); updateV27b(dt, time); updateV27(dt, time); updateV28(dt, time); updateV29(dt, time); updateV29c(dt, time); updateV30(dt, time); updateV30b(dt, time); updateVan(dt); updateV30d(dt, time); updateV31(dt, time); updateV32(dt, time); updateV33(dt, time); updateV34(dt, time); updateV35(dt, time); updateV37a(dt, time); updateV37b(dt, time); updateBlink37(dt); updateV38a(dt, time); updateV38b(dt, time); updateV39a(dt, time); updateV39b(dt, time); updateV39c(dt, time); updateV40(dt, time); updateV41(dt, time); updateV42(dt, time); updateV43(dt, time); updateV44(dt, time); updateV45(dt, time); updateV23(dt); updateParticles(dt); updateAudio(dt);
+  updateFlock(dt); updateGus(dt); updateVents(dt); updateSparrows(dt, time); updateButterflies(dt, time); updateLeaves(dt); updateCharm(dt, time); updateWorld2(dt, time); updatePolish(dt, time); updateExtras(dt, time); updateTransit(dt, time); updateHighrise(dt, time); updateDistricts(dt, time); updateUnderground(dt, time); updateCoast(dt, time); updateLife14(dt, time); updateZoo(dt, time); updatePebble(dt); updateFamily(dt, time); updateRail(dt, time); updateStreets(dt, time); updateEvents(dt, time); updateLife18(dt, time); updatePark(dt, time); updateTraffic2(dt, time); updatePlay20(dt, time); updateV21(dt, time); updateV22(dt, time); updateV25(dt, time); updateV27b(dt, time); updateV27(dt, time); updateV28(dt, time); updateV29(dt, time); updateV29c(dt, time); updateV30(dt, time); updateV30b(dt, time); updateVan(dt); updateV30d(dt, time); updateV31(dt, time); updateV32(dt, time); updateV33(dt, time); updateV34(dt, time); updateV35(dt, time); updateV37a(dt, time); updateV37b(dt, time); updateBlink37(dt); updateV38a(dt, time); updateV38b(dt, time); updateV39a(dt, time); updateV39b(dt, time); updateV39c(dt, time); updateV40(dt, time); updateV41(dt, time); updateV42(dt, time); updateV43(dt, time); updateV44(dt, time); updateV45(dt, time); updateV47(dt, time); updateV23(dt); updateParticles(dt); updateAudio(dt);
   for (const c of clouds){ c.position.x += dt*1.2; if (c.position.x > 420) c.position.x = -420; }
   const tg = state === 'title' ? null : questTarget();
   beacon.visible = !!tg && !dlg && !SHOT && !VAN.on;
@@ -20061,7 +21265,6 @@ function frame(now){
   followSky();
   renderer.shadowMap.needsUpdate = (frameN++ % shadowEvery) === 0;
   post.render();
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 })();
