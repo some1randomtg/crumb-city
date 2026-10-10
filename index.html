@@ -611,8 +611,14 @@ window.__THREE_READY = (async () => {
   if (!gpu){ window.THREE = Object.assign({}, await import('https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.min.js')); window.__GPU = null; return; }
   const [T, TSL, csm, gtao, ssr, bloom, blur, smaa] = await Promise.all(['three/webgpu', 'three/tsl', 'three/addons/csm/CSMShadowNode.js', 'three/addons/tsl/display/GTAONode.js', 'three/addons/tsl/display/SSRNode.js', 'three/addons/tsl/display/BloomNode.js', 'three/addons/tsl/display/GaussianBlurNode.js', 'three/addons/tsl/display/SMAANode.js'].map(m => import(m)));
   window.THREE = Object.assign({}, T, {TSL, ADDONS: {CSMShadowNode: csm.CSMShadowNode, ao: gtao.ao, ssr: ssr.ssr, bloom: bloom.bloom, gaussianBlur: blur.gaussianBlur, smaa: smaa.smaa}, WebGLRenderTarget: T.RenderTarget});
-  window.__GPU = new T.WebGPURenderer({canvas: document.getElementById('game'), antialias: false, trackTimestamp: q.has('ts')});   // ?ts=1: GPU timings, for tests
+  window.__GPU = new T.WebGPURenderer({canvas: document.getElementById('game'), antialias: false, alpha: false, trackTimestamp: q.has('ts')});   // alpha: false: an opaque canvas (the post pass's output carries no alpha, and a see-through canvas showed nothing in Chrome)   // ?ts=1: GPU timings, for tests
   await window.__GPU.init();
+  // every render pipeline compiles in the background (createRenderPipelineAsync): on a real GPU the ~300 shaders took
+  // minutes to compile one after another and froze the page with nothing drawn. An object now simply appears a moment
+  // later, once its shader is ready (three skips objects whose pipeline isn't ready yet)
+  { const B = window.__GPU.backend, orig = B.createRenderPipeline.bind(B), sink = [], P = window.__PIPE = {pending: 0, done: 0};
+    B.createRenderPipeline = (ro, promises) => { if (promises) return orig(ro, promises); const n0 = sink.length; orig(ro, sink);
+      for (let i = n0; i < sink.length; i++){ P.pending++; sink[i].then(() => { P.pending--; P.done++; }); } if (sink.length > 256) sink.length = 0; }; }
 })();
 </script>
 <script type="module">
@@ -2089,7 +2095,10 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
 
   const pipe = new THREE.RenderPipeline(renderer, hd && FX.smaa ? A.smaa(look) : look);
   const v = new THREE.Vector2();
-  o.resize = () => { renderer.getDrawingBufferSize(v); U.res.value.copy(v); renderer.getSize(v); POINTS_VIEW.value.copy(v); };
+  // one plain frame straight onto the canvas first: until the renderer has drawn to the canvas itself once, the
+  // pipeline's output never reaches the screen in Chrome (three r186), and the page showed only its background
+  const prime = () => { renderer.setRenderTarget(null); renderer.render(o.primeScene || (o.primeScene = new THREE.Scene()), camera); };
+  o.resize = () => { renderer.getDrawingBufferSize(v); U.res.value.copy(v); renderer.getSize(v); POINTS_VIEW.value.copy(v); prime(); };
   let lights = [], n = 0;
   o.render = () => {
     U.night.value = nightF; U.outline.value = settings.outline === false ? 0 : 1; U.tilt.value = 1;
@@ -2112,6 +2121,9 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
     // of skipping frames the WebGPU frame draws fewer casters (see trimCasters)
     if (camera.parent === null) camera.updateMatrixWorld(); camera.matrixWorldInverse.copy(camera.matrixWorld).invert(); sbCullBundles(camera);   // whole static bundles out of view stay out
     pipe.render();
+    // shaders that finished compiling in the background (shell.html): the recorded static bundles left out whatever wasn't
+    // ready yet, so they record again once nothing is pending
+    { const W = window.__PIPE; if (W && W.pending === 0 && W.done !== o.pipeDone){ o.pipeDone = W.done; if (typeof SBATCH !== 'undefined' && SBATCH && SBATCH.bundles) for (const u of SBATCH.bundles.values()) sbBundleChanged(u.g); } }
     if (deep){ F.near = n0; F.far = f0; camera.far = far0; camera.updateProjectionMatrix(); }
     for (const L of lights) L.intensity /= PI;
   };
@@ -20300,7 +20312,7 @@ function updateV29(dt, time){
   // the Garden: the game goes on, the crowd bobs and does the wave
   if (gag.visible && GARDEN.players.length){   // the players arrive a moment after the arena while the city loads
     const Gd = GARDEN, d = _m29;
-    Gd.ballT += dt*0.8; const from = Gd.players[Math.floor(Gd.ballT) % 4].H.g.position, to = Gd.players[(Math.floor(Gd.ballT) + 1) % 4].H.g.position, k = Gd.ballT % 1;
+    Gd.ballT = Math.max(0, Gd.ballT + dt*0.8); /* never below 0: the first frame's step can be a hair negative */ const from = Gd.players[Math.floor(Gd.ballT) % 4].H.g.position, to = Gd.players[(Math.floor(Gd.ballT) + 1) % 4].H.g.position, k = Gd.ballT % 1;
     Gd.ball.position.lerpVectors(from, to, k); Gd.ball.position.y = 1.2 + Math.abs(Math.sin(k*PI*2))*0.6;
     Gd.players.forEach((p, i) => { p.ph += dt*3; p.H.g.position.x = GA.cx + p.bx + Math.sin(p.ph*0.4)*1.4; const sw = Math.sin(p.ph*2)*0.6; p.H.legs[0].rotation.x = sw; p.H.legs[1].rotation.x = -sw; });
     const cheer = (Gd.msgT > 0 ? 1 : 0) + (HALF.on ? 0.6 : 0) + ((Gd.boo || 0) > 0 ? 0.8 : 0);
