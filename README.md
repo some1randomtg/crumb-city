@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v269.1 (Fresh Paint).
+Current version: v277 (the look pass, part one: rounder pigeons, people, animals, trees, roofs and cars).
