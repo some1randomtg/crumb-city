@@ -2768,6 +2768,11 @@ function ckTrunkGeo(rTop, rBot, h, seg = 8){
   });
 }
 // a flower head lying face up: five round petals as one flat star (about as cheap as the old gem), centred at y 0
+// v290: a fan of n thin tapered grass blades, 1 unit tall, centred on y = 0 (both faces), leaning out a little
+function ckBladeFan(n = 5){ return ckOnce(CK.geo, 'bladefan|' + n, () => { const P = [];
+  for (let k = 0; k < n; k++){ const a = k/n*PI*2 + k*0.7, c = Math.cos(a), s = Math.sin(a), w = 0.05 + (k % 2)*0.02, lean = 0.12 + (k % 3)*0.06, h = 0.75 + (k % 3)*0.12;
+    const A = [-s*w, -0.5, -c*w], B = [s*w, -0.5, c*w], T = [c*lean, -0.5 + h, -s*lean]; P.push(...A, ...B, ...T, ...A, ...T, ...B); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.computeVertexNormals(); return g; }); }
 function ckFlowerGeo(r = 0.075){
   return ckOnce(CK.geo, 'flower|' + r, () => { const sh = new THREE.Shape();
     for (let i = 0; i <= 30; i++){ const a = i/30*PI*2, rad = r*(0.45 + 0.55*Math.abs(Math.cos(a*2.5))); i ? sh.lineTo(Math.cos(a)*rad, Math.sin(a)*rad) : sh.moveTo(rad, 0); }
@@ -13076,7 +13081,7 @@ const bs_renderRooftopClutter_1 = () => {
     if (!b.far || rand() < 0.6) for (let k = 0; k < ri(2, 7); k++){ const e = ri(0, 4), t = rr(-0.45, 0.45); const x = e < 2 ? b.cx + t*b.w : b.cx + (e === 2 ? 1 : -1)*(b.w/2 + 0.32), z = e < 2 ? b.cz + (e === 0 ? 1 : -1)*(b.d/2 + 0.32) : b.cz + t*b.d; weeds.push([x, z, rr(0.6, 1.2), rand()*6]); }
   }
   for (const ch of Object.values(chunks)){ const m = mergeBoxes(ch.items, M); m.castShadow = false; detailChunks.push({m, x: ch.x/ch.n, z: ch.z/ch.n}); }
-  const wg = new THREE.ConeGeometry(0.12, 0.32, 4), wim = new THREE.InstancedMesh(wg, mat(0x5f9e3a), weeds.length), d = new THREE.Object3D();
+  const wg = ckBladeFan(4).clone().scale(0.4, 0.36, 0.4),   /* v290: little blade fans, not spikes */ wim = new THREE.InstancedMesh(wg, mat(0x5f9e3a), weeds.length), d = new THREE.Object3D();
   weeds.forEach(([x, z, s, r], i) => { d.position.set(x, 0.3*s, z); d.rotation.set(0, r, rr(-0.3, 0.3)); d.scale.set(s, s, s); d.updateMatrix(); wim.setMatrixAt(i, d.matrix); });
   scene.add(wim);
 }
@@ -15265,11 +15270,9 @@ for (let k = 0; k < 26; k++){ const a = rand()*PI*2, r = rr(92, 140); VT.push([M
   vS(wx, wz, 2.0, 2.0, 0, 0.9, 'well'); vS(wx, wz, 2.4, 1.4, 2.0, 2.2, 'wellroof');
   vRect(wx - 1, wz - 1, wx + 1, wz + 1, '#a8a294', 'bld');
 }
-VB(2.0, 0.1, 0.55, BENCH27.x, 0.5, BENCH27.z, FM.wood);
-VB(2.0, 0.5, 0.1, BENCH27.x, 0.8, BENCH27.z - 0.28, FM.wood);
-for (const s of [-0.85, 0.85]) VB(0.1, 0.5, 0.5, BENCH27.x + s, 0.25, BENCH27.z, XC.black);
+// (v290: the bench itself is built in little-pecking/detail.js, after the prop kit)
 vS(BENCH27.x, BENCH27.z, 2.0, 0.55, 0, 0.55, 'bench');
-for (const [x, z] of VLAMPS){ VB(0.14, 3.4, 0.14, x, 1.7, z, XC.black); vAdd(mesh(BOX, lampHeadMat, x, 3.55, VZ + z)).scale.set(0.4, 0.4, 0.4); VB(0.55, 0.12, 0.55, x, 3.82, z, XC.black); vS(x, z, 0.3, 0.3, 0, 3.9, 'lamp'); }
+for (const [x, z] of VLAMPS){ VB(0.14, 3.4, 0.14, x, 1.7, z, XC.black); vAdd(mesh(ckOnce(CK.geo, 'vLantern290', () => new THREE.CylinderGeometry(0.24, 0.15, 0.42, 6)), lampHeadMat, x, 3.58, VZ + z)); vAdd(mesh(ckOnce(CK.geo, 'vLampCap290', () => ckMerge([{geo: new THREE.ConeGeometry(0.34, 0.26, 6), m: ckM(0, 0.13, 0)}, {geo: ckBlobGeo(), m: ckM(0, 0.32, 0, 0, 0, 0, 0.05)}])), mat(0x1e1e22), x, 3.79, VZ + z));   /* v290: a lantern, not a cube */ vS(x, z, 0.3, 0.3, 0, 3.9, 'lamp'); }
 // the north row, facing the green: the post office, the bakery and their neighbours
 POST27 = vCottage(-25, -19, 8, 7, 4.4, 1, {wall: VC.brick, roof: VC.slate, mapC: '#b05a42', door: XC.red, doorOff: 1.6});
 vCottage(-15, -19, 7.5, 7, 4.2, 1, {wall: VC.pink});
@@ -15334,9 +15337,10 @@ vCottage(17, 23, 7, 7, 4.0, -1, {wall: VC.blue});
 for (const px_ of [-30, -22]){ VB(1.8, 0.08, 0.8, px_, 0.75, 16.2, FM.wood); for (const s of [-0.65, 0.65]) VB(1.8, 0.06, 0.3, px_, 0.45, 16.2 + s, FM.wood); vS(px_, 16.2, 1.8, 0.8, 0, 0.79, 'table'); }
 {
   const w = vAdd(mesh(new THREE.CircleGeometry(POND27.r, 24), mat(0x5aa4c8, {emissive: 0x1a3a50, emissiveIntensity: 0.25}), POND27.x, 0.03, VZ + POND27.z)); w.rotation.x = -PI/2;
-  for (let k = 0; k < 22; k++){ const a = k/22*PI*2; VB(0.7, 0.3, 0.5, POND27.x + Math.cos(a)*(POND27.r + 0.2), 0.12, POND27.z + Math.sin(a)*(POND27.r + 0.2), XC.stone, -a); }
-  for (let k = 0; k < 14; k++){ const a = rand()*PI*2, r = POND27.r - rr(0.2, 0.8); VB(0.06, rr(0.6, 1.2), 0.06, POND27.x + Math.cos(a)*r, 0.4, POND27.z + Math.sin(a)*r, XC.hedge); }
-  for (let k = 0; k < 6; k++){ const p = vAdd(mesh(new THREE.CircleGeometry(0.35, 8), mat(0x4f9e3a), POND27.x + rr(-3, 3), 0.045, VZ + POND27.z + rr(-3, 3))); p.rotation.x = -PI/2; }
+  { const mud = vAdd(mesh(new THREE.RingGeometry(POND27.r - 0.15, POND27.r + 0.95, 32), mat(0x6a5a3e), POND27.x, 0.036, VZ + POND27.z)); mud.rotation.x = -PI/2; }   // v291: a muddy bank, round stones, reed clumps, notched lily pads
+  for (let k = 0; k < 22; k++){ const a = k/22*PI*2, sc = 0.32 + (k*7 % 5)*0.05; VK291.part(ckBlobGeo(), [0x9a948a, 0x8a857c, 0xa8a296][k % 3], POND27.x + Math.cos(a)*(POND27.r + 0.25), 0.1, VZ + POND27.z + Math.sin(a)*(POND27.r + 0.25), sc, sc*0.6, sc*0.8, a); }
+  for (let k = 0; k < 14; k++){ const a = rand()*PI*2, r = POND27.r - rr(0.2, 0.8); const rh = rr(0.6, 1.2), px = POND27.x + Math.cos(a)*r, pz = VZ + POND27.z + Math.sin(a)*r; VK291.part(ckBladeFan(6), 0x4a7a34, px, rh*0.5, pz, 0.5, rh*1.1, 0.5, a, true); if (k % 2) VK291.part(ckOnce(CK.geo, 'bulrush291', () => ckMerge([{geo: new THREE.CapsuleGeometry(0.045, 0.16, 2, 6), m: ckM(0, 0, 0)}, {geo: ckRodGeo([0, 0.12, 0], [0, 0.3, 0], 0.01, 3)}])), 0x6a4422, px + 0.05, rh*1.05, pz, 1, 1, 1, 0, true); }
+  for (let k = 0; k < 6; k++){ const p = vAdd(mesh(ckOnce(CK.geo, 'lilypad291', () => new THREE.CircleGeometry(0.35, 12, 0.35, PI*2 - 0.7)), mat(0x4f9e3a), POND27.x + rr(-3, 3), 0.045, VZ + POND27.z + rr(-3, 3))); p.rotation.set(-PI/2, 0, k*1.9); if (k % 3 === 0) VK291.part(ckFlowerGeo(0.1), 0xf0a0b8, p.position.x + 0.08, 0.07, p.position.z, 1, 1, 1, k, true); }
   VMR.push({circle: true, cx: POND27.x, cz: POND27.z, r: POND27.r, color: '#6ab4d8'});
 }
 {
@@ -15400,11 +15404,11 @@ for (const s of [-1, 1]) VB(0.12, 1.7, 0.12, HOOP27.x + s*1.95, 0.85, -6, FM.woo
   });
   trunks.castShadow = blobs.castShadow = true; vAdd(trunks); vAdd(blobs);
   const m = mergeBoxes(VCH, XM); scene.remove(m); vAdd(m);
-  { const rg = new THREE.Group(); VROOF.build(rg); vAdd(rg); }
+  { const rg = new THREE.Group(); VROOF.build(rg); VK291.build(rg); vAdd(rg); }
 }
 };
 
-const VCH = [], VMR = [], VT = [], VHB = [], VROOF = ckRoofs(0.09);
+const VCH = [], VMR = [], VT = [], VHB = [], VROOF = ckRoofs(0.09), VK291 = kit47();   // VK291: soft cottage extras (roses), merged
 let THATCH280 = null;   // v280: straw thatch, strands running down the slope
 const thatchMat280 = () => THATCH280 || (THATCH280 = (() => { const t = pxTex(32, 32, g => { px(g, 0, 0, '#c49a52', 32, 32); for (let x = 0; x < 32; x++){ const h = (x*37) % 7; px(g, x, 0, x % 3 ? '#b88c48' : '#d4ac64', 1, 32); px(g, x, (x*13) % 32, '#9a7438', 1, 3 + h % 3); px(g, x, (x*29 + 9) % 32, '#e0bc74', 1, 2); } for (let y = 0; y < 32; y += 8) px(g, 0, y, '#8a6a34', 32, 1); }); t.repeat.set(5, 2); return mat(0xffffff, {map: t}); })());   // VROOF: the sloped roofs (v274)   // VHB: the leafy lumps along the hedge tops (v273)
 
@@ -15434,11 +15438,17 @@ function vCottage(x, z, w, d, h, face, o = {}){
   VB(1.42, 2.36, 0.07, doorX, 1.18, fz + face*0.02, XC.white); VB(1.12, 2.1, 0.08, doorX, 1.05, fz + face*0.05, o.door ?? pick([XC.green, XC.red, XC.navy, XC.teal, FM.wood]));
   VB(1.6, 0.16, 0.6, doorX, 0.08, fz + face*0.3, XC.stone);
   // windows, front and back, upstairs if tall enough
+  const hsh = (a, b) => Math.abs(Math.sin(a*12.9898 + b*78.233)*43758.5453) % 1;   // v291: the cottage's own little choices, by hash
   const win = (wx, wy, zz, f, box) => { VB(1.12, 1.12, 0.07, wx, wy, zz + f*0.02, XC.white); VB(0.9, 0.9, 0.08, wx, wy, zz + f*0.05, VWIN); VB(0.08, 0.9, 0.1, wx, wy, zz + f*0.06, XC.white); VB(0.9, 0.08, 0.1, wx, wy, zz + f*0.06, XC.white);
+    { const hc = hsh(wx, wy + zz); if (hc < 0.65) for (const q of [-1, 1]) VB(0.24, 0.84, 0.02, wx + q*0.31, wy + 0.02, zz + f*0.095, [XC.red, VC.flower2, XC.navy, XC.white][(hc*6.2 | 0) & 3]); if (!box) VB(1.24, 0.1, 0.24, wx, wy - 0.6, zz + f*0.1, XC.stone); }
     if (box){ VB(1.05, 0.22, 0.32, wx, wy - 0.62, zz + f*0.17, XC.brown); for (let k = -1; k <= 1; k++) VB(0.2, 0.2, 0.2, wx + k*0.32, wy - 0.42, zz + f*0.17, pick([VC.flower1, VC.flower2, VC.flower3, XC.white])); } };
   for (const wx of [doorX - 1.9, doorX + 2.0, x + w/2 - 1.0]) if (wx > x - w/2 + 0.7 && wx < x + w/2 - 0.7 && Math.abs(wx - doorX) > 1.4) win(wx, 1.55, fz, face, true);
   if (h >= 4.2) for (const wx of [x - w*0.25, x + w*0.25]) win(wx, 3.35, fz, face, false);
   for (const wx of [x - w*0.25, x + w*0.25]) win(wx, 1.55, z - face*d/2, -face, false);
+  if (wall !== VC.brick && wall !== XC.stone){ for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (let k = 0, y = 0.62; y < h - 0.25; k++, y += 0.48){ const long = (k + (sx > 0 ? 1 : 0)) % 2; VB(long ? 0.56 : 0.32, 0.4, long ? 0.32 : 0.56, x + sx*(w/2 - (long ? 0.26 : 0.14)), y, z + sz*(d/2 - (long ? 0.14 : 0.26)), XC.stone); } }   // stone quoins
+  { const gx = x + w/2 - 0.16; VB(w + 0.2, 0.12, 0.16, x, h - 0.04, fz + face*0.1, XC.black); VB(0.1, h - 0.2, 0.1, gx, (h - 0.2)/2 + 0.05, fz + face*0.1, XC.black); }   // gutter and drainpipe
+  if (hsh(x, z) < 0.55){ const rx = doorX + (hsh(z, x) < 0.5 ? -0.95 : 0.95), rz = VZ + fz + face*0.16;   // a climbing rose by the door
+    for (let k = 0; k < 7; k++){ const t = k/6, ox = Math.sin(k*2.1)*0.28; VK291.part(ckBlobGeo(), k % 2 ? 0x3f7a34 : 0x4a8a3a, rx + ox, 0.4 + t*2.3, rz, 0.26, 0.24, 0.12, k, true); VK291.part(ckBlobGeo(), hsh(x + k, z) < 0.5 ? 0xe86a8a : 0xd8404a, rx + ox + Math.cos(k*1.7)*0.16, 0.5 + t*2.3, rz + face*0.06, 0.07, 0.07, 0.07, 0, true); } }
   vRect(x - w/2, z - d/2, x + w/2, z + d/2, o.mapC || '#f6eedc', 'bld');
   return {doorX, fz};
 }
@@ -16958,10 +16968,10 @@ const bs_worldLittlePeckingMeadows_1 = () => {
   const tufts = [], flowers = [];
   for (let i = 0; i < 2600 && tufts.length < 900; i++){ const x = rr(-82, 82), z = rr(-82, 82); if (inRect(x, z)) continue; tufts.push([x, z]); if (rand() < 0.18) flowers.push([x + rr(-0.4, 0.4), z + rr(-0.4, 0.4)]); }
   const d = new THREE.Object3D(), c = new THREE.Color();
-  const tm = new THREE.InstancedMesh(new THREE.ConeGeometry(0.12, 0.42, 4), mat(0xffffff), tufts.length);
+  const tm = new THREE.InstancedMesh(ckBladeFan(5).clone().scale(0.5, 0.5, 0.5), mat(0xffffff), tufts.length);   // v290: a fan of grass blades, not a green spike
   tufts.forEach(([x, z], i) => { d.position.set(x, 0.2, VZ + z); d.rotation.set(rr(-0.2, 0.2), rand()*3, rr(-0.2, 0.2)); d.scale.set(1, rr(0.7, 1.4), 1); d.updateMatrix(); tm.setMatrixAt(i, d.matrix); tm.setColorAt(i, c.setHex(pick([0x3f6a2a, 0x4a7832, 0x557f3a, 0x5f8a40]))); });
-  const fm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.14, 0.1, 0.14), mat(0xffffff), flowers.length);
-  flowers.forEach(([x, z], i) => { d.position.set(x, 0.36, VZ + z); d.rotation.set(0, rand()*3, 0); d.scale.set(1, 1, 1); d.updateMatrix(); fm.setMatrixAt(i, d.matrix); fm.setColorAt(i, c.setHex(pick([0xe8d070, 0xe88a9a, 0xf0ece0, 0xb89ae0, 0xe8a050]))); });
+  const fm = new THREE.InstancedMesh(ckFlowerGeo(0.07), mat(0xffffff), flowers.length);   // v290: a five-petal flower head, not a glowing square
+  flowers.forEach(([x, z], i) => { d.position.set(x, 0.24, VZ + z); d.rotation.set(0, rand()*3, 0); d.scale.set(1, 1, 1); d.updateMatrix(); fm.setMatrixAt(i, d.matrix); fm.setColorAt(i, c.setHex(pick([0xe8d070, 0xe88a9a, 0xe0dac8, 0xb89ae0, 0xe8a050]))); });
   tm.receiveShadow = fm.receiveShadow = true; vG.add(tm, fm);
 }
 };
@@ -27077,6 +27087,11 @@ P52.manhole = (K, x, z) => K.box(0.9, 0.02, 0.9, x, 0.16, z, 0x3a3a42);
 P52.scaffold = (K, x, z, ry, len = 6, h = 8) => { const A = at52(x, z, ry); for (let u = -len/2; u <= len/2; u += len/2) for (const v of [0, 1.2]){ const [px, pz] = A(u, v); K.box(0.1, h, 0.1, px, h/2 + 0.15, pz, 0x8a8f94); } for (let y = 2.2; y < h; y += 2.2){ const [px, pz] = A(0, 0.6); K.box(len + 0.2, 0.08, 1.3, px, y, pz, 0x9a7a4a, {ry}); } const [nx, nz] = A(0, 1.25); K.box(len, h*0.6, 0.04, nx, h*0.55, nz, 0x3a8a5a, {ry}); };
 P52.festoon = (W, a, b, h, cols) => { // a string of bulbs between two points (into a "wires" list and a bulb list)
   const n = Math.max(3, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1])/1.6)); const pts = []; for (let k = 0; k <= n; k++){ const t = k/n; pts.push([a[0] + (b[0] - a[0])*t, h - Math.sin(t*PI)*0.9, a[1] + (b[1] - a[1])*t]); } for (let k = 0; k < n; k++) W.wires.push(...pts[k], ...pts[k + 1]); for (const p of pts) W.bulbs.push([p, pick52(cols)]); };
+P52.bunting = (W, a, b, h, cols) => {   // v291: a sagging string of small triangular pennants (the same draws as P52.festoon)
+  const n = Math.max(3, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1])/1.6)), m = n*2, pts = [], ry = Math.atan2(b[0] - a[0], b[1] - a[1]) + PI/2;
+  for (let k = 0; k <= m; k++){ const t = k/m; pts.push([a[0] + (b[0] - a[0])*t, h - Math.sin(t*PI)*0.9, a[1] + (b[1] - a[1])*t]); } for (let k = 0; k < m; k++) W.wires.push(...pts[k], ...pts[k + 1]);
+  const tri = ckOnce(CK.geo, 'pennant291', () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([-0.17, 0, 0, 0.17, 0, 0, 0, -0.34, 0.02, -0.17, 0, 0, 0, -0.34, 0.02, 0.17, 0, 0], 3)); g.computeVertexNormals(); return g; });
+  for (let k = 0; k <= n; k++){ const c = pick52(cols); for (const j of [k*2, k*2 + 1]){ if (j > m) continue; const p = pts[j], col = j % 2 ? cols[(cols.indexOf(c) + 1) % cols.length] : c; W.K.part(tri, col, p[0], p[1] - 0.02, p[2], 1, 1, 1, ry + Math.sin(j*1.7)*0.15, true); } } };
 P52.awning = (K, x, y, z, ry, w, c1, c2) => { const A = at52(x, z, ry); for (let k = 0; k < Math.round(w/0.5); k++){ const [px, pz] = A(-w/2 + 0.25 + k*0.5, 0.6); K.box(0.5, 0.06, 1.3, px, y, pz, k % 2 ? c1 : c2, {ry}); } };
 P52.bench = (K, x, z, ry, c = 0x6b4a2e) => {   // v289: slatted seat and back on curved cast-iron end frames (merged into the area's parts)
   const [slats, iron] = ckOnce(CK.geo, 'bench289', () => { const sl = [], ir = [];
@@ -28779,7 +28794,7 @@ function hookShelly62(){ if (COUNT62.hooked) return; COUNT62.hooked = 1; const S
 // set by the steps below
 let CONES64, MOTES64, STAR64;
 
-const GRADE64 = {ny: [[1.0, 0.99, 0.97], [0.0, 0.0, 0.004]], bk: [[1.06, 1.0, 0.86], [0.022, 0.014, 0.0]], pb: [[1.0, 0.99, 0.97], [0.018, 0.012, 0.016]]   /* v281: warmer */, vil: [[1.02, 1.04, 0.94], [0.01, 0.012, 0.0]]};
+const GRADE64 = {ny: [[1.0, 0.99, 0.97], [0.0, 0.0, 0.004]], bk: [[1.06, 1.0, 0.86], [0.022, 0.014, 0.0]], pb: [[1.0, 0.99, 0.97], [0.018, 0.012, 0.016]]   /* v281: warmer */, vil: [[1.02, 1.04, 0.94], [0.01, 0.012, 0.0]], by: [[1.05, 0.97, 0.9], [0.02, 0.012, 0.004]]   /* v292: Bavaria, late afternoon: warmer, the lawn-green softened */};
 
 const G64 = {g: new THREE.Vector3(1, 1, 1), l: new THREE.Vector3()};
 
@@ -31691,7 +31706,7 @@ BDPB89 = makeBackdrop88([
   for (const [w, d, x, z] of [[540, 1400, cx + 165 + 270, cz], [330, 540, cx, cz + 165 + 270], [330, 540, cx, cz - 165 - 270]]) plane89(w, d, x, 0.03, z, 0x6a8a5a, pgG); // grass past the city, not more pavement
   const sea = plane89(500, 1400, cx - 150 - 250, 0.0, cz, 0x5a7a9a, pgG, {emissive: 0x0a1a2a, emissiveIntensity: 0.2, roughness: 0.2});
   for (let k = 0; k < 360; k++){ const a = rr89(-PI*0.85, PI*0.85), r = rr89(175, 360), x = cx + Math.cos(a)*r, z = cz + Math.sin(a)*r, K = area89(x, z).K, h = rr89(5, 11); // birches: white trunks, black marks, small leaves
-    K.box(0.35, h, 0.35, x, h/2, z, 0xf4f0e6); for (let q = 0; q < 3; q++) K.box(0.37, 0.12, 0.37, x, rr89(1, h - 1), z, 0x2a2a2a); K.box(rr89(2, 3.2), rr89(2, 3), rr89(2, 3.2), x, h + 0.6, z, pk89([0x8aa84a, 0x9ab85a, 0xc8b84a])); }
+    K.part(ckTrunkGeo(0.12, 0.2, 1, 6), 0xf4f0e6, x, h/2, z, 1, h, 1, x, true); for (let q = 0; q < 3; q++) K.box(0.37, 0.12, 0.37, x, rr89(1, h - 1), z, 0x2a2a2a); { const cw = rr89(2, 3.2), ch = rr89(2, 3), cd = rr89(2, 3.2), cc = pk89([0x8aa84a, 0x9ab85a, 0x9cb048]); K.part(ckCanopyGeo('far'), cc, x, h + 0.6, z, cw*0.55, ch*0.6, cd*0.55, x*3 + z, true); } }   /* v290: round crowns, not cubes, merged into the area's parts (the same draws; the mustard tone greened) */
   for (let k = 0; k < 18; k++){ const a = rr89(-PI*0.8, PI*0.8), r = rr89(200, 330), x = cx + Math.cos(a)*r, z = cz + Math.sin(a)*r, K = area89(x, z).K, w = rr89(40, 70), h = rr89(14, 22), ry = rand()*PI; // khrushchyovkas: five storeys, panels, balconies, a satellite dish on every one
     K.box(w, h, 12, x, h/2, z, pk89([0xc8c4b8, 0xb8bcc0, 0xd8d0c0]), {ry}); for (let y = 2.5; y < h; y += 2.8) K.box(w + 0.1, 0.15, 12.1, x, y, z, 0x8a8a82, {ry}); (PB.khru ||= []).push([w, h, 12, x - cx, z - cz, ry]); }   // PB.khru: for the windows (world/petersbird/detail.js)
   buildAreasIn53(AR89, pgG); }
@@ -31710,7 +31725,7 @@ BDVIL89 = makeBackdrop88([
     if (col === 0x7aaa4a || col === 0x8aba5a) for (let k = 0; k < 4; k++){ const sx = x + rr89(-24, 24), sz = z + rr89(-20, 20); K.inst('sheep272', ckQuadGeo(sheepSpec(), 'sheep'), ckFurI(), sx, 0, sz, 1, 1, 1, (sx*1.7 + sz*2.3) % 6.28); } // sheep (v272: woolly, from the animal kit; one instanced draw)
     if (col === 0xc8b04a && RNG89() < 0.6) for (let k = 0; k < 5; k++){ const hx = x + rr89(-22, 22), hz = z + rr89(-18, 18); const hay = mesh(new THREE.CylinderGeometry(0.9, 0.9, 1.2, 12), mat(0xd8b85a), hx, 0.9, hz); hay.rotation.z = PI/2; vG.add(hay); }
     if (RNG89() < 0.08){ const hx = x + 10, hz = z; K.box(9, 5, 7, hx, 2.6, hz, 0xe8e0d0); K.box(10, 0.6, 8, hx, 5.4, hz, 0x5a3a2a); K.box(8, 0.6, 6, hx, 6.0, hz, 0x5a3a2a); K.box(1, 2, 1, hx + 3, 7, hz, 0x8a5a4a); } } // a farmhouse
-  for (let k = 0; k < 140; k++){ const a = rand()*PI*2, r = rr89(130, 380), x = cx + Math.cos(a)*r, z = cz + Math.sin(a)*r, K = area89(x, z).K, h = rr89(4, 8); K.box(0.6, h, 0.6, x, h/2, z, 0x5a3a2a); K.box(rr89(3, 5), rr89(3, 4), rr89(3, 5), x, h + 1, z, pk89([0x3a6a2a, 0x4a7a3a, 0x5a8a3a])); }
+  for (let k = 0; k < 140; k++){ const a = rand()*PI*2, r = rr89(130, 380), x = cx + Math.cos(a)*r, z = cz + Math.sin(a)*r, K = area89(x, z).K, h = rr89(4, 8); K.part(ckTrunkGeo(0.22, 0.32, 1, 6), 0x5a3a2a, x, h/2, z, 1, h, 1, x, true); { const cw = rr89(3, 5), ch = rr89(3, 4), cd = rr89(3, 5), cc = pk89([0x3a6a2a, 0x4a7a3a, 0x5a8a3a]); K.part(ckCanopyGeo('far'), cc, x, h + 1, z, cw*0.55, ch*0.6, cd*0.55, x*3 + z, true); } }   /* v290: round crowns, not cubes (the same draws) */
   buildAreasIn53(AR89, vG); }
 /* ---------- Bangcluck ---------- */
 BDBK89 = makeBackdrop88([
@@ -35526,9 +35541,9 @@ aroundHook('inTokyo67', function(next, p = player.pos){ return !inBav146(p) && n
 byG = new THREE.Group();
 scene.add(byG);
 byG.visible = false;
-TERR145 = (() => { const N = 140, S_ = 900, geo = new THREE.PlaneGeometry(S_, S_, N, N); geo.rotateX(-PI/2); const pos = geo.attributes.position, col = []; const c = new THREE.Color();
-  for (let i = 0; i < pos.count; i++){ const lx = pos.getX(i), lz = pos.getZ(i), h = hBY145(lx, lz), sl = Math.hypot(hBY145(lx + 2, lz) - hBY145(lx - 2, lz), hBY145(lx, lz + 2) - hBY145(lx, lz - 2))/4; pos.setY(i, h); if (sl > 0.75 && h > 4 && h < 95) c.setHex(0x9a968c).lerp(new THREE.Color(0x7a7a72), Math.min(1, (sl - 0.75))); else if (h > 95) c.setHex(0xf4f6fa); else if (h > 55) c.setHex(0x8a8a86).lerp(new THREE.Color(0x6a7a5a), Math.max(0, (75 - h)/40)); else if (lakeD145(lx, lz) < 1.05) c.setHex(0x8a8a72); else c.setHex(0x6aa848).lerp(new THREE.Color(0x4a8838), Math.max(0, Math.min(1, h/40))); c.convertSRGBToLinear(); col.push(c.r, c.g, c.b); }
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.computeVertexNormals(); const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({vertexColors: true})); m.position.set(BY.x, 0, BY.z); m.receiveShadow = true; byG.add(m);
+TERR145 = (() => {   /* v292: lighter, warmer rock on the slopes (they read as a dark storm wall) and a softer valley green */ const N = 140, S_ = 900, geo = new THREE.PlaneGeometry(S_, S_, N, N); geo.rotateX(-PI/2); const pos = geo.attributes.position, col = []; const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++){ const lx = pos.getX(i), lz = pos.getZ(i), h = hBY145(lx, lz), sl = Math.hypot(hBY145(lx + 2, lz) - hBY145(lx - 2, lz), hBY145(lx, lz + 2) - hBY145(lx, lz - 2))/4; pos.setY(i, h); if (sl > 0.75 && h > 4 && h < 95) c.setHex(0xb0aa9c).lerp(new THREE.Color(0x968f82), Math.min(1, (sl - 0.75))); else if (h > 95) c.setHex(0xf4f6fa); else if (h > 55) c.setHex(0xa29e94).lerp(new THREE.Color(0x7a8a62), Math.max(0, (75 - h)/40)); else if (lakeD145(lx, lz) < 1.05) c.setHex(0x8a8a72); else c.setHex(0x86a45c).lerp(new THREE.Color(0x688a4a), Math.max(0, Math.min(1, h/40))); c.convertSRGBToLinear(); col.push(c.r, c.g, c.b); }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.computeVertexNormals(); const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({vertexColors: true, emissive: 0x2c2a24})); m.position.set(BY.x, 0, BY.z);   /* v292: a little lift so the shaded slopes don't go muddy */ m.receiveShadow = true; byG.add(m);
   const lake = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshLambertMaterial({color: 0x3a8ab8, transparent: true, opacity: 0.85})); lake.rotation.x = -PI/2; lake.scale.set(LAKE145.rx*1.02, LAKE145.rz*1.02, 1); lake.position.set(BYX(LAKE145.x), -0.6, BYZ(LAKE145.z)); byG.add(lake); return {m, lake}; })();
 BDBY145 = makeBackdrop88([
   {r: 236, order: -0.8, col: 0xb8c4d8, haze: 0.5, nightHaze: 0.3, drop: 30, rows: [[0, PI*0.9, 'ridge', {h: 34, peak: [PI*0.45, 12, 0.08]}], [PI*0.9, PI*1.5, 'ridge', {h: 26, peak: [PI*1.2, 10, 0.1]}], [PI*1.5, PI*2, 'ridge', {h: 30, peak: [PI*1.75, 14, 0.07]}]]},
@@ -35621,6 +35636,10 @@ NTS146 = (() => { const K = kit47(), out = {}, white = 0xf0ece2, slate = 0x4a5a7
   const bx0 = BYX(52), bx1 = BYX(80), bz = BYZ(-38), by = Math.max(hBY145(52, -38), hBY145(80, -38)) + 0.3; out.bridge = {x: (bx0 + bx1)/2, z: bz, y: by}; K.box(bx1 - bx0, 0.3, 2.2, (bx0 + bx1)/2, by, bz, 0x5a5a62); for (const q of [-1, 1]) K.box(bx1 - bx0, 1.0, 0.08, (bx0 + bx1)/2, by + 0.6, bz + q*1.1, 0x3a3a42); addSolid((bx0 + bx1)/2, bz, bx1 - bx0, 2.2, by - 0.5, by + 0.15, 'marienbruecke'); for (let k = 0; k < 3; k++) K.box(0.4, 18, 0.4, bx0 + 7 + k*7, by - 9, bz, 0x5a5a62);
   // Hohentaubengau, the yellow castle by the lake
   const [yx, yz] = C(-66, -4), yy = hBY145(-66, -4); K.box(16, 9, 9, yx, yy + 4, yz, 0xe8c858); for (let k = -3; k <= 3; k++) K.box(1.2, 1.2, 9.2, yx + k*2.3, yy + 9.1, yz, 0xe8c858); for (const q of [-1, 1]){ K.box(3, 13, 3, yx + q*8, yy + 6, yz - 3, 0xe0bc48); K.box(3.6, 0.8, 3.6, yx + q*8, yy + 12.8, yz - 3, 0xd8ccb4); } addSolid(yx, yz, 19, 9, yy - 2, yy + 13, 'hohentaubengau');
+  { K.box(16.4, 1.1, 9.4, yx, yy + 0.05, yz, 0xbca880);   // v292: a stone plinth, two rows of framed windows each side, a gate, and red roofs on the towers
+    for (const s of [-1, 1]) for (const y of [yy + 2.4, yy + 5.6]) for (let x = -6; x <= 6; x += 2){ if (s > 0 && y < yy + 3 && Math.abs(x) < 2) continue; K.box(1.1, 1.6, 0.1, yx + x, y, yz + s*4.53, 0xf4ecd8); K.box(0.8, 1.3, 0.12, yx + x, y, yz + s*4.55, 0x3a4a5a); }
+    K.box(3.6, 4.4, 0.16, yx, yy + 1.9, yz + 4.54, 0xd8ccb4); K.box(2.8, 3.8, 0.2, yx, yy + 1.6, yz + 4.56, 0x3a2a1e);
+    for (const q of [-1, 1]) K.inst('hohRoof292', ckOnce(CK.geo, 'hohRoof292', () => new THREE.ConeGeometry(2.7, 4.6, 10)), 0xb44a3a, yx + q*8, yy + 15.5, yz - 3); }
   const g = new THREE.Group(); byG.add(g); K.build(g);
   // pine forests on the slopes
   const P = []; for (let i = 0; i < 2600 && P.length < 700; i++){ const x = rr146(-300, 300), z = rr146(-260, 220), h = hBY145(x, z), r = Math.hypot(x, z*1.15); if (h < 2 || h > 70 || r > 300 || lakeD145(x, z) < 1.4 || Math.hypot(x - 20, z + 30) < 22 || Math.abs(z - 120) < 14 || (Math.abs(x) < 90 && z > 60 && z < 120) || (x > 46 && x < 86 && Math.abs(z + 38) < 5)) continue; P.push({x: BYX(x), y: h, z: BYZ(z), s: rr146(0.8, 1.5)}); }
@@ -38412,8 +38431,8 @@ VIL53 = {};
     if (i === 5){ P52.gnome(K, dx + 2, dz + face*0.8); P52.gnome(K, dx + 2.5, dz + face*0.7); }
   });
   // bunting along the north row and across the pub front
-  for (let k = 0; k < 4; k++){ const x0 = -29 + k*12.5; P52.festoon(A, W(x0, -15.3), W(x0 + 12.5, -15.3), 4.0, [0xd4302a, 0xf4f0e6, 0x2a6ad4]); }
-  P52.festoon(A, W(-31.5, 19.3), W(-20.5, 19.3), 4.2, [0xd4302a, 0xf4f0e6, 0x2a6ad4]);
+  for (let k = 0; k < 4; k++){ const x0 = -29 + k*12.5; P52.bunting(A, W(x0, -15.3), W(x0 + 12.5, -15.3), 4.0, [0xd4483a, 0xf0e8d4, 0x4a7ac4, 0xe8b84a]); }
+  P52.bunting(A, W(-31.5, 19.3), W(-20.5, 19.3), 4.2, [0xd4483a, 0xf0e8d4, 0x4a7ac4, 0xe8b84a]);
   // the village sign on the green, with a smaller plate underneath
   { const [x, z] = W(-14, 12.5); K.box(0.15, 2.6, 0.15, x - 1.1, 1.3, z, 0x5a3a1a); K.box(0.15, 2.6, 0.15, x + 1.1, 1.3, z, 0x5a3a1a); sign49('LITTLE PECKING\nBest Kept Village 1987\n(Highly Commended)', 2.4, 1.3, x, 2.2, z + 0.08, 0, vG, {bg: '#2a4a2a', fg: '#f4e8c8', size: 36, pw: 512, ph: 280}); sign49('THE GREATER GOOD', 1.4, 0.3, x, 1.25, z + 0.08, 0, vG, {bg: '#f4e8c8', fg: '#2a4a2a', size: 30, pw: 384, ph: 72}); VIL53.sign = V48(x, 0.9, z + 0.8); }
   // a red phone box that is now a book exchange
@@ -46229,7 +46248,7 @@ const DK = (() => {
     dress(parent, R, x0, x1, z0, z1, o = {}){
       const rr = (a, b) => a + (b - a)*R(), pick = a => a[Math.floor(R()*a.length)];
       const D = {
-        grass: {patch: 0.06, patchCols: [0x5a9a34, 0x5a9a34, 0xd8f0a0], tuft: 0.08, tuftCols: [0x6a9a4a, 0x5a8a3a, 0x7aa85a], flower: 0.03, flowerCols: [0xffffff, 0xfff27a, 0xff9ac8, 0xc8a8ff, 0xff6a5a, 0xffd23a], cluster: [4, 9], stone: 0.005, stoneCols: [0x8a8a86, 0x9a948c, 0x7a7670]},
+        grass: {patch: 0.06, patchCols: [0x5a9a34, 0x5a9a34, 0xd8f0a0], tuft: 0.08, tuftCols: [0x6a9a4a, 0x5a8a3a, 0x7aa85a], flower: 0.03, flowerCols: [0xe8e2d0, 0xfff27a, 0xff9ac8, 0xc8a8ff, 0xff6a5a, 0xffd23a], cluster: [4, 9], stone: 0.005, stoneCols: [0x8a8a86, 0x9a948c, 0x7a7670]},
         sand: {patch: 0.04, patchCols: [0xb89a60, 0xfff0c8], tuft: 0.01, tuftCols: [0x9aa060, 0x8a9a50], flower: 0, stone: 0.03, stoneCols: [0xf4ece0, 0xe8d8c0, 0xc8b8a8, 0xffe0d0], stoneSize: [0.06, 0.16]},
         dirt: {patch: 0.05, patchCols: [0x5a4a3a, 0x5a4a3a, 0x9a8a6a], tuft: 0.05, tuftCols: [0x7a8a4a, 0x8a8a5a, 0x6a7a3a], flower: 0, stone: 0.02, stoneCols: [0x8a8478, 0x6a6660, 0x9a948c]},
       };
@@ -46455,7 +46474,7 @@ DK.rows(G, rows);
 
 // ---- the meadows: more flowers than the city, molehills, mushrooms; the fields and the pen stay as they are ----
 const M = DK.dress(G, R, X0, X1, Z0, Z1, {skip: (x, z) => inField(x, z, 1) || inR(x, z, PEN),
-  grass: {patch: 0.05, patchCols: [0x3f6a2a, 0x6a9a44, 0x8ab85a], tuft: 0.06, tuftCols: [0x4a7832, 0x5a8a3a, 0x3f6a2a], flower: 0.05, cluster: [6, 14], flowerCols: [0xffffff, 0xfff27a, 0xffd23a, 0xc8a8ff, 0xff9ac8, 0x8ab8ff], stone: 0.004}});
+  grass: {patch: 0.05, patchCols: [0x3f6a2a, 0x6a9a44, 0x8ab85a], tuft: 0.06, tuftCols: [0x4a7832, 0x5a8a3a, 0x3f6a2a], flower: 0.05, cluster: [6, 14], flowerCols: [0xe8e2d0, 0xfff27a, 0xffd23a, 0xc8a8ff, 0xff9ac8, 0x8ab8ff], stone: 0.004}});
 const hills = [], shrooms = [];
 for (const [px, pz, u] of DK.scatter(X0, X1, Z0, Z1, 6, 262002, (x, z) => { const g = DK.ground(x, z); return g && g.cls === 'grass' && !inField(x, z, 2) && DK.open(x, z, 1); })){
   if (u < 0.12) hills.push([px, pz, rr(0.35, 0.55), pick([0x5a3e26, 0x6a4a2e])]);
@@ -46488,6 +46507,11 @@ for (const f of WHEAT){ for (let k = 0; k < 3; k++){ const s = spot(f[0], f[1], 
     if (DK.open(x, z, 0.6)){ const K = K0(x, z); K.box(0.12, 2.2, 0.12, x, 1.1, z, 0x6a4a2e); K.box(1.6, 0.12, 0.12, x, 1.7, z, 0x6a4a2e); K.box(0.7, 0.8, 0.35, x, 1.6, z, 0xb05a42); K.box(0.4, 0.4, 0.4, x, 2.25, z, 0xe8d8a8); K.box(0.7, 0.08, 0.7, x, 2.48, z, 0x8a6a2a); K.box(0.4, 0.22, 0.4, x, 2.6, z, 0x8a6a2a); addSolid(x, z, 0.3, 0.3, 0, 2.7, 'scarecrow'); } }
 }
 
+// ---- v290: the bench on the green (slats on cast-iron frames), and round cabbages sitting on the greens' ridges (by hash) ----
+P52.bench(A.at(BENCH27.x, VZ + BENCH27.z).K, BENCH27.x, VZ + BENCH27.z, 0, 0x9a6a3e);
+{ const cab = ckOnce(CK.geo, 'cabbage290', () => ckMerge([{geo: ckBlobGeo(), m: ckM(0, 0, 0, 0, 0, 0, 1, 0.8, 1)}, ...[0, 1, 2].map(k => ({geo: ckBlobGeo(), m: ckM(Math.cos(k*2.09)*0.6, -0.2, Math.sin(k*2.09)*0.6, 0.5, k*2.09, 0, 0.7, 0.3, 0.6)}))]));
+  for (const f of GREENS) for (let z = VZ + f[2] + 1.2; z < VZ + f[3] - 1; z += 1.5) for (let x = f[0] + 1.4; x < f[1] - 1.2; x += 0.75){ const h = Math.abs(Math.sin(x*12.99 + z*78.23)*43758.55) % 1; if (h < 0.18 || !DK.open(x, z, 0.3)) continue;
+    const sc = 0.2 + h*0.08; A.at(x, z).K.part(cab, h < 0.5 ? 0x5a9a44 : 0x6aa850, x + (h - 0.5)*0.2, 0.42 + sc*0.6, z, sc, sc, sc, h*6, true); } }
 A.build(G);
 VILD262 = {G, n: {rows: rows.length, patches: M.patches.length, tufts: M.tufts.length, flowers: M.flowers.length, hills: hills.length, shrooms: shrooms.length, bushes: bushes.length}};
 };
@@ -46522,7 +46546,7 @@ const A = DK.areas(), Kat = (x, z) => A.at(x, z).K;
 PBD263 = {tinted: DK.tame(pgG, 0.62, 0xc4c4c4, G)};
 
 // ---- the ground: tufts in the cracks of the parks, the usual patches; Petersbird's grass is short and tired ----
-const M = DK.dress(G, R, X0, X1, Z0, Z1, {grass: {patch: 0.05, tuft: 0.06, tuftCols: [0x5a8a3a, 0x6a8a4a, 0x7a9a4a], flower: 0.015, flowerCols: [0xffffff, 0xfff27a, 0xffd23a]}});
+const M = DK.dress(G, R, X0, X1, Z0, Z1, {grass: {patch: 0.05, tuft: 0.06, tuftCols: [0x5a8a3a, 0x6a8a4a, 0x7a9a4a], flower: 0.015, flowerCols: [0xe8e2d0, 0xfff27a, 0xffd23a]}});
 
 // ---- courtyards and squares ----
 const birch = (x, z, h) => { const K = Kat(x, z); K.inst('birchT', ckTrunkGeo(0.1, 0.17, 1, 7), 0xf4f0e6, x, h/2, z, 1, h, 1, x*3 + z); for (let q = 0; q < 3; q++) K.inst('birchMk', ckSphereLo(), 0x2a2a2a, x, rr(0.8, h - 0.8), z, 0.14, 0.035, 0.14, q*2.1);   // v273: a round white trunk with dark bark marks
@@ -46650,7 +46674,7 @@ const inTea = (x, z) => tea.has((X0 + Math.floor((x - X0)/CELL)*CELL) + ',' + (Z
 
 // ---- the meadows and verges ----
 const M = DK.dress(G, R, X0, X1, Z0, Z1, {skip: inTea,
-  grass: {patch: 0.05, patchCols: [0x3f7a34, 0x6a9a44, 0x8ab85a], tuft: 0.04, flower: 0.012, flowerCols: [0xffffff, 0xffb8d0, 0xff8ab0, 0xfff27a, 0xc8a8ff], cluster: [4, 10], stone: 0.006}});
+  grass: {patch: 0.05, patchCols: [0x3f7a34, 0x6a9a44, 0x8ab85a], tuft: 0.04, flower: 0.012, flowerCols: [0xe8e2d0, 0xffb8d0, 0xff8ab0, 0xfff27a, 0xc8a8ff], cluster: [4, 10], stone: 0.006}});
 
 // maples, pines, stone lanterns, rocks with stepping stones between them
 const maple = (x, z, s) => { const K = Kat(x, z); K.inst('trunk', ckTrunkGeo(0.22, 0.3, 2.4), trunkMat, x, 1.2*s, z, s, s, s);
@@ -46743,7 +46767,7 @@ const GREEN = 0x2f4a3a;
 
 const M = DK.dress(G, R, X0, X1, Z0, Z1, {
   sand: {patch: 0.04, patchCols: [0xb8a070, 0xd8c8a0], tuft: 0.02, tuftCols: [0x8a9a5a, 0x7a8a4a], stone: 0.03, stoneCols: [0xd8d0c0, 0xb8b0a0, 0xa89c88], stoneSize: [0.05, 0.12]},
-  grass: {patch: 0.05, tuft: 0.05, flower: 0.015, flowerCols: [0xffffff, 0xff6a5a, 0xfff27a, 0xc8a8ff]}});
+  grass: {patch: 0.05, tuft: 0.05, flower: 0.015, flowerCols: [0xe8e2d0, 0xff6a5a, 0xfff27a, 0xc8a8ff]}});
 
 const chair = (x, z, ry) => { const K = Kat(x, z), c = Math.cos(ry), s = Math.sin(ry);
   K.box(0.46, 0.05, 0.42, x, 0.45, z, GREEN, {ry}); K.box(0.46, 0.42, 0.05, x - s*0.2, 0.68, z - c*0.2, GREEN, {ry}); for (const [a, b] of [[-0.2, -0.17], [0.2, -0.17], [-0.2, 0.17], [0.2, 0.17]]) K.box(0.04, 0.45, 0.04, x + a*c + b*s, 0.22, z - a*s + b*c, GREEN); };
@@ -46788,13 +46812,13 @@ const flat = (x, z, r = 1) => { const g = DK.ground(x, z); return g && g.cls ===
 
 // ---- the meadows: flowers everywhere, deeper grass, the odd rock ----
 const M = DK.dress(G, R, X0, X1, Z0, Z1, {skip: (x, z) => !low(x, z),
-  grass: {patch: 0.05, patchCols: [0x2a6a1a, 0x4a8a2a, 0x6aa83a], tuft: 0.07, tuftCols: [0x3a7a22, 0x4a8a2a, 0x2a6a1a], flower: 0.06, cluster: [6, 14], flowerCols: [0xffffff, 0xfff27a, 0xffd23a, 0xa8a8ff, 0x8a6ad8, 0xff9ac8, 0x5a8aff], stone: 0.006, stoneCols: [0x9a9a96, 0x8a8a86, 0xb0aca4], stoneSize: [0.2, 0.6]}});
+  grass: {patch: 0.05, patchCols: [0x2a6a1a, 0x4a8a2a, 0x6aa83a], tuft: 0.07, tuftCols: [0x3a7a22, 0x4a8a2a, 0x2a6a1a], flower: 0.06, cluster: [6, 14], flowerCols: [0xe8e2d0, 0xfff27a, 0xffd23a, 0xa8a8ff, 0x8a6ad8, 0xff9ac8, 0x5a8aff], stone: 0.006, stoneCols: [0x9a9a96, 0x8a8a86, 0xb0aca4], stoneSize: [0.2, 0.6]}});
 
 // ---- things on the meadows ----
 const barn = (x, z, ry) => { const K = Kat(x, z); K.box(5, 3, 4, x, 1.5, z, 0x7a5232, {ry}); for (let y = 0.4; y < 3; y += 0.6) K.box(5.04, 0.06, 4.04, x, y, z, 0x5a3a22, {ry});
   K.inst('bRoof274', ckRoofGeo('gable', 0.08), 0x5a4a3e, x, 3.0, z, 5.8, 1.5, 5.0, ry); K.inst('bEnd274', ckGableEndGeo(), 0x7a5232, x, 3.0, z, 5, 1.4, 4, ry);   // v274: a real gable roof K.box(1.2, 1.8, 4.06, x, 0.9, z, 0x4a3018, {ry});
   addSolid(x, z, Math.abs(Math.sin(ry)) > 0.7 ? 4 : 5, Math.abs(Math.sin(ry)) > 0.7 ? 5 : 4, 0, 4.1, 'barn'); };
-const stack = (x, z) => { const K = Kat(x, z); K.box(0.1, 2.4, 0.1, x, 1.2, z, 0x6a4a2e); K.inst('hay', new THREE.ConeGeometry(0.9, 2.0, 8), 0x9a8040, x, 1.3, z); K.inst('hayB', new THREE.CylinderGeometry(0.9, 0.75, 0.5, 8), 0x8a7038, x, 0.25, z); addSolid(x, z, 1.6, 1.6, 0, 2.4, 'hay'); };
+const stack = (x, z) => { const K = Kat(x, z); K.box(0.1, 2.4, 0.1, x, 1.2, z, 0x6a4a2e); K.inst('hay', ckOnce(CK.geo, 'hay292', () => ckMerge([[0.95, 0.5, -0.62], [0.8, 0.5, -0.12], [0.6, 0.45, 0.36], [0.36, 0.38, 0.74], [0.14, 0.3, 1.02]].map(([r, h, y]) => ({geo: ckBlobGeo(), m: ckM(0, y, 0, 0, y*2, 0, r, h, r)})))), 0xc29a4a, x, 1.3, z, 1, 1, 1, x); K.inst('hayB', ckOnce(CK.geo, 'hayB292', () => new THREE.CylinderGeometry(0.92, 0.8, 0.5, 12)), 0xa8843c, x, 0.25, z);   /* v292: tiers of loose straw on the pole, not a smooth tent */ addSolid(x, z, 1.6, 1.6, 0, 2.4, 'hay'); };
 const cow = (x, z, ry) => { const K = Kat(x, z), c = Math.cos(ry), s = Math.sin(ry), spots = R() < 0.5, graze = Math.floor(Math.abs(x*7.3 + z*3.1)) % 3 === 0, seed = graze ? 1 : 0, sc = 0.88 + (Math.abs(x*13.1 + z*7.7) % 1)*0.24;   // v272: soft cows from the animal kit, one instanced draw per kind
   K.inst('cow272' + (spots ? 's' : 'b') + seed, ckQuadGeo(cowSpec(spots, seed, graze), 'cow' + spots + seed),   // a third of them grazing
     ckFurI(), x, 0, z, sc, sc, sc, ry);   // a little bigger or smaller each
@@ -47103,6 +47127,33 @@ WHATS_NEW.unshift(['288 · Lighter Crowds', 'Busy streets run a little lighter: 
 GAME_VER.n = 289;
 GAME_VER.name = 'Park Bench';
 WHATS_NEW.unshift(['289 · Park Bench', 'Somewhere to sit: the benches in every city are slatted wooden benches on curved cast-iron frames, and Petersbird’s panel blocks have white window frames, curtains in a few colours, the odd pot plant on the sill and warm lights that come on at dusk.']);
+/* =====================================================================
+   v290 · VILLAGE GREEN: Little Pecking. Round far trees instead of
+   cubes (around Petersbird too), grass blades instead of spikes, flower
+   heads instead of glowing squares, cabbages, a proper bench and lanterns
+   ===================================================================== */
+// v290
+GAME_VER.n = 290;
+GAME_VER.name = 'Village Green';
+WHATS_NEW.unshift(['290 · Village Green', 'Little Pecking, tidied up: the trees on the horizon have round crowns instead of floating cubes (around Petersbird too), the meadows grow little fans of grass blades instead of green spikes and real flower heads instead of glowing squares, the greens field is planted with cabbages, the bench on the green has slats and iron legs, and the lamps are lanterns.']);
+/* =====================================================================
+   v291 · ROSES ROUND THE DOOR: Little Pecking's cottages given stone
+   quoins, gutters and drainpipes, sills, curtains and climbing roses;
+   triangle bunting; a proper village pond
+   ===================================================================== */
+// v291
+GAME_VER.n = 291;
+GAME_VER.name = 'Roses Round the Door';
+WHATS_NEW.unshift(['291 · Roses Round the Door', 'Little Pecking’s cottages have stone corners, gutters and drainpipes, stone sills, curtains in the windows and climbing roses round some of the doors; the fete bunting is little triangle pennants on a sagging string; and the pond has a muddy bank, round stones, reeds with bulrushes and lily pads with the odd flower.']);
+/* =====================================================================
+   v292 · ALPENGLOW: Bavaria. A warmer late-afternoon light, a softer
+   valley green, warm rock on the slopes, straw haystacks on poles, and
+   Hohentaubengau given windows, a gate and red tower roofs
+   ===================================================================== */
+// v292
+GAME_VER.n = 292;
+GAME_VER.name = 'Alpenglow';
+WHATS_NEW.unshift(['292 · Alpenglow', 'Bavaria in a kinder light: a warm late-afternoon tint, a soft olive valley instead of lawn green, warm rock on the mountainsides instead of a dark storm wall, haystacks that look like straw stacked on their poles, and the yellow castle by the lake with rows of windows, a gate and red tower roofs.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
