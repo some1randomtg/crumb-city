@@ -652,7 +652,7 @@ const pick = arr => arr[Math.floor(rand()*arr.length)];
 const mpick = arr => arr[Math.floor(Math.random()*arr.length)];
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 const lerp = (a,b,t) => a + (b-a)*t;
-const damp = (r, dt) => 1 - Math.exp(-r*dt);
+const damp = (r, dt) => 1 - Math.exp(-r*Math.max(0, dt));   // v298.1: a negative dt would blow a lerp up
 const angDiff = (a,b) => ((b - a + PI) % (2*PI) + 2*PI) % (2*PI) - PI;
 const angLerp = (a,b,t) => a + angDiff(a,b)*t;
 const angTowards = (a,b,step) => { const d = angDiff(a,b); return Math.abs(d) <= step ? b : a + Math.sign(d)*step; };
@@ -48523,7 +48523,7 @@ function gov295(now){ const G = window.GOV295 || (window.GOV295 = {lvl: 0, scale
 function frameBody47(now){
   gov295(now);
   updateRegions();   // regions build the first frame they are needed (core/regions.js)
-  const dt = Math.min(0.05, (now - last)/1000); last = now; time += dt;
+  const dt = Math.min(0.05, Math.max(0, (now - last)/1000)); last = Math.max(last, now); time += dt;   // v298.1: never a negative step (a stale first rAF stamp after a long boot gave dt = -30 s)
   if (state === 'play'){ updatePlayer(dt); S.time += dt; saveT += dt; if (saveT > 10){ saveT = 0; save(); } }
   else if (state === 'title'){ player.anim.t += dt; animatePigeon(player.P, 'idle', player.anim, dt); player.P.g.position.copy(player.pos); player.P.g.rotation.y = player.heading; }
   const ny294 = cityOf58() === 'ny';   // v294: New Yolk's own street life only runs while Pidge is in (or near) New Yolk
