@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v304 (a faster first load and smoother frames in New Yolk).
+Current version: v305 (the bagel job can be finished again; Bangcluck is built when the story gets there).

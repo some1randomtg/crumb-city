@@ -675,7 +675,7 @@ await window.__THREE_READY;
 // v301: the load yields to the browser every ~200 ms (the build puts `await bootYield(name)` after every load step), so
 // the title screen can show how far it has got instead of freezing for ten seconds and more. Timers that load steps set
 // were written for a load in one go (they ran once everything was built): they are held until the load is done.
-const BOOT = {on: true, t: performance.now(), held: [], total: 513};
+const BOOT = {on: true, t: performance.now(), held: [], total: 520};
 { const st = window.setTimeout.bind(window), ct = window.clearTimeout.bind(window);
   window.setTimeout = function(fn, ms, ...a){ if (BOOT.on && typeof fn === 'function'){ BOOT.held.push([fn, ms, a]); return -BOOT.held.length; } return st(fn, ms, ...a); };
   window.clearTimeout = function(id){ if (typeof id === 'number' && id < 0){ const h = BOOT.held[-id - 1]; if (h) h[0] = null; return; } return ct(id); };
@@ -815,6 +815,7 @@ function callHooked(name, base, args){
 // systems, talkers, hooks) is put back where a one-pass load would have put it: every entry carries the place in
 // the load order of the step that made it, and a region's entries go in by that key.
 const REGIONS = {};
+const RANDAT = {};   // v305: the random state where a split load step's first part stopped (its later part carries on from it)
 const LOADKEY = new WeakMap();   // entry -> its step's place in the load order (Infinity: added while playing)
 let loadPos = 0;
 // (SYS52 and talkers are declared further down the script: until their line runs, reading them throws)
@@ -16023,7 +16024,7 @@ const BAGEL = {a: 0, basket: 3, bagels: 0, drops: [], knockCd: 0, yellT: 0};
 
 const bs_storyBagelBoy_1 = () => {
 {
-  const g = new THREE.Group(); scene.add(g); BAGEL.g = g;
+  const g = new THREE.Group(); scene.add(g); BAGEL.g = g; bagelPos(0, g.position);   // v305: on his route from the start
   for (const z of [-0.55, 0.55]){ const w = mesh(new THREE.TorusGeometry(0.32, 0.045, 6, 16), mat(0x26262a), 0, 0.36, z); w.rotation.y = PI/2; g.add(w); }
   g.add(boxMesh(0.06, 0.06, 1.0, mat(0x3f8ad4), 0, 0.62, 0)); g.add(boxMesh(0.06, 0.5, 0.06, mat(0x3f8ad4), 0, 0.6, -0.25)); g.add(boxMesh(0.06, 0.45, 0.06, mat(0x3f8ad4), 0, 0.7, 0.5)); g.add(boxMesh(0.5, 0.05, 0.05, mat(0x26262a), 0, 0.95, 0.5)); g.add(boxMesh(0.2, 0.06, 0.28, mat(0x26262a), 0, 0.88, -0.28));
   g.add(boxMesh(0.5, 0.28, 0.42, mat(0xc8a060), 0, 0.98, 0.78));
@@ -20497,8 +20498,9 @@ function updateV27(dt, time){
     JEWEL.brooch.rotation.y += dt*1.5; JEWEL.brooch.visible = !(J && J.id === 'shiny' && S.jobStage === 'carry') && !(S.job > 1); }
   { // the bagel boy pedals round the park
     const near = Math.hypot(P.x - PARK.cx, P.z - PARK.cz) < 150; BAGEL.g.visible = near && (S.story !== 'tutorial');
+    BAGEL.a += dt*0.075; bagelPos(BAGEL.a, BAGEL.g.position);   // v305: always on his rounds (the job's marker points at him: far away he stood at the world's origin, in Gus's square, unseen)
     if (near){
-      BAGEL.a += dt*0.075; const g = BAGEL.g; bagelPos(BAGEL.a, g.position); bagelPos(BAGEL.a + 0.01, _bk); g.rotation.y = Math.atan2(_bk.x - g.position.x, _bk.z - g.position.z);
+      const g = BAGEL.g; bagelPos(BAGEL.a + 0.01, _bk); g.rotation.y = Math.atan2(_bk.x - g.position.x, _bk.z - g.position.z);
       const ph = time*6; BAGEL.H.legs[0].rotation.x = -1.3 + Math.sin(ph)*0.45; BAGEL.H.legs[1].rotation.x = -1.3 - Math.sin(ph)*0.45;
       const working = J && J.id === 'bagel' && S.jobStage === 'work';
       if (!working && BAGEL.basket < 3 && !BAGEL.drops.length) BAGEL.basket = 3;
@@ -25183,18 +25185,15 @@ addNamedTalker(() => WARST48() === 6 ? 'Pick up your ticket to Bangcluck' : 'Fly
   if (Q48().been) return say([L('Gate agent', 'Bangcluck again? Lovely. The pretzels have not improved.')], () => flyTo48('bang'));
   say([L('Gate agent', 'Bangcluck Air. Flights to Thailand. You need a ticket, and pigeons rarely have tickets.')]);
 }, 2.4, () => WARST48() >= 6 || Q48().been);
-addNamedTalker('Fly home to New Yolk', 'Gate agent', () => AIRB48.door, () => say([L('Gate agent', 'Sawasdee krub! Flight 405 to New Yolk. Seventeen hours. Here is a mango for the journey.')], () => flyTo48('yolk')), 2.6, () => inBang());
+addNamedTalker('Fly home to New Yolk', 'Gate agent', () => AIRB48 ? AIRB48.door : FAR49, () => say([L('Gate agent', 'Sawasdee krub! Flight 405 to New Yolk. Seventeen hours. Here is a mango for the journey.')], () => flyTo48('yolk')), 2.6, () => inBang());
 VOICES['Gate agent'] = {kind: 'human', base: 240, range: 0.3, rate: 13, cps: 48};
 /* ---------- 7 · Somchai's shortcut: a cluck-tuk ride across town ---------- */
-SOMTUK48 = (() => { const g = makeTuk48(0x2a6ad4); g.position.copy(SOMCHAI48.P.g.position).add(_a48.set(3, -0.05, 0)); g.rotation.y = PI; bangG.add(g); return g; })();
-TUKROUTE48 = [[AIRB48.terminal.x - 2, AIRB48.terminal.z - 6], [AIRB48.terminal.x - 36, AIRB48.terminal.z - 6], [AIRB48.terminal.x - 36, NODE48(9, 5)[1]], NODE48(9, 5), NODE48(3, 5), NODE48(3, 3), NODE48(0, 3), NODE48(0, 2), NODEW48(2, 2), NODEW48(2, 4), [MON48.gate.x + 3, MON48.gate.z]];
-TUKP48 = mkPath47(roundPath47(TUKROUTE48, 5).slice(0));
-TUKP48.L = TUKP48.seg.reduce((a, s) => a + s.l, 0) - TUKP48.seg[TUKP48.seg.length - 1].l;
-addNamedTalker('Talk to Somchai', 'Somchai', () => SOMCHAI48.pos, () => {
+RANDAT.pf48 = RAND;   // v305: the tuk and its route are built with Bangcluck (ld_storyPartFour_bk, below), from this random state
+addNamedTalker('Talk to Somchai', 'Somchai', () => SOMCHAI48 ? SOMCHAI48.pos : FAR49, () => {
   if (WARST48() === 7) return say([SC48('Sawasdee krub! You are the magpie\'s pigeon? The Don sends a pigeon! Ha!'), SC48('I take you to the Saffron Brood. Hop on the back. I know a shortcut.')], () => rideTuk48());
   say([SC48(mpick(['Cluck-tuk? Anywhere in Bangcluck! Fixed price! The price is: whatever I say!', 'Traffic? This is not traffic. This is a car park that moves on Tuesdays.', 'You want to see a gem shop? No? Good. Me neither.']))], () => { if (inBang() && (Q48().been)) rideOffer48(); });
 }, 2.6, () => inBang());
-addNamedTalker('Talk to Master Khun Kai', 'Master Khun Kai', () => KHUN48.pos, () => {
+addNamedTalker('Talk to Master Khun Kai', 'Master Khun Kai', () => KHUN48 ? KHUN48.pos : FAR49, () => {
   const st = WARST48();
   if (st === 8) return say([KK48('Ah. The magpie\'s friend. Come in, little one. Sit. The floor is clean. Brother Somsak swept it four times.'), KK48('Don Magpione. Yes. The durian, the monsoon, 1974. The Brood remembers. The Brood also remembers that he still owes us an umbrella.'), KK48('The shrimp in the tall hat is here. Our brothers saw him on Khao Scran Road, buying four hundred kilos of chilli. A shrimp who buys chilli is a shrimp with a plan.'), KK48('We will help you. But the Saffron way is patience. Tonight, rest. Tomorrow, you train with Brother Somsak. Then we hunt.')], () => { setWar48(9); addXP(100); toast('<b>Claws Out</b> complete. The hunt for Boris begins in Bangcluck.', '', 4200); });
   say([KK48(mpick(['Sit with me. Breathe. You are breathing too fast. Pigeons always breathe too fast.', 'The river does not hurry, and still it reaches the sea.', 'Peace first. Then, if needed, a flying kick.', 'Have you eaten? You look like you have not eaten. Somsak! Rice for the pigeon!']))]);
@@ -25213,6 +25212,15 @@ aroundHook('pickTrack', function(next){ if (R48.on || R48.intro) return 'heat';
   if (inBang()){ if (roomAt(player.pos)) return next(); return nightF > 0.55 ? 'bangnight' : 'bangday'; }
   return next(); });
 SYS48 = [['summons', (dt) => checkSummons48(dt)], ['look', () => checkLookouts48()], ['rumble', updateRumble48], ['seaplane', updateSeaplane48], ['flight', updateFlight48], ['ride', updateRide48], ['banglife', updateBangLife48]]; SYSOFF48 = {}; SYSERR48 = {};
+};
+
+// v305: Somchai's cluck-tuk and its route across Bangcluck, built with Bangcluck (they stand on its streets)
+const ld_storyPartFour_bk = () => {
+RAND = RANDAT.pf48;
+SOMTUK48 = (() => { const g = makeTuk48(0x2a6ad4); g.position.copy(SOMCHAI48.P.g.position).add(_a48.set(3, -0.05, 0)); g.rotation.y = PI; bangG.add(g); return g; })();
+TUKROUTE48 = [[AIRB48.terminal.x - 2, AIRB48.terminal.z - 6], [AIRB48.terminal.x - 36, AIRB48.terminal.z - 6], [AIRB48.terminal.x - 36, NODE48(9, 5)[1]], NODE48(9, 5), NODE48(3, 5), NODE48(3, 3), NODE48(0, 3), NODE48(0, 2), NODEW48(2, 2), NODEW48(2, 4), [MON48.gate.x + 3, MON48.gate.z]];
+TUKP48 = mkPath47(roundPath47(TUKROUTE48, 5).slice(0));
+TUKP48.L = TUKP48.seg.reduce((a, s) => a + s.l, 0) - TUKP48.seg[TUKP48.seg.length - 1].l;
 };
 
 const RUMBLE48 = {x: 350, z: 62};
@@ -25398,11 +25406,15 @@ const _a49 = new THREE.Vector3(), _b49 = new THREE.Vector3(), _c49 = new THREE.V
 
 const nearest49 = (list, r) => { let best = null, bd = r*r; const P = player.pos; for (const s of list){ const p = s.pos || s, d = (p.x - P.x)**2 + (p.z - P.z)**2; if (d < bd){ bd = d; best = s; } } return best; };
 
-const ld_bangcluckSoiLife_1 = () => {
+const ld_bangcluckSoiLife_0 = () => {   // v305: what every city needs, at load (the rest, _1, is built with its city; RAND carries on)
 FAR49 = V48(0, -999, 0);
 PK.stink = Object.assign({}, PK.steam, {mats: [new THREE.MeshBasicMaterial({color: 0xb8d070, transparent: true, opacity: 0.35, depthWrite: false})]});
 /* ---------- v49 scenery goes into kits of its own per chunk (the v48 kits are already built and frozen) ---------- */
 CH49 = new Map();
+RANDAT['soi49'] = RAND;
+};
+const ld_bangcluckSoiLife_1 = () => {
+RAND = RANDAT['soi49'];
 /* ---------- power lines: concrete poles and a spaghetti of sagging wires along every street ---------- */
 {
   const poleG = new THREE.BoxGeometry(1, 1, 1), coilG = new THREE.TorusGeometry(0.35, 0.08, 4, 10);
@@ -27533,6 +27545,24 @@ Object.assign(WAR48, {
   22: {title: 'The Ghost in the Shellfish', text: () => 'Brother Boris was a robot. The real Boris was snatched in his first week in Bangcluck and shipped to Tokyoo by something called HAIKU-9000. Tell the Don.', at: () => inBang() ? AIRB48.door : picaTarget()},
   23: {title: 'To Be Continued: Japan', text: () => 'The real Boris Kempinski is a prisoner in Tokyoo, and HAIKU-9000 is writing the next verse. The Don is making calls. (To be continued.)', at: () => null},
 });
+RANDAT.bb52 = RAND;   // v305: the robot under the robe and Brother Boris's safe mode are built with Bangcluck (ld_bangcluckBrotherBoris_bk)
+/* ---------- 22 · the Don hears that he has been fighting a toaster ---------- */
+answerHook('talkDon', function(){ const st = WARST48();
+  if (st === 21) return {answer: say([DM('Khun Kai sent you a postcard too? Mine says "Brother Boris swept the ceiling." Kid, I don\'t like it. Go see.')])};
+  if (st === 22) return {answer: say([DM('A robot.'), DM('So let me get this straight. The shrimp I chased out of New Yolk was the real Boris. And the one you chased up a temple was a TOASTER in a top hat?'), TO('A very nice toaster, boss. It had a monocle.'), DM('And the real one got snatched. By a computer. That writes poems.'), TO('Five, seven, five, boss. Haiku Nine Thousand.'), DM('Boris Kempinski tried to take my docks, my street and my egg. He is a menace. He is a pain. He sends bibs.'), DM('...But he is OUR menace. Nobody kidnaps a New Yolk shrimp but New Yolk.'), DM('Tokyoo. The label said Tokyoo. ...Kid. You ever had sushi?'), TO('I\'ll get the shirts.'), DM('NOT the Hawaiian ones.')], () => { setWar48(23); addXP(150); toast('<b>To be continued: Japan.</b> The real Boris is a prisoner in Tokyoo. The Don is making calls.', '', 5200); })};
+  if (st >= 23) return {answer: say([DM(mpick(['I got people in Tokyoo. Well. I got a person. He sells umbrellas. It\'s a start.', 'A poem-writing computer that kidnaps shrimp. This is why I never trusted the internet.', 'Japan, kid. When the time comes. Pack light. Pack chopsticks.', 'Saving Boris Kempinski. If my grandmother could see me now.']))])}; });
+/* ---------- Grandpa Coo is Old Gus: after the tutorial he lives in the city, and his bench in Little Pecking has a note ---------- */
+{ const T = talkers.find(t => { try { return t.label() === 'Talk to Grandpa Coo'; } catch(e){ return false; } }); if (T){ const pos0 = T.pos; T.pos = () => S.story === 'tutorial' ? pos0() : FAR49; }
+  const note = boxMesh(0.3, 0.02, 0.22, mat(0xf4f0e6), BENCH27.x + 0.3, 0.62, VZ + BENCH27.z); vG.add(note); NOTE52.m = note; }
+addTalker('Read the note on Grandpa\'s bench', () => S.story !== 'tutorial' ? _a52.set(BENCH27.x + 0.3, 0.9, VZ + BENCH27.z) : FAR49, () => say([L('Pidge', '(In Grandpa\'s spidery writing: "Gone back to the city. Feed the ducks. Water the geraniums. Don\'t touch my post. — G.")')]), 2.2, () => inVillage());
+SYSG52 = updateGramps52;
+updateGramps52b = updateGramps52;
+SYSG52 = function(){ updateGramps52b(); if (!gusLines52 && typeof GUS === 'object'){ gusLines52 = true; GUS.meet = ['Pidge? PIDGE! You\'re alive! When those magpies grabbed you, I took the first milk train out of Little Pecking.', 'Shh. Not so loud. In the city I go by Gus. Old Gus. "Grandpa Coo" is a village name. Bad for... street cred.', 'Augustus Coo. Gus. I\'ve worked this square on and off since the mayor was still bronze-coloured. Long story. Boring story.', 'This here is my Mabel. She keeps me out of trouble. Mostly.', 'Now. New Yolk is a crumb town, kid. Food on every corner, if you know where to look. Let\'s get you fed.']; } };
+};
+
+// v305: built with Bangcluck (Brother Boris and his talkers are made there)
+const ld_bangcluckBrotherBoris_bk = () => {
+RAND = RANDAT.bb52;
 /* ---------- the robot under the robe ---------- */
 ROBO52 = (() => {
   const g = BROBORIS50.g, orig = g.children[0], R = makeBoris(0.95), metal = mat(0x6f7884, {emissive: 0x0a0e14, emissiveIntensity: 0.2}), dark = mat(0x3a4048);
@@ -27551,18 +27581,6 @@ ROBO52 = (() => {
   const H = talkers.find(t => { try { return t.label() === 'Talk to Brother Boris about his hat'; } catch(e){ return false; } });
   if (H){ const act51 = H.act; H.act = function(){ if (WARST48() < 22) return act51.apply(this, arguments); say([L('Brother Boris (safe mode)', 'REQUEST. HAT. MY HAT IS IN THE KEMPINSKI. PRESIDENTIAL SUITE. GOLD STAND.'), L('Brother Boris (safe mode)', 'HAT MUST BE: SEEN. ADMIRED. UNDER LIGHTS. NOTE FOR FRONT DESK: ATTACHED.')], () => { Q51().hat = 2; Q51().key = 1; save(); renderQuest(); toast('<b>Mr Kempinski\'s Hat</b>: take the lift at the Kempinski up to the Presidential Suite.', '', 3600); }); }; }
 }
-/* ---------- 22 · the Don hears that he has been fighting a toaster ---------- */
-answerHook('talkDon', function(){ const st = WARST48();
-  if (st === 21) return {answer: say([DM('Khun Kai sent you a postcard too? Mine says "Brother Boris swept the ceiling." Kid, I don\'t like it. Go see.')])};
-  if (st === 22) return {answer: say([DM('A robot.'), DM('So let me get this straight. The shrimp I chased out of New Yolk was the real Boris. And the one you chased up a temple was a TOASTER in a top hat?'), TO('A very nice toaster, boss. It had a monocle.'), DM('And the real one got snatched. By a computer. That writes poems.'), TO('Five, seven, five, boss. Haiku Nine Thousand.'), DM('Boris Kempinski tried to take my docks, my street and my egg. He is a menace. He is a pain. He sends bibs.'), DM('...But he is OUR menace. Nobody kidnaps a New Yolk shrimp but New Yolk.'), DM('Tokyoo. The label said Tokyoo. ...Kid. You ever had sushi?'), TO('I\'ll get the shirts.'), DM('NOT the Hawaiian ones.')], () => { setWar48(23); addXP(150); toast('<b>To be continued: Japan.</b> The real Boris is a prisoner in Tokyoo. The Don is making calls.', '', 5200); })};
-  if (st >= 23) return {answer: say([DM(mpick(['I got people in Tokyoo. Well. I got a person. He sells umbrellas. It\'s a start.', 'A poem-writing computer that kidnaps shrimp. This is why I never trusted the internet.', 'Japan, kid. When the time comes. Pack light. Pack chopsticks.', 'Saving Boris Kempinski. If my grandmother could see me now.']))])}; });
-/* ---------- Grandpa Coo is Old Gus: after the tutorial he lives in the city, and his bench in Little Pecking has a note ---------- */
-{ const T = talkers.find(t => { try { return t.label() === 'Talk to Grandpa Coo'; } catch(e){ return false; } }); if (T){ const pos0 = T.pos; T.pos = () => S.story === 'tutorial' ? pos0() : FAR49; }
-  const note = boxMesh(0.3, 0.02, 0.22, mat(0xf4f0e6), BENCH27.x + 0.3, 0.62, VZ + BENCH27.z); vG.add(note); NOTE52.m = note; }
-addTalker('Read the note on Grandpa\'s bench', () => S.story !== 'tutorial' ? _a52.set(BENCH27.x + 0.3, 0.9, VZ + BENCH27.z) : FAR49, () => say([L('Pidge', '(In Grandpa\'s spidery writing: "Gone back to the city. Feed the ducks. Water the geraniums. Don\'t touch my post. — G.")')]), 2.2, () => inVillage());
-SYSG52 = updateGramps52;
-updateGramps52b = updateGramps52;
-SYSG52 = function(){ updateGramps52b(); if (!gusLines52 && typeof GUS === 'object'){ gusLines52 = true; GUS.meet = ['Pidge? PIDGE! You\'re alive! When those magpies grabbed you, I took the first milk train out of Little Pecking.', 'Shh. Not so loud. In the city I go by Gus. Old Gus. "Grandpa Coo" is a village name. Bad for... street cred.', 'Augustus Coo. Gus. I\'ve worked this square on and off since the mayor was still bronze-coloured. Long story. Boring story.', 'This here is my Mabel. She keeps me out of trouble. Mostly.', 'Now. New Yolk is a crumb town, kid. Food on every corner, if you know where to look. Let\'s get you fed.']; } };
 };
 
 const HK52 = (t, c) => L('HAIKU-9000', t, c);
@@ -27811,9 +27829,13 @@ addTalker('Read the plaque at Mount Crushmore', () => NY55.rush || FAR49, () => 
 addNamedTalker('Order pie at Mom\'s Diner (4 crumbs)', 'Mom', () => NY55.diner || FAR49, () => { if (S.crumbs < 4) return say([L('Mom', 'Four crumbs for the pie, hon. Coffee\'s free. Coffee\'s always free. The coffee is not very good.')]); S.crumbs -= 4; spawnFood(player.pos.x + 0.5, 0.17, player.pos.z, 'crust', null); say([L('Mom', mpick(['Cherry pie, hon. Made it this morning. And yesterday. Same pie. It\'s fine.', 'Route 66, all the way from Chicoogo to Lost Angeles. You can get your kicks. We have pie.', 'Truckers, bikers, and one fella who says he\'s Elvis. Elvis tips good.']))]); }, 2.6);
 VOICES.Mom = {kind: 'human', base: 260, range: 0.4, rate: 13, cps: 50};
 // Bangcluck touch-ups: a face for the Merchicken, and the hawker sign has a back
+SYS52.push(['deco55', updateDeco55]);
+};
+
+// v305: the Merchicken's googly eyes and the hawker sign are in Bangcluck: built with it
+const ld_newYolkAmericana_bk = () => {
 { const M = BK54.merchicken; if (M){ const g = cg48(M.x, M.z); for (const s of [-1, 1]){ const e = boxMesh(0.14, 0.14, 0.05, mat(0x1a1a20), M.x + 0.43, M.y + 0.2, M.z + s*0.26); e.rotation.y = PI/2; g.add(e); } for (let k = 0; k < 8; k++) for (const s of [-1, 1]){ const sc = boxMesh(0.26, 0.26, 0.04, mat(0x8ab8d8), M.x + 0.8 + (k % 4)*0.32, 2.6 + Math.floor(k/4)*0.5 + (k % 2)*0.2, M.z + s*0.92); sc.rotation.z = PI/4; g.add(sc); } }
   const H = BK54.hawker; if (H) sign49('SATAY BY THE BAY\nHAWKER CENTRE · 99 STALLS', 6, 1.2, H.x, 5.6, H.z - 5.9, 0, cg48(H.x, H.z), {bg: '#2a6a5a', fg: '#ffd23a', size: 24}); }
-SYS52.push(['deco55', updateDeco55]);
 };
 
 // posters and graffiti glow a little at night, like the city never quite switches off
@@ -28299,7 +28321,7 @@ function nadoPos56(t, out){ const k = t/NADOLEN56, lz = -252 + k*104, b = bank56
 function startNado56(cine){ const N = NADO56; N.on = true; N.t = 0; N.g.visible = true; N.riders.forEach((r, i) => { r.a = i/N.riders.length*PI*2; r.o.visible = true; r.o.rotation.set(0, 0, 0); r.landed = 0; }); nadoPos56(0, N.g.position); jaws56(); N.windT = 0;
   if (!cine) return toast('<b>SHARKNADO</b> on the riverbank! Stay clear. Or don\'t. You\'re a bird.', '', 3200);
   N.cine = true; const c = N.g.position; shot([{p: V48(c.x + 34, 3, c.z - 16), l: V48(c.x, 6, c.z)}, {p: V48(c.x + 28, 2.4, c.z - 10), l: V48(c.x, 14, c.z + 4), d: 4.2}, {p: V48(c.x + 22, 6, c.z - 2), l: V48(c.x + 6, 18, c.z + 8), d: 3.4}],
-    {freeze: true, skippable: true, caption: 'SHARKNADO', sub: 'Nobody knows how. Nobody knows why. There are sharks in it.', capDelay: 1.2, linger: 0.4, onEnd: () => { N.cine = false; if (BK56.jb) speak(BK56.jb.g, 'That\'s not a crime! That\'s WEATHER!'); toast('<b>SHARKNADO</b>. It will blow itself out. Probably. Stay out of the middle.', '', 3600); }}); }
+    {freeze: true, skippable: true, caption: 'SHARKNADO', sub: 'Nobody knows how. Nobody knows why. There are sharks in it.', capDelay: 1.2, linger: 0.4, onEnd: () => { N.cine = false; if (BK56 && BK56.jb) speak(BK56.jb.g, 'That\'s not a crime! That\'s WEATHER!'); toast('<b>SHARKNADO</b>. It will blow itself out. Probably. Stay out of the middle.', '', 3600); }}); }
 
 function updateNado56(dt, time){ const N = NADO56, P = player.pos, Q = Q56();
   if (!N.on){ if ((Q.jb || 0) >= 4 && inBang() && state === 'play' && !SHOT && !dlg && !FIN56.on){ const near = P.distanceTo(_a56.set(bank56(-200) + 20, 0, BK.z - 200)) < 220; if (near){ N.nextT -= dt; if (!Q.nado1 && N.nextT > 25) N.nextT = 25; if (N.nextT <= 0){ N.nextT = rr(540, 900); const first = !Q.nado1; Q.nado1 = 1; save(); startNado56(first); } } } return; }
@@ -28319,7 +28341,7 @@ function updateNado56(dt, time){ const N = NADO56, P = player.pos, Q = Q56();
 }
 
 // Justice Beaver makes an entrance the first time you meet him
-function updateJBIntro56(){ const Q = Q56(); if (Q.jbIntro || !BK56.jb || state !== 'play' || SHOT || dlg) return; if (player.pos.distanceTo(BK56.jbHome) > 16) return; Q.jbIntro = 1; save(); const c = BK56.jbHome;
+function updateJBIntro56(){ const Q = Q56(); if (Q.jbIntro || !BK56 || !BK56.jb || state !== 'play' || SHOT || dlg) return; if (player.pos.distanceTo(BK56.jbHome) > 16) return; Q.jbIntro = 1; save(); const c = BK56.jbHome;
   flick56(); saw56(0.9, 0.04); BK56.fans.forEach(f => floatText(f.H.g.position, mpick(['JB!!!', 'AAAAAA!', 'I LOVE YOU!']), '#ff7ab8', 1.6, {yoff: 2.3}));
   shot([{p: V48(c.x + 3.2, 1.0, c.z + 0.8), l: V48(c.x, 1.5, c.z)}, {p: V48(c.x + 2.4, 1.4, c.z + 1.6), l: V48(c.x, 1.6, c.z), d: 2.2}, {p: V48(c.x + 6, 2.6, c.z + 4), l: V48(c.x, 1.4, c.z), d: 2.2}],
     {freeze: true, skippable: true, caption: 'JUSTICE BEAVER', sub: 'Crime-fighter. Pop sensation. Dam builder. In that order. Usually.', capDelay: 0.5, linger: 0.4}); setTimeout(() => { if (BK56.jb) { flick56(); speak(BK56.jb.g, 'Justice never sleeps!'); } }, 1600); }
@@ -28661,15 +28683,7 @@ hook('updateSky58', function(dt, time){ const Y = YOLK59; if (Y.B && (Y.down > 0
 for (const e of SYS52) if (e[0] === 'sky58') e[1] = (dt, time) => updateSky58(dt, time);
 /* ---------- Bangcluck: The Hangover, Part Bangcluck ---------- */
 HANG59 = {};
-{ const x = BK54.hawker.x + 16, z = BK54.hawker.z + 4, g = bangG;
-  const looks = [{shirt: 0xf4f0e6, pants: 0x3a3a42, hair: 0x6a4a2a}, {shirt: 0x6a8ab8, pants: 0x2a2a30, hair: 0x2a1a10}, {shirt: 0xe8e0c8, pants: 0x6a6a72, hair: 0x2a1a10}];
-  HANG59.guys = looks.map((o, i) => { const H = human56(o, g, x + (i - 1)*1.1, z, PI*0.1 + (i - 1)*0.3); return H; });
-  HANG59.guys[0].g.position.y = 0.15; sitPose(HANG59.guys[1]); HANG59.guys[1].g.position.y = 0.55; bangG.add(boxMesh(0.42, 0.42, 0.42, mat(0xd4302a), x, 0.36, z));
-  HANG59.guys[2].g.add(boxMesh(0.09, 0.12, 0.02, mat(0x1a1a20), 0.07, 1.86, 0.19)); HANG59.guys[2].g.add(boxMesh(0.04, 0.06, 0.02, mat(0x1a1a20), 0.04, 1.8, 0.19));
-  { const glasses = boxMesh(0.36, 0.06, 0.03, mat(0x14141a), 0, 1.84, 0.2); HANG59.guys[1].g.add(glasses); const bab = boxMesh(0.22, 0.16, 0.14, mat(0xf4e0c8), 0.22, 1.25, 0.3); HANG59.guys[0].g.add(bab); }
-  const M = makeMonkey(0.9); scene.remove(M.g || M); const mg = M.g || M; bangG.add(mg); mg.position.set(x + 2.4, 0.15, z + 0.6); mg.rotation.y = -0.6; mg.add(boxMesh(0.6, 0.42, 0.52, mat(0x4a6a9a), 0, 0.55, 0)); HANG59.monkey = mg;
-  { const T = new THREE.Group(); bangG.add(T); T.position.set(x - 3.2, 0.15, z + 1.4); T.rotation.y = 0.8; const fur = mat(0xf08a2a), str = mat(0x1a1a14); T.add(boxMesh(0.8, 0.6, 1.8, fur, 0, 0.35, 0)); T.add(boxMesh(0.6, 0.55, 0.6, fur, 0, 0.45, 1.1)); for (let k = 0; k < 5; k++) T.add(boxMesh(0.82, 0.1, 0.12, str, 0, 0.66, -0.7 + k*0.35)); T.add(boxMesh(0.1, 0.1, 1.2, fur, 0, 0.3, -1.4)); for (const s of [-1, 1]) T.add(boxMesh(0.12, 0.04, 0.05, str, s*0.15, 0.56, 1.41)); HANG59.tiger = T; }
-  HANG59.pos = V48(x, 0.9, z + 1.4); }
+RANDAT.hang59 = RAND; RAND = (RAND + Math.imul(9, 0x6D2B79F5)) | 0;   // v305: the three tourists are put in Bangcluck with it (ld_skyBlimps_bk); their 9 draws are skipped here
 VOICES['Al-hen'] = {kind: 'human', base: 150, range: 0.5, rate: 13, cps: 46};
 addNamedTalker('Talk to the three very hungover tourists', 'Al-hen', () => HANG59.pos || FAR49, () => say([L('Phil', 'Okay. Okay. Nobody panic. Let\'s retrace our steps. We had ONE Red Bawk on the roof of the Kempinski.'), L('Stew', 'Then why do I have a tattoo on my FACE, Phil?'), L('Al-hen', 'And why is there a monkey? I like the monkey. The monkey has a vest. I want a vest.'), L('Phil', 'Pigeon. Have you seen a guy called Teddy? About this tall. Plays the cello. Missing since Tuesday.'), L('Pidge', '(There is a tiger asleep under the next table. Nobody has mentioned the tiger.)'), L('Al-hen', mpick(['What happens in Bangcluck stays on everybody\'s phone.', 'I\'m the one who got us the monkey. You\'re welcome.', 'The pigeon knows something. Look at its face. It KNOWS.']))]), 2.6, () => inBang());
 /* ---------- St. Petersbird: Misha the dancing bear, and four swans in tutus ---------- */
@@ -28691,6 +28705,20 @@ addTalker('Watch the swans', () => PB59.swanPos || FAR49, () => say([L('Pidge', 
 SWAN59 = (() => { const g = swanify59(makeDuck({body: 0xfafaf6, head: 0xfafaf6, s: 2.0}), 2.0); scene.remove(g); vG.add(g); g.position.set(-30, 0.15, VZ + 30); return {g, home: V48(-30, 0.15, VZ + 30), mode: 'wander', t: 0, tgt: V48(-30, 0.15, VZ + 30), cd: 0}; })();
 if (typeof SYS52 !== 'undefined') SYS52.push(['v59', updateV59]);
 FOLK.push(['Misha', 'A dancing bear on Palace Square. Balalaika, unicycle, investments.']);
+};
+
+// v305: The Hangover, Part Bangcluck: built with Bangcluck (it stands by the hawker centre there)
+const ld_skyBlimps_bk = () => {
+RAND = RANDAT.hang59;
+{ const x = BK54.hawker.x + 16, z = BK54.hawker.z + 4, g = bangG;
+  const looks = [{shirt: 0xf4f0e6, pants: 0x3a3a42, hair: 0x6a4a2a}, {shirt: 0x6a8ab8, pants: 0x2a2a30, hair: 0x2a1a10}, {shirt: 0xe8e0c8, pants: 0x6a6a72, hair: 0x2a1a10}];
+  HANG59.guys = looks.map((o, i) => { const H = human56(o, g, x + (i - 1)*1.1, z, PI*0.1 + (i - 1)*0.3); return H; });
+  HANG59.guys[0].g.position.y = 0.15; sitPose(HANG59.guys[1]); HANG59.guys[1].g.position.y = 0.55; bangG.add(boxMesh(0.42, 0.42, 0.42, mat(0xd4302a), x, 0.36, z));
+  HANG59.guys[2].g.add(boxMesh(0.09, 0.12, 0.02, mat(0x1a1a20), 0.07, 1.86, 0.19)); HANG59.guys[2].g.add(boxMesh(0.04, 0.06, 0.02, mat(0x1a1a20), 0.04, 1.8, 0.19));
+  { const glasses = boxMesh(0.36, 0.06, 0.03, mat(0x14141a), 0, 1.84, 0.2); HANG59.guys[1].g.add(glasses); const bab = boxMesh(0.22, 0.16, 0.14, mat(0xf4e0c8), 0.22, 1.25, 0.3); HANG59.guys[0].g.add(bab); }
+  const M = makeMonkey(0.9); scene.remove(M.g || M); const mg = M.g || M; bangG.add(mg); mg.position.set(x + 2.4, 0.15, z + 0.6); mg.rotation.y = -0.6; mg.add(boxMesh(0.6, 0.42, 0.52, mat(0x4a6a9a), 0, 0.55, 0)); HANG59.monkey = mg;
+  { const T = new THREE.Group(); bangG.add(T); T.position.set(x - 3.2, 0.15, z + 1.4); T.rotation.y = 0.8; const fur = mat(0xf08a2a), str = mat(0x1a1a14); T.add(boxMesh(0.8, 0.6, 1.8, fur, 0, 0.35, 0)); T.add(boxMesh(0.6, 0.55, 0.6, fur, 0, 0.45, 1.1)); for (let k = 0; k < 5; k++) T.add(boxMesh(0.82, 0.1, 0.12, str, 0, 0.66, -0.7 + k*0.35)); T.add(boxMesh(0.1, 0.1, 1.2, fur, 0, 0.3, -1.4)); for (const s of [-1, 1]) T.add(boxMesh(0.12, 0.04, 0.05, str, s*0.15, 0.56, 1.41)); HANG59.tiger = T; }
+  HANG59.pos = V48(x, 0.9, z + 1.4); }
 };
 
 function yolkBlob59(p, v){ const Y = YOLK59; let b = Y.blobs.find(x => !x.on); if (!b){ if (Y.blobs.length > 120) return; b = {m: new THREE.Mesh(Y.bG, Y.yM), v: new THREE.Vector3(), on: false}; scene.add(b.m); Y.blobs.push(b); } b.on = true; b.m.visible = true; b.m.position.copy(p); b.v.copy(v); b.m.scale.setScalar(rr(0.6, 1.4)); }
@@ -33499,17 +33527,24 @@ function updateStreets110(dt){ if (!inTokyo67()) return; const n = nightF; VEND1
 let RNG111;
 
 const ld_lookFacades_1 = () => {
-RNG111 = (() => { let s = 1111111; return () => (s = (s*16807) % 2147483647)/2147483647; })();
+RNG111 = (() => { let s = 1111111; const f = () => (s = (s*16807) % 2147483647)/2147483647; f.st = () => s; f.set = v => { s = v; }; return f; })();   // (v305: its state can be kept and put back)
 W111.vil = 0;   // v280: the cottages have their own window boxes under real windows; these hung on blank walls
 // W111.vil = facade111(VMR.filter(r => r.kind === 'bld').map(r => ({x0: r.x0, x1: r.x1, z0: r.z0 + VZ, z1: r.z1 + VZ})), vG, {p: 0.55, floors: 1, y0: 1.5, flowers: [0xff6a8a, 0xffd23a, 0xffffff, 0xc8a8ff, 0xff9ac8], box: 0x8a5a3a});
 W111.pb = facade111(PMR.filter(r => r.kind === 'bld').map(r => ({x0: r.x0 + PB.x, x1: r.x1 + PB.x, z0: r.z0 + PB.z, z1: r.z1 + PB.z})), pgG, {p: 0.4, floors: 3, flowers: [0xd8302a, 0xff6a5a, 0xffffff, 0xff9ac8], shutters: [0xf4e8c8, 0xc8e0d8, 0xe8c8d0, 0xf4f0e6], box: 0xb85a3a, step: 3.2});
 W111.ny = facade111(buildings.filter(b => b.top > 6 && b.top < 22 && b.w < 30 && b.d < 30).filter((_, i) => i % 3 === 0).map(b => ({x0: b.cx - b.w/2, x1: b.cx + b.w/2, z0: b.cz - b.d/2, z1: b.cz + b.d/2})), scene, {p: 0.22, floors: 2, flowers: [0xd8302a, 0xff6a8a, 0xffd23a, 0xffffff], box: 0x5a3a2a, step: 3.4, max: 700});
-W111.bk = facade111(BKP93.filter(o => o.kind === 'bld' && o.p.length === 4).map(o => ({x0: Math.min(...o.p.map(q => q[0])), x1: Math.max(...o.p.map(q => q[0])), z0: Math.min(...o.p.map(q => q[1])), z1: Math.max(...o.p.map(q => q[1]))})), bangG, {p: 0.3, floors: 3, y0: 3.2, kind: 'ac', step: 3.4, max: 500});
+RANDAT.f111 = RNG111.st(); for (let k = 0; k < 1689; k++) RNG111();   // v305: Bangcluck's facades are dressed with Bangcluck (ld_lookFacades_bk); their 1,689 draws are skipped here
 // the village doors: barrels, woodpiles, watering cans
 { const K = kit47(); for (const r of VMR.filter(r => r.kind === 'bld')){ const cx = (r.x0 + r.x1)/2, z = r.z1 + VZ + 0.6; if (floorAt(cx + 1.6, z + 0.3, 999) > 0.5) continue; const k = RNG111();
     if (k < 0.4){ K.box(0.55, 0.75, 0.55, cx + 1.6, 0.5, z, 0x8a5a3a); K.box(0.58, 0.06, 0.58, cx + 1.6, 0.3, z, 0x3a3a3a); K.box(0.58, 0.06, 0.58, cx + 1.6, 0.7, z, 0x3a3a3a); }
     else if (k < 0.75){ for (let i = 0; i < 9; i++) K.box(0.9, 0.16, 0.16, cx - 1.8, 0.2 + Math.floor(i/3)*0.17, z + (i % 3)*0.17 - 0.17, 0xa8784a); }
     else { K.box(0.25, 0.22, 0.18, cx + 1.4, 0.24, z, 0x5a8a5a); K.box(0.25, 0.04, 0.05, cx + 1.6, 0.32, z, 0x5a8a5a); } } const g = new THREE.Group(); vG.add(g); K.build(g); }
+};
+
+// v305: Bangcluck's window boxes and shutters, with Bangcluck, from the state they had in the one-pass load
+const ld_lookFacades_bk = () => {
+const keep = RNG111.st(); RNG111.set(RANDAT.f111);
+W111.bk = facade111(BKP93.filter(o => o.kind === 'bld' && o.p.length === 4).map(o => ({x0: Math.min(...o.p.map(q => q[0])), x1: Math.max(...o.p.map(q => q[0])), z0: Math.min(...o.p.map(q => q[1])), z1: Math.max(...o.p.map(q => q[1]))})), bangG, {p: 0.3, floors: 3, y0: 3.2, kind: 'ac', step: 3.4, max: 500});
+RNG111.set(keep);
 };
 
 function facade111(rects, parent, o){ const AR = new Map(), area = (x, z) => { const k = Math.floor(x/128) + ',' + Math.floor(z/128); if (!AR.has(k)) AR.set(k, newArea53(Math.floor(x/128)*128 + 64, Math.floor(z/128)*128 + 64)); return AR.get(k); }; let n = 0;
@@ -38131,7 +38166,7 @@ var SREG48, SDIRTY48;
 
 const Q48 = () => (S.v48 = S.v48 || {});
 
-const ld_bangcluckClawsOut_1 = () => {
+const ld_bangcluckClawsOut_0 = () => {   // v305: what every city needs, at load (the rest, _1, is built with its city; RAND carries on)
 V48 = (x, y, z) => new THREE.Vector3(x, y, z); _a48 = new THREE.Vector3(); _b48 = new THREE.Vector3(); _c48 = new THREE.Vector3(); _d48 = new THREE.Object3D();
 /* ---------- collisions look only at the solids of the world you're in ---------- */
 // (var, not let: the base game's setup calls this before this part of the script has run)
@@ -38176,6 +38211,10 @@ goldM48 = mat(0xd0961e, {emissive: 0x4a3008, emissiveIntensity: 0.35}); whiteM48
 // a prang: the tall corn-cob tower of the Temple of the Dawn Chorus, in porcelain-bright tiers
 porcelain48 = mat(0xffffff, {map: pxTex(16, 16, g => { px(g, 0, 0, '#f4ecdc', 16, 16); for (let i = 0; i < 40; i++) px(g, ri(0, 16), ri(0, 16), pick(['#d4483a', '#2a6ad4', '#3f9a5a', '#ffd23a', '#e84a9a', '#f4f0e6']), 1, 1); })});
 NODES48 = GX48.map(gx => GZ48.map(gz => warp48(gx, gz))); NODESW48 = GXW48.map(gx => GZ48.map(gz => warp48(gx, gz, true)));
+RANDAT['claws48'] = RAND;
+};
+const ld_bangcluckClawsOut_1 = () => {
+RAND = RANDAT['claws48'];
 /* ---------- the ground, the river, its banks and bridges ---------- */
 {
   const K = kit47(), G = bangG;
@@ -40597,6 +40636,9 @@ WHATS_NEW.unshift(['190 · Finition III', 'A polishing pass over the new Paree: 
 // The load sequence for v37-v190 (St. Petersbird, New Yolk's north, Bangcluck, Tokyoo, the wide world, Paree and Bavaria). Each feature module defines its pieces; this runs their load-time steps
 // (building meshes, registering talkers, systems and hooks) in the order the versions added them.
 step(ld_petersbirdWithLove_1, 1735867281); await bootYield("ld_petersbirdWithLove_1");   // XM.push, LAMPX, THREE.Object3D.prototype.updateMatrixWorld, { const c = document.cre, C37, { // Nevsky: asphalt, gr, ...
+// v305: Bangcluck is built when the story hands over the ticket (stage 6) or Pidge is in it, behind a load card like Tokyoo
+// (core/regions.js). St. Petersbird stays at load: its steps feed one another and every city's systems (the Feather Tree).
+region('bangcluck', () => WARST48() >= 6 || inBang() || (state === 'title' && saved && (saved.war48 || 0) >= 6), []); REGIONS.bangcluck.label = 'Bangcluck'; REGIONS.bangcluck.trip = () => inBang() ? 'Back to Bangcluck' : 'Bangcluck Air, flight 404';
 step(ld_petersbirdStreetLife_1, 1517069287); await bootYield("ld_petersbirdStreetLife_1"); // { const south = linePath, pbFlock, for (let k = 0; k < 7; k, for (const [col, roof, l, PBLIFE.boats.push, { const g = new THREE.Gr, ...
 step(ld_audioTunes_1, 1155236299); await bootYield("ld_audioTunes_1");           // Object.assign, hooks schedMusic, hooks pickTrack, hooks updateAudio
 step(ld_petersbirdHaymarket_1, 1155236299); await bootYield("ld_petersbirdHaymarket_1");  // C38, { const W = WALL38, t = , BLOCK38, TRO.splice, WALLCAM38, hooks tankChase, ...
@@ -40613,19 +40655,23 @@ step(ld_newYolkBackToSchool_2, -1297586114); await bootYield("ld_newYolkBackToSc
 step(ld_petersbirdComrades_3, -1297586114); await bootYield("ld_petersbirdComrades_3");   // ALM42.push
 step(ld_uiAlmanac_1, -1297586114); await bootYield("ld_uiAlmanac_1");            // { const st = document.cr
 step(ld_newYolkBackToSchool_3, -1297586114); await bootYield("ld_newYolkBackToSchool_3");  // SYS47
-step(ld_bangcluckClawsOut_1, -1297586114); await bootYield("ld_bangcluckClawsOut_1");    // V48, SREG48, solids.push, solids.splice, SDIRTY48, FAC48, ...
-step(ld_bangcluckPeople_1, 670731653); await bootYield("ld_bangcluckPeople_1");      // KHUN48, SOMSAK48, SOMCHAI48, { const place = (C, x, y, { for (let k = 0; k < 10, for (let k = 0; k < 36; , ...
+step(ld_bangcluckClawsOut_0, -1297586114); await bootYield("ld_bangcluckClawsOut_0");   // v305: the shared part
+later('bangcluck', ld_bangcluckClawsOut_1, -1297586114);    // V48, SREG48, solids.push, solids.splice, SDIRTY48, FAC48, ...
+later('bangcluck', ld_bangcluckPeople_1, 670731653);      // KHUN48, SOMSAK48, SOMCHAI48, { const place = (C, x, y, { for (let k = 0; k < 10, for (let k = 0; k < 36; , ...
 step(ld_storyPartFour_1, -7476523); await bootYield("ld_storyPartFour_1");        // LOOK48, hooks renderStory, hooks storyTarget, hooks talkDon, addNamedTalker, rumbleG48, ...
-step(ld_bangcluckSoiLife_1, -703253390); await bootYield("ld_bangcluckSoiLife_1");     // FAR49, PK.stink, CH49, { const poleG = new THRE, SKY49, build49, ...
-step(ld_bangcluckCityLife_1, -423586344); await bootYield("ld_bangcluckCityLife_1");    // D49, MT49, build49, addNamedTalker, VOICES.Bookie, { const Lp = BK.lumpini,, ...
-step(ld_bangcluckLouder_1, 1312818366); await bootYield("ld_bangcluckLouder_1");      // hooks gearStat, canTex49, canM49, addTalker, for (const [i, j] of [[1, build49, ...
+later('bangcluck', ld_storyPartFour_bk, -7476523);   // v305: Somchai's tuk (story/part-four.js)
+step(ld_bangcluckSoiLife_0, -703253390); await bootYield("ld_bangcluckSoiLife_0");   // v305: the shared part
+later('bangcluck', ld_bangcluckSoiLife_1, -703253390);     // FAR49, PK.stink, CH49, { const poleG = new THRE, SKY49, build49, ...
+later('bangcluck', ld_bangcluckCityLife_1, -423586344);    // D49, MT49, build49, addNamedTalker, VOICES.Bookie, { const Lp = BK.lumpini,, ...
+later('bangcluck', ld_bangcluckLouder_1, 1312818366);      // hooks gearStat, canTex49, canM49, addTalker, for (const [i, j] of [[1, build49, ...
 step(ld_uiQuestTracker_1, -819970035); await bootYield("ld_uiQuestTracker_1");       // try { QT49.min = localSt, hooks renderQuest, hooks questTarget, { const st = document.cr, hooks renderWMList
-step(ld_bangcluckSaffronHunt_1, -819970035); await bootYield("ld_bangcluckSaffronHunt_1"); // Object.assign, WAR48.eyebrow, hooks renderStory, BELLS50, addNamedTalker, { const T = talkers.find, ...
-step(ld_bangcluckGrandHotels_1, 364607508); await bootYield("ld_bangcluckGrandHotels_1"); // lastCoo51, hooks coo, MAT51, facadeMats.push, MAND51, KEMP51, ...
-step(ld_bangcluckRiverCruise_1, -598755950); await bootYield("ld_bangcluckRiverCruise_1"); // CRUISE51, CRUISEPATH51, addNamedTalker, VOICES['Cruise steward'], MOG51, addTalker, ...
+later('bangcluck', ld_bangcluckSaffronHunt_1, -819970035); // Object.assign, WAR48.eyebrow, hooks renderStory, BELLS50, addNamedTalker, { const T = talkers.find, ...
+later('bangcluck', ld_bangcluckGrandHotels_1, 364607508); // lastCoo51, hooks coo, MAT51, facadeMats.push, MAND51, KEMP51, ...
+later('bangcluck', ld_bangcluckRiverCruise_1, -598755950); // CRUISE51, CRUISEPATH51, addNamedTalker, VOICES['Cruise steward'], MOG51, addTalker, ...
 step(ld_petersbirdCanal_1, -1941849114); await bootYield("ld_petersbirdCanal_1");      // PBCOLS51, { // the canal: a curvin, PLABELS.push, for (let k = 0; k < 8; k
 step(ld_bangcluckGrandHotels_2, -373037710); await bootYield("ld_bangcluckGrandHotels_2"); // SYS51, if (typeof updateBang51 
 step(ld_bangcluckBrotherBoris_1, -373037710); await bootYield("ld_bangcluckBrotherBoris_1"); // NOTE52, VOICES['HAIKU-9000'], VOICES['Brother Boris (safe mode)'], WAR48.eyebrow, Object.assign, ROBO52, ...
+later('bangcluck', ld_bangcluckBrotherBoris_bk, -373037710);   // v305: the robot Boris
 step(ld_lookCharacter_1, -373037710); await bootYield("ld_lookCharacter_1");        // ATLAS52, TAGNY52, GRAF52, ORDERTAG52, POSTERS52.forEach
 step(ld_lookPropKit_1, -373037710); await bootYield("ld_lookPropKit_1");          // P52.car, P52.bin, P52.dumpster, P52.crates, P52.pot, P52.bike, ...
 step(ld_newYolkNeighbourhoods_1, -373037710); await bootYield("ld_newYolkNeighbourhoods_1"); // Object.assign, DISTRICTS.centre.sub, DISTRICTS.oldtown.sub, DISTRICTS.westend.sub, DISTRICTS.harbour.sub, hooks districtOf25, ...
@@ -40634,9 +40680,10 @@ step(ld_bangcluckBrotherBoris_2, -373037710); await bootYield("ld_bangcluckBroth
 step(ld_littlePeckingCharacter_1, -373037710); await bootYield("ld_littlePeckingCharacter_1"); // VIL53, { const A = newArea53(0,, addTalker, ...
 step(ld_bangcluckLouder_2, -373037710); await bootYield("ld_bangcluckLouder_2");      // { const x = -14, z = VZ 
 step(ld_petersbirdUsdr_1, -373037710); await bootYield("ld_petersbirdUsdr_1");       // P52.lada, P52.kvass, P52.chess, TH53, PB53, { const L = (x, z) => [P, ...
-step(ld_bangcluckCharacter_1, -373037710); await bootYield("ld_bangcluckCharacter_1");   // BK54, { const AR = new Map(), , for (let k = 0; k < 6; k, addNamedTalker, addTalker, Object.assign, ...
+later('bangcluck', ld_bangcluckCharacter_1, -373037710);   // BK54, { const AR = new Map(), , for (let k = 0; k < 6; k, addNamedTalker, addTalker, Object.assign, ...
 step(ld_newYolkAmericana_1, -91213225); await bootYield("ld_newYolkAmericana_1");     // NY55, { const AR = new Map(), , addTalker, addNamedTalker, VOICES.Mom, { const M = BK54.merchic, ...
-step(ld_bangcluckJusticeBeaver_1, -91213225); await bootYield("ld_bangcluckJusticeBeaver_1"); // BK56, FL56, TR56, VOICES['Justice Beaver'], VOICES['Steel Jaw'], VOICES.Ramboo, ...
+later('bangcluck', ld_newYolkAmericana_bk, -91213225);   // v305: its Bangcluck touches
+later('bangcluck', ld_bangcluckJusticeBeaver_1, -91213225); // BK56, FL56, TR56, VOICES['Justice Beaver'], VOICES['Steel Jaw'], VOICES.Ramboo, ...
 step(ld_petersbirdMatryoshkin_1, 1439130000); await bootYield("ld_petersbirdMatryoshkin_1"); // NK56, MAT56, VOICES.Ivan, VOICES.Vanya, addNamedTalker, system pb56, ...
 step(ld_eventsSharknado_1, 1311247606); await bootYield("ld_eventsSharknado_1");      // NADO56, system nado56
 step(ld_storyPartFour_2, -1231247674); await bootYield("ld_storyPartFour_2");        // hooks talkDon, hooks renderStory, hooks storyTarget
@@ -40644,6 +40691,7 @@ step(ld_petersbirdDasBrot_1, -1231247674); await bootYield("ld_petersbirdDasBrot
 step(ld_skyBlueSkies_1, -734870698); await bootYield("ld_skyBlueSkies_1");         // CITYC58, CL58, for (const c of clouds) , if (typeof PB_CLOUDS !==, BLIMPS58, BPL58, ...
 step(ld_newYolkGhostbirders_1, -1301263786); await bootYield("ld_newYolkGhostbirders_1");  // NY58, { const AR = new Map(), , addNamedTalker, addTalker, system ny58
 step(ld_skyBlimps_1, 1658514673); await bootYield("ld_skyBlimps_1");            // YOLK59, hooks updateSky58, for (const e of SYS52) i, HANG59, { const x = BK54.hawker., VOICES['Al-hen'], ...
+later('bangcluck', ld_skyBlimps_bk, 1658514673);   // v305: its Bangcluck part
 step(ld_storySpecialSeeds_1, -300933534); await bootYield("ld_storySpecialSeeds_1");    // VOICES['Officer Brannigan'], VOICES['Officer Kowalski'], CUST60, C60, CUST60.forEach, hooks talkDon, ...
 step(ld_storyTheTrip_1, 1466691082); await bootYield("ld_storyTheTrip_1");         // TRIP61, scene.add, TRIP61.g.visible, MAT61, WM61, TOAST61, ...
 step(ld_storyTheCount_1, 1466691082); await bootYield("ld_storyTheCount_1");        // VOICES['Count Pagurus'], VOICES.Jeeves, { const g = new THREE.Gr, countRoom, CR62, { const { cx, cz } = COU, ...
@@ -40654,7 +40702,7 @@ step(ld_tokyooFlight9000_1, -1354297886); await bootYield("ld_tokyooFlight9000_1
 // v303: Tokyoo is built when the story gets there (boarding Flight 9000, stage 24) or Pidge is in it (a save, a
 // warp), over several frames behind a load card, not at the first load. Its steps stay where they were in the load
 // order (later(), core/regions.js); the steps around them that every city needs still run at load.
-region('tokyoo', () => WARST48() >= 24 || inTokyo67() || (state === 'title' && saved && (saved.war48 || 0) >= 24), []); REGIONS.tokyoo.label = 'Tokyoo'; REGIONS.tokyoo.trip = () => inTokyo67() ? 'Back to Tokyoo' : WARST48() >= 24 && WARST48() < 26 ? 'Flight 9000 to Tokyoo' : 'Tokyoo';
+region('tokyoo', () => WARST48() >= 24 || inTokyo67() || (state === 'title' && saved && (saved.war48 || 0) >= 24), []); REGIONS.tokyoo.label = 'Tokyoo'; REGIONS.tokyoo.needs = ['bangcluck']; REGIONS.tokyoo.trip = () => inTokyo67() ? 'Back to Tokyoo' : WARST48() >= 24 && WARST48() < 26 ? 'Flight 9000 to Tokyoo' : 'Tokyoo';
 step(ld_tokyooArrival_1, -1377026786); await bootYield("ld_tokyooArrival_1");   // (at load: the airport and tkG, which the world edge needs)        // tkG, scene.add, tkG.visible, WORLDNAME49.tk, CITYC58.tk, BANNERS58.tk, ...
 step(ld_tokyooCity_0, -1128838298); await bootYield("ld_tokyooCity_0");   // v303: Tokyoo's shared sign atlases and ground/wall textures
 later('tokyoo', ld_tokyooCity_1, -1128838298);           // JPV68, JPH68, RNG90, PAVE90, PAVEM90, ASPH90, ...
@@ -40685,7 +40733,7 @@ step(ld_tokyooTexture_0, -1939243746); await bootYield("ld_tokyooTexture_0");   
 later('tokyoo', ld_tokyooTexture_1, -1939243746);        // TUFTTEX90, FLOWTEX90, GRASS90G, AR90, { const r = () => RNG90(, buildTk68, ...
 step(ld_newYolkTexture_1, 422335040); await bootYield("ld_newYolkTexture_1");       // RNG91, NYPARK91, NYG91, scene.add, NYGREEN91, NYPITS91, ...
 step(ld_petersbirdTexture_1, 294452646); await bootYield("ld_petersbirdTexture_1");    // RNG92, COBBLE92, GRANITE92, GRAVEL92, PBR92, PBGREEN92, ...
-step(ld_bangcluckTexture_1, 1806312474); await bootYield("ld_bangcluckTexture_1");     // RNG93, BKR93, BKP93, BKGREEN93, { const W = decals52(WAL, AR93, ...
+later('bangcluck', ld_bangcluckTexture_1, 1806312474);     // RNG93, BKR93, BKP93, BKGREEN93, { const W = decals52(WAL, AR93, ...
 step(ld_gameplayLootSpiral_1, -976794994); await bootYield("ld_gameplayLootSpiral_1");
 later('tokyoo', ld_gameplayLootSpiral_2, -976794994);   // v303: the loot spiral's Tokyoo part (gameplay/loot-spiral.js)   // LBASE.push, hooks lootIcon, SETS.salary, hooks rollLoot, { const css = document.c, hooks dropLoot29, ...
 step(ld_gameplayCareerLadder_1, -495570618); await bootYield("ld_gameplayCareerLadder_1"); // { const css = document.c, hooks levelUp40, hooks addXP, hooks giveTreasure, hooks treePoints40, hooks updateHUD, ...
@@ -40705,13 +40753,14 @@ step(ld_skyLight_1, 1817219571); await bootYield("ld_skyLight_1");             /
 step(ld_castAlive_1, 1817219571); await bootYield("ld_castAlive_1");            // system alive109
 later('tokyoo', ld_tokyooStreets_1, 1817219571);        // RNG110, AR110, VEND110, LANT110, system streets110
 step(ld_lookFacades_1, 1817219571); await bootYield("ld_lookFacades_1");          // RNG111, W111.vil, W111.pb, W111.ny, W111.bk
+later('bangcluck', ld_lookFacades_bk, 1817219571);   // v305: its Bangcluck part
 step(ld_castOverheard_1, 1817219571); await bootYield("ld_castOverheard_1");        // B112, system bark112
 step(ld_castSmallTalk_1, 1817219571); await bootYield("ld_castSmallTalk_1");        // system news113
 step(ld_gameplayLootKindly_1, 1817219571); await bootYield("ld_gameplayLootKindly_1");   // hooks updateDrops29, hooks giveTreasure, addEventListener, system loot114
 step(ld_uiSettings_1, 1817219571); await bootYield("ld_uiSettings_1");           // settings.textSize, settings.barks, settings.autoWear, settings.showHint, settings.lootLabels, { const css = document.c, ...
 step(ld_castAlive_2, 1817219571); await bootYield("ld_castAlive_2");            // system fix116
 step(ld_uiDeeds_1, 1817219571); await bootYield("ld_uiDeeds_1");              // { const css = document.c, addEventListener
-step(ld_bangcluckCluck19_1, 1817219571); await bootYield("ld_bangcluckCluck19_1");     // CL118, VOICES['Dr. Pim'], VOICES['Uncle Somsak'], VOICES['Khun Krystal'], VOICES['Kevin'], addNamedTalker, ...
+later('bangcluck', ld_bangcluckCluck19_1, 1817219571);     // CL118, VOICES['Dr. Pim'], VOICES['Uncle Somsak'], VOICES['Khun Krystal'], VOICES['Kevin'], addNamedTalker, ...
 step(ld_uiSideJobs_1, 1440233983); await bootYield("ld_uiSideJobs_1");           // hooks deedRows117, { const b = [...document
 step(ld_gameplayFeel_1, 1440233983); await bootYield("ld_gameplayFeel_1");         // hooks updateCamera, hooks land44, if (typeof camPost30 ===, hooks tone, hooks noise, for (const k of ['hop', 
 later('tokyoo', ld_tokyooNightLights_1, 1440233983);    // RNG121, TORO121, CHO121, system night121
@@ -47534,6 +47583,14 @@ WHATS_NEW.unshift(['303 · Later, Tokyoo', 'The first load is about a fifth shor
 GAME_VER.n = 304;
 GAME_VER.name = 'Quick Start';
 WHATS_NEW.unshift(['304 · Quick Start', 'The first load is about a quarter shorter again (the city’s merged buildings and characters are put together much faster), and frames in the middle of New Yolk are smoother: the camera only checks the walls near it, and batching no longer walks the whole city each time it rebuilds a batch.']);
+/* =====================================================================
+   v305 · BAGELS AND BANGCLUCK: the bagel boy is always on his rounds;
+   Bangcluck is built when the story gets there
+   ===================================================================== */
+// v305
+GAME_VER.n = 305;
+GAME_VER.name = 'Bagels and Bangcluck';
+WHATS_NEW.unshift(['305 · Bagels and Bangcluck', '“Gone in Sixty Seeds” can be finished again: the bagel boy now always cycles round Pigeon Park, and the gold beam points at him wherever you are (before, until you went to the park he waited unseen in the middle of the square by Gus). The first load is shorter again: Bangcluck is built when the Don hands over the ticket, behind a short travel card.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -47548,7 +47605,7 @@ region('pbDetail', () => inPeter30(), [
 ]);
 region('bkDetail', () => inBang(), [
   [ld_bangcluckDetail_1, 264001],
-]);
+], ['bangcluck']);
 region('tkDetail', () => inTokyo67() && Math.abs(player.pos.x - TK.x) < 800 && Math.abs(player.pos.z - TK.z) < 800, [
   [ld_tokyooDetail_1, 265001],
 ], ['tokyoo']);
