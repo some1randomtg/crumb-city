@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v301 (smoother frames, a round of fixes in Little Pecking and New Yolk, and a load bar on the title screen).
+Current version: v302 (a tidy four-tab menu; pop-ups and long conversations scroll).

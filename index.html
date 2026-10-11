@@ -166,7 +166,7 @@
   .goal{position:absolute;left:0;top:0;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--ink);padding:3px 9px;will-change:transform}
   .goal-arrow{width:0;height:0;border-left:11px solid var(--wood-dark);border-top:7px solid transparent;border-bottom:7px solid transparent}
 
-  .dialog{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%);width:min(640px,calc(100vw - 32px));padding:14px 16px;pointer-events:auto;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:start}
+  .dialog{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%);width:min(640px,calc(100vw - 32px));max-height:calc(100dvh - env(safe-area-inset-bottom,0px) - env(safe-area-inset-top,0px) - 40px);overflow-y:auto;overscroll-behavior:contain;padding:14px 16px;pointer-events:auto;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:start}
   .dialog .who{font-weight:700;font-size:18px;color:var(--wood)}
   .dialog .line{font-size:19px;line-height:1.35;margin:4px 0 8px;max-width:60ch}
   .dialog .more{font-size:13px;color:var(--muted)}
@@ -182,13 +182,49 @@
   .tbtn.dive{grid-row:3;grid-column:1/3;width:auto;height:40px;border-radius:8px}
   .tbtn:active{transform:translateY(2px)}
 
+  /* v302: overlays sit at the bottom when they fit, and scroll all the way up when they don't (flex-end alignment left
+     the top of a tall panel out of reach); the long conversation box above scrolls too */
+  .overlay > *{margin-top:auto}
+  /* v302: the pause menu in four tabs that fit the screen (ui/pause-menu.js) */
+  #help.m302{align-items:center;justify-content:center}
+  #help.m302 > .panel{margin:auto;max-width:780px;padding:0}
+  #help.m302 .modal{display:flex;flex-direction:column;box-sizing:border-box;max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 56px);padding:16px 18px 12px}
+  #help.m302 .mhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 10px}
+  #help.m302 .mhead h3{margin:0}
+  #help.m302 .mtabs{display:flex;gap:6px;flex-wrap:wrap}
+  #help.m302 .mtab{font:700 15px var(--px);color:var(--ink);background:#fff6dc;border:2px solid var(--wood-dark);border-radius:6px;padding:5px 12px;cursor:pointer}
+  #help.m302 .mtab.on{background:var(--wood-light);color:#fff6dc}
+  #help.m302 .mbody{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:2px 4px 6px 0}
+  #help.m302 .mpane > *:last-child{margin-bottom:0}
+  #help.m302 .mstatus{margin:0 0 12px;font-size:15px;color:var(--muted)}
+  #help.m302 .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+  #help.m302 .mact{margin:0;font-size:16px;padding:10px 14px;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  #help.m302 .mact kbd{font-size:12px;opacity:.8}
+  #help.m302 .msearch{width:100%;box-sizing:border-box;font:600 15px var(--px);padding:7px 10px;border:2px solid var(--wood-dark);border-radius:6px;background:#fffaf0;margin:0 0 10px}
+  #help.m302 .warps{margin:0}
+  #help.m302 #warpRow{display:flex;flex-wrap:wrap;gap:6px}
+  #help.m302 .wgroup{flex-basis:100%;margin:10px 0 2px;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--wood)}
+  #help.m302 .wgroup:first-child{margin-top:0}
+  #help.m302 .mhide{display:none}
+  #help.m302 .settings{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px 22px;margin:0;align-items:start}
+  #help.m302 .set{display:grid;grid-template-columns:minmax(110px,42%) minmax(0,1fr);align-items:center;gap:8px;min-height:30px}
+  #help.m302 .set > :nth-child(n+3){grid-column:2}
+  #help.m302 .set.chk,#help.m302 .set:has(> input[type=checkbox]:first-child){grid-template-columns:auto minmax(0,1fr)}
+  #help.m302 .set select,#help.m302 .set input[type=range]{max-width:100%;min-width:0;width:100%;box-sizing:border-box}
+  #help.m302 .set .warp{justify-self:start}
+  #help.m302 .sgroup{grid-column:1/-1;margin:12px 0 0;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--wood);border-bottom:2px solid var(--parch-2);padding-bottom:3px}
+  #help.m302 .settings > .sgroup:first-child{margin-top:0}
+  #help.m302 .mtips{margin:4px 0 0;padding-left:20px;display:grid;gap:5px;font-size:15px;line-height:1.35;max-width:70ch}
+  #help.m302 .mfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;flex-wrap:wrap}
+  #help.m302 .mfoot .ver31{margin:0!important}
+  @media (max-width:520px){ #help.m302 .modal{padding:12px} #help.m302 .mgrid{grid-template-columns:1fr 1fr} #help.m302 .mact{font-size:14px;padding:8px 10px} }
   /* v301: the load bar on the title screen; the buttons wait for it */
   .bootbar{position:relative;height:22px;margin:10px 0 4px;max-width:360px;border-radius:11px;background:rgba(40,28,18,.55);overflow:hidden;box-shadow:inset 0 0 0 2px rgba(255,236,200,.35)}
   .bootfill{position:absolute;top:0;bottom:0;left:0;width:0;background:linear-gradient(90deg,#f0b84a,#ffd98a);transition:width .25s ease-out}
   #bootTxt{position:relative;display:block;padding:0 12px;line-height:22px;font-size:13px;color:#fff6e4;text-shadow:0 1px 2px rgba(0,0,0,.6)}
   #title.ready .bootbar{display:none}
   #title:not(.ready) .row .btn{pointer-events:none;opacity:.55}
-  .overlay{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:flex-start;padding:24px 16px calc(env(safe-area-inset-bottom,0px) + 24px);background:linear-gradient(180deg,rgba(43,26,16,0) 25%,rgba(43,26,16,.78) 88%);overflow:auto}
+  .overlay{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:flex-start;padding:24px 16px calc(env(safe-area-inset-bottom,0px) + 24px);background:linear-gradient(180deg,rgba(43,26,16,0) 25%,rgba(43,26,16,.78) 88%);overflow:auto}
   .panel{max-width:600px;width:100%;padding-left:clamp(0px,4vw,40px);padding-bottom:clamp(0px,3vh,32px)}
   .kicker{font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);font-weight:600;text-shadow:2px 2px 0 var(--wood-dark)}
   .wordmark{font-weight:700;font-size:clamp(68px,13vw,138px);line-height:.85;margin:10px 0 16px;color:var(--gold);text-shadow:5px 5px 0 var(--wood),10px 10px 0 var(--wood-dark)}
@@ -47359,6 +47395,14 @@ WHATS_NEW.unshift(['300 · Snagging', 'A round of fixes: Grandpa Coo is on his b
 GAME_VER.n = 301;
 GAME_VER.name = 'Loading';
 WHATS_NEW.unshift(['301 · Loading', 'The first load no longer freezes the page: the title screen shows a load bar (“Building New Yolk… 45%”) while the cities are put together, and the Start button wakes up when everything is ready.']);
+/* =====================================================================
+   v302 · TIDY MENU: the pause menu in four tabs that fit the screen;
+   tall pop-ups and long conversations scroll all the way up
+   ===================================================================== */
+// v302
+GAME_VER.n = 302;
+GAME_VER.name = 'Tidy Menu';
+WHATS_NEW.unshift(['302 · Tidy Menu', 'The menu is now four tabs that fit the screen: Play (map, journal, bag, the Feather Tree, errands, side jobs, photo mode, save), Travel (fly-to places by city, with a search), Settings (in groups; the doubled text-speed setting is one now) and Controls (keys and short tips). The long version history is gone from it. Tall pop-ups and long conversation choices can be scrolled all the way to the top.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -48574,6 +48618,96 @@ function beginBase(fromSave){
 $('startBtn').addEventListener('click', () => begin(true));
 $('newBtn').addEventListener('click', () => { try { localStorage.removeItem(SAVE_KEY); } catch(e) {} begin(false); });
 
+/* ---------- ui: pause menu ---------- */
+// v302: the pause menu, tidied. Over the years every area added its own buttons, settings and fly-to places to the
+// one long #help panel (4,000 px tall, its top out of reach on a laptop screen) and a full version history under it.
+// Once the load is done, organiseMenu302() sorts what is there into four tabs that fit the screen:
+//   Play (the things to open, save, photo mode) · Travel (fly-to places, by city, with a search) · Settings · Controls
+// The elements are moved, not rebuilt, so every id, selector and click handler the areas set up keeps working.
+// The version history ("What's new") is gone from the menu; the version number stays, small, at the bottom.
+const MENU302 = {tab: 'play', panes: {}, tabs: {}};
+
+function organiseMenu302(){
+  const help = $('help'), modal = help && help.querySelector('.modal'); if (!modal || MENU302.done) return; MENU302.done = true;
+  help.classList.add('m302');
+  const q = s => modal.querySelector(s), el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const h3 = q('h3'), keys = q('.keys'), lede = q('.lede'), setBox = q('.settings'), warps = q('.warps'), close = $('helpClose'), ver = q('.ver31');
+  const extra = [...modal.children].filter(c => c.tagName === 'BUTTON' && c !== close);
+  for (const n of modal.querySelectorAll('.new36')) n.remove();
+
+  const head = el('div', 'mhead'), tabs = el('div', 'mtabs'), body = el('div', 'mbody'), foot = el('div', 'mfoot');
+  if (h3){ h3.textContent = 'Paused'; head.appendChild(h3); } head.appendChild(tabs);
+  const pane = (key, label) => { const b = el('button', 'mtab', label); b.type = 'button'; b.addEventListener('click', () => showTab302(key)); tabs.appendChild(b); const p = el('section', 'mpane'); p.dataset.pane = key; body.appendChild(p); MENU302.panes[key] = p; MENU302.tabs[key] = b; return p; };
+
+  // Play: where you are, and the things to open
+  const play = pane('play', 'Play');
+  play.appendChild(el('p', 'mstatus')).id = 'mStatus302';
+  const grid = el('div', 'mgrid'); play.appendChild(grid);
+  const act = (label, key, fn) => { const b = el('button', 'btn mact', label + (key ? ` <kbd>${key}</kbd>` : '')); b.type = 'button'; b.addEventListener('click', fn); grid.appendChild(b); return b; };
+  const after = fn => () => { toggleHelp(false); setTimeout(fn, 0); };
+  act('Map', 'N', after(() => { const b = $('mapBtn'); if (b) b.click(); }));
+  act('Journal', 'J', after(() => { const b = $('journalBtn'); if (b) b.click(); }));
+  act('Bag', 'I', after(() => { const b = $('bagBtn'); if (b) b.click(); }));
+  for (const b of extra){ const m = b.textContent.match(/^(.*?)\s*\((\w)\)\s*$/); b.classList.add('mact'); if (m) b.innerHTML = `${m[1]} <kbd>${m[2]}</kbd>`; b.style.margin = ''; grid.appendChild(b); }
+  act('Photo mode', 'H', after(() => { if (typeof togglePhoto === 'function') togglePhoto(); }));
+  const sv = act('Save now', '', () => { try { save(); sv.textContent = 'Saved'; setTimeout(() => { sv.textContent = 'Save now'; }, 1500); } catch (e){} });
+
+  // Travel: the fly-to buttons, grouped by city, with a search box. They stay inside #warpRow (other code looks
+  // them up there); headings go in between, and the grouping is redone each time the menu opens (places unlock).
+  const travel = pane('travel', 'Travel');
+  if (warps){ const lab = warps.querySelector('.mlabel'); if (lab) lab.remove();
+    const find = el('input', 'msearch'); find.type = 'search'; find.placeholder = 'Find a place…'; find.setAttribute('aria-label', 'Find a place'); find.addEventListener('input', () => filterWarps302(find.value));
+    travel.appendChild(find); travel.appendChild(warps); MENU302.find = find; }
+
+  // Settings, in groups. Two "Text speed" settings had piled up (both applied, multiplied); the older one goes, its
+  // value carried over to the one that stays (Slow, Normal, Fast, Instant)
+  if (setBox){ const old = $('setText'); if (old){ const ts = settings.textSpeed; if (ts && ts !== 'normal' && (settings.txt || 'normal') === 'normal'){ settings.txt = ts; const t = $('setTxt'); if (t) t.value = ts; }
+      if (ts && ts !== 'normal'){ settings.textSpeed = 'normal'; try { saveSettings(); } catch (e){} } const l = old.closest('label'); if (l) l.remove(); }
+    const G = [['Sound', /music|sound|ambien|tune|voice|volume|mute/i], ['Graphics', /graphic|pixel|outline|blur|tilt|quality|shadow|bloom|weather look/i], ['Controls & camera', /mouse|keyboard|touch|stick|invert|camera|field of view|motion|steer/i], ['Interface', /hud|interface|text|minimap|subtitle|tip|font/i]];
+    const groups = new Map(G.map(([n]) => [n, []]).concat([['Game', []]]));
+    for (const l of [...setBox.children]){ const t = l.textContent; groups.get((G.find(([, re]) => re.test(t)) || ['Game'])[0]).push(l); }
+    for (const [n, list] of groups){ if (!list.length) continue; const h = el('h4', 'sgroup', n); setBox.appendChild(h); for (const l of list) setBox.appendChild(l); }
+    pane('settings', 'Settings').appendChild(setBox); }
+  // Controls: the keys, and the tips as a short list instead of one long paragraph
+  const ctl = pane('controls', 'Controls'); if (keys) ctl.appendChild(keys);
+  if (lede){ const ul = el('ul', 'mtips'); for (const t of lede.textContent.split(/(?<=[.!?])\s+(?=[A-Z])/)) if (t.trim()) ul.appendChild(el('li', '', '')).textContent = t.trim(); ctl.appendChild(el('h4', 'sgroup', 'Tips')); ctl.appendChild(ul); lede.remove(); }
+
+  if (close){ close.textContent = 'Back to town'; foot.appendChild(close); } if (ver) foot.appendChild(ver);
+  modal.textContent = ''; modal.append(head, body, foot);
+  showTab302('play');
+  hook('toggleHelp', on => { if (on) refreshMenu302(); });
+}
+
+function showTab302(key){
+  if (!MENU302.panes[key]) key = 'play'; MENU302.tab = key;
+  for (const k in MENU302.panes){ MENU302.panes[k].hidden = k !== key; MENU302.tabs[k].classList.toggle('on', k === key); MENU302.tabs[k].setAttribute('aria-selected', k === key); }
+  if (key === 'travel') groupWarps302();
+}
+
+const WARPCITY302 = [['St. Petersbird', /St\. Petersbird|Petersbird/], ['Bangcluck', /Bangcluck/], ['Tokyoo', /Tokyoo/], ['Paree', /Paree|Paris/], ['Bavaria', /Bavaria/], ['The moon', /moon/i], ['Little Pecking', /Little Pecking|Duck pond|Our nest|Pemberton/]];
+function groupWarps302(){
+  const row = $('warpRow'); if (!row) return;
+  for (const h of row.querySelectorAll('.wgroup')) h.remove();
+  const groups = new Map([['New Yolk', []]]);
+  for (const b of [...row.querySelectorAll('[data-warp]')]){ const t = b.textContent, c = (WARPCITY302.find(([, re]) => re.test(t)) || ['New Yolk'])[0];
+    if (!groups.has(c)) groups.set(c, []); groups.get(c).push(b); b.textContent = t.replace(/\s*\((?:St\. Petersbird|Bangcluck|Tokyoo|Paree|Bavaria)\)\s*$/, '').replace(/\s*\((St\. Petersbird|Bangcluck|Tokyoo|Paree|Bavaria)\)/, ''); b.dataset.city = c; }
+  for (const [c, list] of groups){ if (!list.some(b => !b.hidden)) { for (const b of list) row.appendChild(b); continue; }
+    const h = document.createElement('h4'); h.className = 'wgroup'; h.textContent = c; row.appendChild(h);
+    list.sort((a, b) => a.textContent.localeCompare(b.textContent)); for (const b of list) row.appendChild(b); }
+  if (MENU302.find) filterWarps302(MENU302.find.value);
+}
+function filterWarps302(text){
+  const row = $('warpRow'); if (!row) return; const t = text.trim().toLowerCase();
+  for (const b of row.querySelectorAll('[data-warp]')) b.classList.toggle('mhide', !!t && !b.textContent.toLowerCase().includes(t) && !(b.dataset.city || '').toLowerCase().includes(t));
+  for (const h of row.querySelectorAll('.wgroup')){ let n = h.nextElementSibling, any = false; while (n && !n.classList.contains('wgroup')){ if (!n.hidden && !n.classList.contains('mhide')) any = true; n = n.nextElementSibling; } h.classList.toggle('mhide', !any); }
+}
+function refreshMenu302(){
+  const st = $('mStatus302');
+  if (st){ let place = ''; try { const D = typeof DISTRICTS !== 'undefined' && DISTRICTS[curDistrict]; place = D ? D.name : ''; } catch (e){}
+    try { if (typeof inVillage === 'function' && inVillage()) place = 'Little Pecking'; } catch (e){}
+    st.textContent = [`Level ${S.level || 1}`, `${S.crumbs || 0} crumbs`, place].filter(Boolean).join(' · '); }
+  showTab302(MENU302.tab);
+}
 /* ---------- loop ---------- */
 function resize(){
   const w = innerWidth, h = innerHeight;
@@ -48630,7 +48764,7 @@ function frameBody47(now){
   renderer.shadowMap.needsUpdate = (frameN++ % shadowEvery) === 0;
   post.render();
 }
-bootDone();   // v301: the load is done: held timers run, the title screen's buttons wake up (core/start.js)
+organiseMenu302(); bootDone();   // v302: the pause menu in tabs (ui/pause-menu.js). v301: the load is done: held timers run, the title screen's buttons wake up (core/start.js)
 requestAnimationFrame(frame);
 })();
 </script>
