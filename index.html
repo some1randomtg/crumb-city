@@ -182,6 +182,12 @@
   .tbtn.dive{grid-row:3;grid-column:1/3;width:auto;height:40px;border-radius:8px}
   .tbtn:active{transform:translateY(2px)}
 
+  /* v301: the load bar on the title screen; the buttons wait for it */
+  .bootbar{position:relative;height:22px;margin:10px 0 4px;max-width:360px;border-radius:11px;background:rgba(40,28,18,.55);overflow:hidden;box-shadow:inset 0 0 0 2px rgba(255,236,200,.35)}
+  .bootfill{position:absolute;top:0;bottom:0;left:0;width:0;background:linear-gradient(90deg,#f0b84a,#ffd98a);transition:width .25s ease-out}
+  #bootTxt{position:relative;display:block;padding:0 12px;line-height:22px;font-size:13px;color:#fff6e4;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+  #title.ready .bootbar{display:none}
+  #title:not(.ready) .row .btn{pointer-events:none;opacity:.55}
   .overlay{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:flex-start;padding:24px 16px calc(env(safe-area-inset-bottom,0px) + 24px);background:linear-gradient(180deg,rgba(43,26,16,0) 25%,rgba(43,26,16,.78) 88%);overflow:auto}
   .panel{max-width:600px;width:100%;padding-left:clamp(0px,4vw,40px);padding-bottom:clamp(0px,3vh,32px)}
   .kicker{font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);font-weight:600;text-shadow:2px 2px 0 var(--wood-dark)}
@@ -453,6 +459,7 @@
         <button class="btn" id="startBtn" type="button">Start</button>
         <button class="btn ghost" id="newBtn" type="button" hidden>New game</button>
       </div>
+      <div class="bootbar" id="bootBar" aria-live="polite"><div class="bootfill" id="bootFill"></div><span id="bootTxt">Building the world…</span></div>
       <div class="keys" id="titleKeys">
         <div><kbd>W</kbd><kbd>S</kbd>forward / back</div>
         <div><kbd>A</kbd><kbd>D</kbd>turn</div>
@@ -611,7 +618,7 @@ window.__THREE_READY = (async () => {
   if (!gpu){ window.THREE = Object.assign({}, await import('https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.min.js')); window.__GPU = null; return; }
   const [T, TSL, csm, gtao, ssr, bloom, blur, smaa] = await Promise.all(['three/webgpu', 'three/tsl', 'three/addons/csm/CSMShadowNode.js', 'three/addons/tsl/display/GTAONode.js', 'three/addons/tsl/display/SSRNode.js', 'three/addons/tsl/display/BloomNode.js', 'three/addons/tsl/display/GaussianBlurNode.js', 'three/addons/tsl/display/SMAANode.js'].map(m => import(m)));
   window.THREE = Object.assign({}, T, {TSL, ADDONS: {CSMShadowNode: csm.CSMShadowNode, ao: gtao.ao, ssr: ssr.ssr, bloom: bloom.bloom, gaussianBlur: blur.gaussianBlur, smaa: smaa.smaa}, WebGLRenderTarget: T.RenderTarget});
-  window.__GPU = new T.WebGPURenderer({canvas: document.getElementById('game'), antialias: false, alpha: false, trackTimestamp: q.has('ts')});   // alpha: false: an opaque canvas (the post pass's output carries no alpha, and a see-through canvas showed nothing in Chrome)   // ?ts=1: GPU timings, for tests
+  window.__GPU = new T.WebGPURenderer({canvas: document.getElementById('game'), antialias: false, alpha: false, powerPreference: 'high-performance',   /* v299: the fast GPU on a two-GPU laptop */ trackTimestamp: q.has('ts')});   // alpha: false: an opaque canvas (the post pass's output carries no alpha, and a see-through canvas showed nothing in Chrome)   // ?ts=1: GPU timings, for tests
   await window.__GPU.init();
   // every render pipeline compiles in the background (createRenderPipelineAsync): on a real GPU the ~300 shaders took
   // minutes to compile one after another and froze the page with nothing drawn. An object now simply appears a moment
@@ -623,8 +630,24 @@ window.__THREE_READY = (async () => {
 </script>
 <script type="module">
 await window.__THREE_READY;
-(() => {
+(async () => {
 'use strict';
+// v301: the load yields to the browser every ~200 ms (the build puts `await bootYield(name)` after every load step), so
+// the title screen can show how far it has got instead of freezing for ten seconds and more. Timers that load steps set
+// were written for a load in one go (they ran once everything was built): they are held until the load is done.
+const BOOT = {on: true, t: performance.now(), held: [], total: 509};
+{ const st = window.setTimeout.bind(window), ct = window.clearTimeout.bind(window);
+  window.setTimeout = function(fn, ms, ...a){ if (BOOT.on && typeof fn === 'function'){ BOOT.held.push([fn, ms, a]); return -BOOT.held.length; } return st(fn, ms, ...a); };
+  window.clearTimeout = function(id){ if (typeof id === 'number' && id < 0){ const h = BOOT.held[-id - 1]; if (h) h[0] = null; return; } return ct(id); };
+  BOOT.release = () => { BOOT.on = false; window.setTimeout = st; window.clearTimeout = ct; for (const [fn, ms, a] of BOOT.held) if (fn) st(fn, ms, ...a); BOOT.held.length = 0; }; }
+const BOOT_PLACES = [[/littlePecking|village/i, 'Little Pecking'], [/petersbird/i, 'St. Petersbird'], [/bangcluck/i, 'Bangcluck'], [/tokyoo/i, 'Tokyoo'], [/paree|bavaria/i, 'Paree'], [/moon/i, 'the moon'], [/newYolk|worldNewYolk|Broodlyn|Uptown/i, 'New Yolk'], [/sky|light|weather/i, 'the sky'], [/audio|music|tune/i, 'the music'], [/cast|people|human/i, 'the townsfolk'], [/story|events/i, 'the story'], [/ui|hud/i, 'the menus'], [/./, 'the world']];
+async function bootYield(name){
+  const now = performance.now(); if (now - BOOT.t < 200) return;
+  try { const f = Math.min(0.99, loadPos/BOOT.total), el = document.getElementById('bootFill'), tx = document.getElementById('bootTxt');
+    if (el) el.style.width = (f*100).toFixed(1) + '%'; if (tx) tx.textContent = 'Building ' + BOOT_PLACES.find(p => p[0].test(name))[1] + '… ' + Math.round(f*100) + '%'; } catch (e){}
+  await new Promise(r => { const mc = new MessageChannel(); mc.port1.onmessage = () => r(); mc.port2.postMessage(0); });   // a task boundary: the browser paints if a frame is due
+  BOOT.t = performance.now(); }
+function bootDone(){ BOOT.release(); const t = document.getElementById('title'); if (t) t.classList.add('ready'); }
 // three.js r186 with r128's colours: no colour management, so every hex colour and texture means what it always did
 if (THREE.ColorManagement) THREE.ColorManagement.enabled = false;
 // textures stay sharp at a slant (the ground into the distance); three clamps it to what the GPU allows
@@ -1686,7 +1709,7 @@ const SB_CELL = 160, SB_MAXV = 20000, SB_LAYER = 3, SB_PROXY = 1;
 
 function sbInit(){
   if (SBATCH) return SBATCH;
-  SBATCH = {first: new WeakMap(), moved: new WeakSet(), src: new Map(), anc: new WeakMap(), buckets: new Map(), proxies: new Map(), rebuild: new Set(), big: new Set(), hid: new WeakMap(), cool: new WeakMap(), frame: 0, bundles: new Map()};
+  SBATCH = {first: new WeakMap(), moved: new WeakSet(), src: new Map(), anc: new WeakMap(), buckets: new Map(), proxies: new Map(), rebuild: new Set(), big: new Set(), hid: new WeakMap(), cool: new WeakMap(), ghid: new WeakMap(), frame: 0, bundles: new Map()};
   // a batched mesh (or a group with batched meshes in it) taken out of the scene leaves its batch at once
   const rem = THREE.Object3D.prototype.remove;
   THREE.Object3D.prototype.remove = function(...objs){ for (const o of objs) if (o && o.isObject3D) sbGone(o, true); return rem.apply(this, objs); };
@@ -1705,7 +1728,7 @@ function sbInit(){
       if (camera.userData.sbShadow === true){
         if (u.sbNoCast === true || (object.isMesh === true && object.castShadow === false && object.children.length === 0)) return;
         // the far cascade only draws the merged static shadows: people and cars that far out are a few pixels
-        if (camera.userData.sbFar === true && u.sbOwn !== true && object !== scene && !(object.parent === scene && SBATCH.big.has(object))) return; }
+        if (camera.userData.sbFar === true && u.sbOwn !== true && u.sbRoot !== true && object !== scene && !(object.parent === scene && SBATCH.big.has(object))) return; }
       return orig.call(this, object, camera, groupOrder, renderList, clippingContext); }; }
   return SBATCH;
 }
@@ -1731,7 +1754,7 @@ function sbMatrices(o, force){
   if (s !== undefined && (o.material !== s.mat || o.geometry !== s.geo || (moved && !sbSame(o.matrixWorld.elements, s.e)))) sbRelease(o, true);
   const ch = o.children;
   for (let i = 0; i < ch.length; i++){ const c = ch[i];
-    if (c.visible === false){ if (c.__sbStale !== true){ c.__sbStale = true; if (SBATCH) sbGone(c, false); } continue; }   // hidden: whatever of it was batched leaves the batch
+    if (c.visible === false){ if (c.__sbStale !== true){ c.__sbStale = true; if (SBATCH) sbHide(c); } continue; }   // hidden: whatever of it was batched elsewhere leaves the batch
     if (c.__sbL === true && force === false && c.children.length === 0) continue;   // a batched leaf: watched below
     if (c.__sbStale === true){ c.__sbStale = false; sbMatrices(c, true); } else sbMatrices(c, force); }
 }
@@ -1763,9 +1786,18 @@ function sbGone(o, removed){
   const set = B.anc.get(o); if (set && set.size) for (const x of [...set]) sbRelease(x, removed);
 }
 
-// the city group a mesh belongs to (batches go there, so they show and hide with it): a top-level group with at least
-// 300 meshes in it. Anything else (loose meshes, a bench, a person, a stall) goes into the scene's own batches.
-function sbRoot(o){ let r = o; while (r.parent && r.parent !== scene) r = r.parent; return r.parent !== scene ? null : (SBATCH.big.has(r) ? r : scene); }
+// v299: a group that is hidden and shown as a whole (an interior shown near it, a moon floor shown while you're on it)
+// can keep batches of its own (userData.sbRoot): they live inside it and hide with it, so hiding it costs nothing and its
+// meshes stay batched. igroup() and the moon's floors set it; a group of eight or more batched meshes hidden twice
+// becomes one by itself. A group whose meshes are still batched further out (flagged late) lets them go as before.
+function sbHide(c){ const B = SBATCH, set = B.anc.get(c), n = set ? set.size : 0;
+  if (c.userData.sbRoot === true && n === 0 && c.__sbS === undefined) return;
+  if (n >= 8 && !c.isMesh && c.parent){ const h = (B.ghid.get(c) || 0) + 1; B.ghid.set(c, h); if (h >= 2) c.userData.sbRoot = true; }
+  sbGone(c, false); }
+// the group a mesh's batches go into (so they show and hide with it): the nearest such group above it, else its city
+// group (a top-level group with at least 300 meshes in it), else the scene's own batches (loose meshes, a bench, a stall)
+function sbRoot(o){ let r = o, sub = null; while (r.parent && r.parent !== scene){ r = r.parent; if (sub === null && r.userData.sbRoot === true) sub = r; }
+  return r.parent !== scene ? null : sub || (SBATCH.big.has(r) ? r : scene); }
 function sbShown(o, root){ for (let p = o; p && p !== root; p = p.parent) if (!p.visible) return false; return true; }
 const sbSame = (a, b) => { for (let i = 0; i < 16; i++) if (a[i] !== b[i]) return false; return true; };
 const SB_PLAIN = THREE.Object3D.prototype.onBeforeRender;
@@ -2002,7 +2034,7 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
         if (PIPE.hd && !n.colorNode) n.colorNode = materialColor.mul(detail);
         if (m.userData && m.userData.water) n.mrtNode = water; }
       return n; };
-    PIPE = {lib, scanned: new WeakSet(), scanT: 89};
+    PIPE = {lib, scanned: new WeakSet(), scanT: 2};
   }
   PIPE.hd = hd;
 
@@ -2111,8 +2143,9 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
     // static batches (render/static-batch.js)
     // (the pass also lists the lights it passes); the upkeep below looks at the shown world only, one job a frame
     scene.matrixWorldAutoUpdate = false; SB_LIGHTS.length = 0; if (SBATCH) sbLeafCheck(SBATCH.frame); sbMatrices(scene, false); sbCheck(); sbFlush(); lights = SB_LIGHTS.slice();
-    const job = (PIPE.scanT = (PIPE.scanT + 1) % 90);
-    if (job === 0) sbScan(); else if (job === 30) trimCasters(); else if (job === 60 && hd) markWater();
+    // v299: by the clock, not every 90 frames (a slow machine waited 3 s and more between scans, so new things took ten
+    // seconds and more to be batched): a job every third of a second, the scan once a second
+    { const t = performance.now(); if (t >= (PIPE.jobAt || 0)){ PIPE.jobAt = t + 333; const job = PIPE.scanT = (PIPE.scanT + 1) % 3; if (job === 0) sbScan(); else if (job === 1) trimCasters(); else if (hd) markWater(); } }
     for (const L of lights) L.intensity *= PI;   // r128's light units (see core/three-compat.js)
     // see further on high quality: the fog (however a city or the weather set it) and the far plane, a
     // third further out, just for this frame; the cascades split the longer view between them
@@ -3080,7 +3113,7 @@ function house(cx, cz, face){
   if (rand() < 0.55){ const carC = pick([XC.red, XC.blue, XC.yellow, XC.white, XC.teal, XC.dark]), ccx = fx ? cx + sgn*0.5 : cx - 2.6, ccz = fx ? cz - 2.6 : cz + sgn*0.5, cw = fx ? 3.6 : 1.8, cd = fx ? 1.8 : 3.6;
     NB(ch, cw, 0.7, cd, ccx + (fx ? sgn*4.6 : 0), 0.6, ccz + (fx ? 0 : sgn*4.6), carC); NB(ch, fx ? 2.0 : 1.6, 0.6, fx ? 1.6 : 2.0, ccx + (fx ? sgn*4.5 : 0), 1.2, ccz + (fx ? 0 : sgn*4.5), FM.glass); }
   NEWGRASS.push([cx, cz]);
-  if (rand() < 0.7) newTree(cx + (fx ? -sgn*3.2 : 3.2), cz + (fx ? 3.2 : -sgn*3.2), rr(0.7, 0.95));
+  if (rand() < 0.7){ const ox = Math.sign(cx - Math.round(cx/32)*32) || 1; newTree(cx + ox*5.7, cz, rr(0.7, 0.95)); }   // v300: on the verge outside the lot, towards the street (it stood against the back wall, its crown in the house)
   foodSpots.push({x: px_ + (fx ? sgn*1 : 0), y: 0.18, z: pz + (fx ? 0 : sgn*1)});
 }
 /* ---------- base: world/new-yolk/ground-roads ---------- */
@@ -3509,7 +3542,7 @@ function lotsBlock(ob, ch, D, onlyLx){
     if (ob.district === 'suburbs'){
       grassLots.push([x, z]);
       farBuilding(ch, x + rr(-0.8, 0.8), z + rr(-0.8, 0.8), rr(5, 6.4), rr(5.5, 6.8), ri(D.fl[0], D.fl[1] + 1)*3.5, pick(D.styles));
-      if (rand() < 0.6) farTree(x + lx*2.8, z - lz*2.8, rr(0.7, 0.9));
+      if (rand() < 0.6) farTree(x + lx*6, z, rr(0.7, 0.9));   // v300: on the verge beyond the lot (at 2.8 it stood in the house's wall)
       foodSpots.push({x: x + lx*3.5, y: 0.15, z: z + lz*3.5});
       continue;
     }
@@ -3872,8 +3905,11 @@ function makeHuman(o={}){
   }
   const torso = mesh(hGeo.torso(), shirt, 0, 1.27, 0); torso.scale.set(0.29*wide, 0.74, 0.17); torso.castShadow = true; g.add(torso);
   if (tummy){ const tm = mesh(ckSphere(), shirt, 0, 1.12, 0.08); tm.scale.set(0.24*wide, 0.22, 0.17); g.add(tm); }
-  if (outfit === 'dress' || outfit === 'skirt'){ const d = mesh(ckOnce(CK.geo, 'hskirt|' + outfit, () => new THREE.CylinderGeometry(0.27, 0.42, outfit === 'dress' ? 0.5 : 0.42, 14, 1, true)), ckMat(outfit === 'dress' ? shirtC : pantsC, {side: THREE.DoubleSide}), 0, outfit === 'dress' ? 0.72 : 0.74, 0); d.scale.x = wide; g.add(d); }
-  if (outfit === 'coat'){ const c = mesh(ckOnce(CK.geo, 'hcoat', () => new THREE.CylinderGeometry(0.3, 0.36, 0.5, 14, 1, true)), ckMat(shirtC, {side: THREE.DoubleSide}), 0, 0.72, 0); c.scale.set(wide, 1, 0.62); g.add(c); }
+  if ((outfit === 'dress' || outfit === 'skirt') && o.sit){ const sm = ckMat(outfit === 'dress' ? shirtC : pantsC, {side: THREE.DoubleSide});   // v300: seated, the skirt sits on the lap (a hanging cone went through the bench)
+    const d = mesh(ckOnce(CK.geo, 'hskirtSit', () => new THREE.CylinderGeometry(0.27, 0.33, 0.2, 14, 1, true)), sm, 0, 0.98, 0); d.scale.x = wide; g.add(d);
+    g.add(mesh(ckOnce(CK.geo, 'hlap300', () => new THREE.BoxGeometry(0.56, 0.1, 0.5)), sm, 0, 0.94, 0.2)); g.add(mesh(ckOnce(CK.geo, 'hhem300', () => new THREE.BoxGeometry(0.56, outfit === 'dress' ? 0.26 : 0.16, 0.05)), sm, 0, outfit === 'dress' ? 0.8 : 0.85, 0.46)); }
+  else if (outfit === 'dress' || outfit === 'skirt'){ const d = mesh(ckOnce(CK.geo, 'hskirt|' + outfit, () => new THREE.CylinderGeometry(0.27, 0.42, outfit === 'dress' ? 0.5 : 0.42, 14, 1, true)), ckMat(outfit === 'dress' ? shirtC : pantsC, {side: THREE.DoubleSide}), 0, outfit === 'dress' ? 0.72 : 0.74, 0); d.scale.x = wide; g.add(d); }
+  if (outfit === 'coat'){ const c = mesh(ckOnce(CK.geo, 'hcoat', () => new THREE.CylinderGeometry(0.3, 0.36, 0.5, 14, 1, true)), ckMat(shirtC, {side: THREE.DoubleSide}), 0, o.sit ? 0.95 : 0.72, 0); c.scale.set(wide, o.sit ? 0.36 : 1, 0.62); g.add(c); }   /* v300: seated, the coat tails stop at the seat */
   if (outfit === 'dungarees'){ const b = mesh(ckSphere(), pants, 0, 1.2, 0.12); b.scale.set(0.2*wide, 0.24, 0.07); g.add(b); for (const s of [-1, 1]){ const st = mesh(hGeo.limb(0.025, 0.3), pants, s*0.13*wide, 1.42, 0.13); st.rotation.x = 0.25; g.add(st); } }
   if (outfit === 'hoodie'){ const h = mesh(ckSphere(), shirt, 0, 1.62, -0.13); h.scale.set(0.2, 0.12, 0.13); g.add(h); }
   const head = mesh(hGeo.head(), skin, 0, 1.84, 0); head.scale.setScalar(0.23); head.castShadow = true; g.add(head);
@@ -9472,7 +9508,7 @@ BRIDGES = roadLines.filter(rc => rc > -250 && rc < 160);
     // a little shelter on the pontoon
     for (const [x, z] of [[cx - 3, 183.4], [cx + 1, 183.4], [cx - 3, 185.6], [cx + 1, 185.6]]) box(x - 0.06, x + 0.06, z - 0.06, z + 0.06, top, top + 2.3, 2);
     box(cx - 3.4, cx + 1.4, 183.1, 186.0, top + 2.3, top + 2.42, 4, 'roof');
-    box(cx - 2.6, cx + 0.6, 183.3, 183.7, top + 0.45, top + 0.55, 3, 'bench');
+    box(cx - 2.6, cx + 0.6, 183.3, 183.7, top + 0.45, top + 0.55, 3, 'bench'); for (const e of [cx - 2.3, cx + 0.3]) box(e - 0.05, e + 0.05, 183.35, 183.65, top, top + 0.45, 4);   /* v300: legs (it hung in the air) */
     // steps down from the towpath
     box(cx + 9.5, cx + 11.5, RV.z0, 184.8, RV.y, 0.15, 5, 'step');
     const run = 3/9, rise = (0.15 - top)/9;
@@ -10140,7 +10176,7 @@ pG = igroup(-64, -128);
   darter.t = 3;
   for (let k = 0; k < 3; k++){ const d = gadd(pG, boxMesh(0.2, 0.03, 0.03, mat(0xe0b040), -57.0, 1.75, -126.5)); d.visible = false; pubDarts.push(d); }
   // beer garden out front
-  for (const x of [-69, -59]){ GB(pG, 2.2, 0.08, 0.9, 0x9a5a2e, x, 0.85, -119.2, true, 'table'); for (const s of [-1, 1]) GB(pG, 2.2, 0.06, 0.35, 0x9a5a2e, x, 0.5, -119.2 + s*0.75, true, 'bench'); const u = gadd(pG, mesh(new THREE.ConeGeometry(1.4, 0.5, 8, 1, true), mat(0x3f7a4a, {side: THREE.DoubleSide}), x, 2.6, -119.2)); gadd(pG, mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.4, 5), ironMat, x, 1.4, -119.2)); }
+  for (const x of [-69, -59]){ GB(pG, 2.2, 0.08, 0.9, 0x9a5a2e, x, 0.85, -119.2, true, 'table'); for (const s of [-1, 1]) GB(pG, 2.2, 0.06, 0.35, 0x9a5a2e, x, 0.5, -119.2 + s*0.75, true, 'bench'); for (const e of [-0.9, 0.9]){ for (const q of [-0.3, 0.3]) GB(pG, 0.09, 0.81, 0.09, 0x7a4a26, x + e, 0.405, -119.2 + q); for (const s of [-1, 1]) GB(pG, 0.09, 0.47, 0.09, 0x7a4a26, x + e, 0.235, -119.2 + s*0.75); GB(pG, 0.08, 0.08, 1.6, 0x7a4a26, x + e, 0.3, -119.2); }   /* v300: legs (it hung in the air) */ const u = gadd(pG, mesh(new THREE.ConeGeometry(1.4, 0.5, 8, 1, true), mat(0x3f7a4a, {side: THREE.DoubleSide}), x, 2.6, -119.2)); gadd(pG, mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.4, 5), ironMat, x, 1.4, -119.2)); }
   dougal = makeNamed('Dougal'); scene.remove(dougal.g); pG.add(dougal.g); dougal.g.position.set(-65.5, 0.15, -132.4);
 }
 };
@@ -10364,12 +10400,12 @@ zG = igroup(ZC.x, ZC.z, 85);
   ZB(2.2, 2.4, 1.8, 0x3f7a4a, -5.6, 1.35, 24.8, 'booth'); ZB(2.5, 0.2, 2.1, 0xf4ead2, -5.6, 2.65, 24.8, 'roof', 2.55);
   ZB(1.0, 0.6, 0.06, mat(0x9fd0e6), -5.6, 1.7, 25.72);
   { const [wx, wz] = zw(4.6, 24.6); const b = gadd(zG, mesh(new THREE.PlaneGeometry(2.2, 1.5), mat(0xffffff, {map: pxTex(22, 15, g => { px(g, 0, 0, '#6cbf4a', 22, 15); px(g, 10, 0, '#e8d4a8', 2, 15); px(g, 0, 7, '#e8d4a8', 22, 1); px(g, 2, 2, '#5f9fc8', 5, 4); px(g, 15, 2, '#e0b040', 5, 4); px(g, 2, 9, '#c8a060', 5, 4); px(g, 15, 9, '#ff8fa3', 5, 4); px(g, 0, 0, '#5c2f16', 22, 1); px(g, 0, 14, '#5c2f16', 22, 1); })}), wx, 1.6, wz)); ZB(0.1, 1.7, 0.1, 0x5c3a1c, 3.6, 0.85, 24.62); ZB(0.1, 1.7, 0.1, 0x5c3a1c, 5.6, 0.85, 24.62); }
-  for (const [x, z, h] of [[-3.4, 19, false], [3.4, 19, false], [-12, 3.4, true], [12, -3.4, true], [-3.4, -10, false]]){ const w = h ? 2.4 : 0.6, d = h ? 0.6 : 2.4; ZB(w, 0.1, d, woodMat, x, 0.7, z, 'bench'); ZB(h ? 2.4 : 0.08, 0.4, h ? 0.08 : 2.4, woodMat, x + (h ? 0 : x < 0 ? -0.28 : 0.28), 1.0, z + (h ? (z < 0 ? -0.28 : 0.28) : 0)); }
+  for (const [x, z, h] of [[-3.4, 19, false], [3.4, 19, false], [-12, 3.4, true], [12, -3.4, true], [-3.4, -10, false]]){ const w = h ? 2.4 : 0.6, d = h ? 0.6 : 2.4; ZB(w, 0.1, d, woodMat, x, 0.7, z, 'bench'); for (const e of [-0.95, 0.95]) ZB(h ? 0.08 : 0.55, 0.65, h ? 0.55 : 0.08, 0x2a2a30, x + (h ? e : 0), 0.325, z + (h ? 0 : e));   /* v300: legs (it hung in the air) */ ZB(h ? 2.4 : 0.08, 0.4, h ? 0.08 : 2.4, woodMat, x + (h ? 0 : x < 0 ? -0.28 : 0.28), 1.0, z + (h ? (z < 0 ? -0.28 : 0.28) : 0)); }
   ZB(1.6, 1.0, 0.9, 0xf4ead2, -3.6, 0.65, 14, 'cart'); ZM(new THREE.CylinderGeometry(0.06, 0.06, 1.6, 5), ironMat, -3.6, 1.95, 14); const ub = ZM(new THREE.ConeGeometry(1.1, 0.4, 8, 1, true), mat(0xff8fa3, {side: THREE.DoubleSide}), -3.6, 2.8, 14);
   for (const s of [-1, 1]){ const w = ZM(new THREE.CylinderGeometry(0.28, 0.28, 0.08, 10), 0x2a2a2a, -3.6 + s*0.6, 0.3, 14.5); w.rotation.x = PI/2; }
   ZB(3.2, 2.6, 2.6, 0xffd166, 9, 1.45, 5, 'cafe'); ZB(3.6, 0.2, 3.0, 0x8a5fc7, 9, 2.85, 5, 'roof', 2.75); ZB(3.0, 0.8, 0.06, mat(0x2a2622), 9, 1.8, 3.68);
   { const [wx, wz] = zw(9, 3.62); const s = gadd(zG, mesh(new THREE.PlaneGeometry(3, 0.42), mat(0xffffff, {map: textTex('THE HUNGRY HIPPO', 192, 26, 13)}), wx, 2.45, wz)); s.rotation.y = PI; }
-  for (const [x, z] of [[5, 10], [9.4, 10]]){ ZB(1.8, 0.08, 0.8, woodMat, x, 0.85, z, 'table'); for (const s of [-1, 1]) ZB(1.8, 0.06, 0.3, woodMat, x, 0.5, z + s*0.65, 'bench'); }
+  for (const [x, z] of [[5, 10], [9.4, 10]]){ ZB(1.8, 0.08, 0.8, woodMat, x, 0.85, z, 'table'); for (const s of [-1, 1]) ZB(1.8, 0.06, 0.3, woodMat, x, 0.5, z + s*0.65, 'bench'); for (const e of [-0.72, 0.72]){ for (const q of [-0.28, 0.28]) ZB(0.09, 0.81, 0.09, woodMat, x + e, 0.405, z + q); for (const s of [-1, 1]) ZB(0.09, 0.47, 0.09, woodMat, x + e, 0.235, z + s*0.65); ZB(0.08, 0.08, 1.6, woodMat, x + e, 0.3, z); } }   /* v300: legs (it hung in the air) */
   for (const [x, z] of [[4.5, 9.4], [9, 10.6], [-3, 13], [1.5, 3], [-2, -4], [6, 8]]){ const [wx, wz] = zw(x, z); foodSpots.push({x: wx, y: 0.15, z: wz}); }
   addFlock({x: ZC.x + 4, y: 0.15, z: ZC.z + 8, rx: 4, rz: 3}, 5);
   // trees around the lawns
@@ -10953,7 +10989,7 @@ sG = igroup(0, -250, 75);
       box(-30, 30, -258.4, -253.9, 4.3, 4.5, 7, 'canopy'); box(-30.1, 30.1, -258.5, -258.35, 4.0, 4.5, 8);
     } else {
       for (const x of [st.x - 2.5, st.x + 2.5]) box(x - 0.08, x + 0.08, -254.6, -254.4, 0.5, 3.0, 7, 'post');
-      box(st.x - 3.2, st.x + 3.2, -256.2, -254.0, 3.0, 3.15, 8, 'roof'); box(st.x - 2.2, st.x + 2.2, -254.7, -254.5, 0.9, 1.0, 6, 'bench');
+      box(st.x - 3.2, st.x + 3.2, -256.2, -254.0, 3.0, 3.15, 8, 'roof'); box(st.x - 2.2, st.x + 2.2, -254.95, -254.5, 0.9, 1.0, 6, 'bench'); for (const e of [st.x - 1.9, st.x + 1.9]) box(e - 0.05, e + 0.05, -254.9, -254.55, 0.5, 0.9, 7);   /* v300: legs (it hung in the air) */
     }
     mapRects.push({x0: st.x - half, z0: -258, x1: st.x + half, z1: -254, color: '#cbbba1', kind: 'slab'});
   }
@@ -14405,7 +14441,9 @@ for (let bi = -17; bi <= -8; bi++) for (let bj = -7; bj <= 5; bj++){
     tower(cx, cz, rr(16, 18), rr(16, 18), rr(30, 55), pick([4, 2]));
   } else {
     brownRow(cx - 11, cx + 11, cz - 11.3, -1); brownRow(cx - 11, cx + 11, cz + 11.3, 1);
-    for (const s of [-1, 1]) for (let k = -1; k <= 1; k++) if (rand() < 0.75) newTree(cx + k*7.5 + rr(-0.8, 0.8), cz + s*10.4, rr(0.75, 0.95));
+    // v300: the brownstones fill the block to the kerb, so the street trees (planted at 10.4, a metre inside the houses) keep only the
+    // one that fits the open corner past the row's last house (the same draws)
+    for (const s of [-1, 1]) for (let k = -1; k <= 1; k++) if (rand() < 0.75){ const jx = rr(-0.8, 0.8), sc = rr(0.75, 0.95); if (k === 1) newTree(cx + 9.2 + jx*0.25, cz + s*10.4, sc); }
   }
 }
 empireLobby = hollow({cx: EMPIRE.x, cz: EMPIRE.z, w: 16, d: 16, h: 6, style: 4, door: 's', inner: wallpaper('#e8dcc0', '#d8c8a4'), name: 'Empire Feather Building', doorColor: 0xb08020, noLight: true});
@@ -14449,7 +14487,7 @@ nhmRoom = hollow({cx: MUSEUM.x, cz: MUSEUM.z, w: 22, d: 22, h: 12, style: 4, doo
   for (const s of [-1, 1]) br.add(boxMesh(7, 0.5, 0.2, mat(0xb8b0a0), 0, 1.3, s*1.5));
   addSolid(PPOND.x + 17, PPOND.z + 6, 7, 3, 0, 0.95, 'bridge');
   for (let k = 0; k < 70; k++){ const x = rr(PARK.x0 + 3, PARK.x1 - 3), z = rr(PARK.z0 + 3, PARK.z1 - 3); if (((x - PPOND.x)/(PPOND.rx + 4))**2 + ((z - PPOND.z)/(PPOND.rz + 4))**2 < 1) continue; if (Math.abs(z + 20) < 3 || Math.abs(z - 92) < 3 || Math.abs(x + 420) < 3 || Math.abs(x + 515) < 3) continue; newTree(x, z, rr(0.85, 1.25)); }
-  const benches = []; for (let x = PARK.x0 + 8; x < PARK.x1; x += 14) for (const z of [-17.6, 89.4]){ benches.push([x, 0.55, z, 2.2, 0.12, 0.6]); benches.push([x, 0.85, z + (z < 0 ? -0.3 : 0.3), 2.2, 0.5, 0.1]); addSolid(x, z, 2.2, 0.7, 0, 0.62, 'bench'); foodSpots.push({x, y: 0.15, z: z + (z < 0 ? 1.2 : -1.2)}); }
+  const benches = []; for (let x = PARK.x0 + 8; x < PARK.x1; x += 14) for (const z of [-17.6, 89.4]){ benches.push([x, 0.55, z, 2.2, 0.12, 0.6]); benches.push([x, 0.85, z + (z < 0 ? -0.3 : 0.3), 2.2, 0.5, 0.1]); for (const e of [-0.95, 0.95]) benches.push([x + e, 0.3, z, 0.08, 0.5, 0.55]);   /* v300: legs (it hung in the air) */ addSolid(x, z, 2.2, 0.7, 0, 0.62, 'bench'); foodSpots.push({x, y: 0.15, z: z + (z < 0 ? 1.2 : -1.2)}); }
   instBoxes(woodMat, benches);
   // the Very Important Pigeon
   const vip = makePigeon({lite: true, scale: 4, body: 0x8a9a8a, head: 0x7a8a7a, wing: 0x9aaa9a, neckPlain: 0x6fae94}); vip.g.position.set(-420, 3.3, 40); vip.g.rotation.y = -PI/2; scene.add(vip.g);
@@ -14628,7 +14666,7 @@ for (let cx = 368; cx <= 528; cx += 32) for (let cz = -208; cz <= 208; cz += 32)
     for (const lx of [-1, 1]) for (const lz of [-1, 1]) farBuilding(ch, cx + lx*5.6, cz + lz*5.6, rr(9.6, 10.6), rr(9.6, 10.6), ri(2, 5)*3.5, pick([3, 3, 0, 4, 6]));
   } else {
     brownRow(cx - 11, cx + 11, cz - 11.3, -1); brownRow(cx - 11, cx + 11, cz + 11.3, 1);
-    for (const s of [-1, 1]) for (let k = -1; k <= 1; k++) if (rand() < 0.7) newTree(cx + k*7.5 + rr(-0.8, 0.8), cz + s*10.4, rr(0.75, 0.95));
+    for (const s of [-1, 1]) for (let k = -1; k <= 1; k++) if (rand() < 0.7){ const jx = rr(-0.8, 0.8), sc = rr(0.75, 0.95); if (k === 1) newTree(cx + 9.2 + jx*0.25, cz + s*10.4, sc); }   // v300: only the corner tree (the others stood inside the houses; the same draws)
   }
 }
 // the waterfront promenade, with a railing over the harbour
@@ -14637,7 +14675,7 @@ for (let cx = 368; cx <= 528; cx += 32) for (let cz = -208; cz <= 208; cz += 32)
   NB(ch, 14, 0.15, BR.z1 - BR.z0, 349, 0.075, 0, XC.stone); addSolid(349, 0, 14, BR.z1 - BR.z0, 0, 0.15, 'slab');
   for (let z = BR.z0 + 1; z < BR.z1; z += 2.4) NB(ch, 0.1, 1.0, 0.1, 342.3, 0.65, z, XC.black);
   NB(ch, 0.12, 0.08, BR.z1 - BR.z0, 342.3, 1.15, 0, XC.black); addSolid(342.3, 0, 0.3, BR.z1 - BR.z0, 0, 1.2, 'railing');
-  for (let z = BR.z0 + 12; z < BR.z1; z += 24){ NEWLAMP.push([344.5, z]); if (Math.abs(z - BR.bridgeZ) > 8){ NB(ch, 0.5, 0.1, 2.0, 346, 0.6, z + 6, FM.wood); NB(ch, 0.1, 0.5, 2.0, 345.8, 0.9, z + 6, FM.wood); addSolid(346, z + 6, 0.6, 2.0, 0, 0.65, 'bench'); } }
+  for (let z = BR.z0 + 12; z < BR.z1; z += 24){ NEWLAMP.push([344.5, z]); if (Math.abs(z - BR.bridgeZ) > 8){ NB(ch, 0.5, 0.1, 2.0, 346, 0.6, z + 6, FM.wood); NB(ch, 0.1, 0.5, 2.0, 345.8, 0.9, z + 6, FM.wood); for (const e of [-0.85, 0.85]) NB(ch, 0.5, 0.55, 0.08, 346, 0.275, z + 6 + e, FM.iron);   /* v300: legs (it hung in the air) */ addSolid(346, z + 6, 0.6, 2.0, 0, 0.65, 'bench'); } }
   mapRects.push({x0: 342, z0: BR.z0, x1: 356, z1: BR.z1, color: '#cbbba1', kind: 'slab'});
 }
 // water all round Broodlyn, so the edge of the world is a river
@@ -15359,7 +15397,10 @@ vCottage(-2, 23, 7.5, 7, 4.0, -1, {wall: VC.plaster});
 vCottage(8, 23, 7.5, 7, 4.3, -1, {wall: VC.pink, roof: VC.slate});
 vCottage(17, 23, 7, 7, 4.0, -1, {wall: VC.blue});
 // picnic tables outside the pub
-for (const px_ of [-30, -22]){ VB(1.8, 0.08, 0.8, px_, 0.75, 16.2, FM.wood); for (const s of [-0.65, 0.65]) VB(1.8, 0.06, 0.3, px_, 0.45, 16.2 + s, FM.wood); vS(px_, 16.2, 1.8, 0.8, 0, 0.79, 'table'); }
+for (const px_ of [-30, -22]){ VB(1.8, 0.08, 0.8, px_, 0.75, 16.2, FM.wood); for (const s of [-0.65, 0.65]) VB(1.8, 0.06, 0.3, px_, 0.45, 16.2 + s, FM.wood); vS(px_, 16.2, 1.8, 0.8, 0, 0.79, 'table'); 
+  // v300: legs (the table top and both seats hung in the air): a trestle under each end, a foot rail tying the seats together
+  for (const e of [-0.72, 0.72]){ VB(0.09, 0.71, 0.09, px_ + e, 0.355, 16.2 - 0.28, FM.wood); VB(0.09, 0.71, 0.09, px_ + e, 0.355, 16.2 + 0.28, FM.wood); VB(0.09, 0.08, 1.6, px_ + e, 0.3, 16.2, FM.wood);
+    for (const s of [-0.65, 0.65]) VB(0.09, 0.42, 0.09, px_ + e, 0.21, 16.2 + s, FM.wood); } }
 {
   const w = vAdd(mesh(new THREE.CircleGeometry(POND27.r, 24), mat(0x5aa4c8, {emissive: 0x1a3a50, emissiveIntensity: 0.25}), POND27.x, 0.03, VZ + POND27.z)); w.rotation.x = -PI/2;
   { const mud = vAdd(mesh(new THREE.RingGeometry(POND27.r - 0.15, POND27.r + 0.95, 32), mat(0x6a5a3e), POND27.x, 0.036, VZ + POND27.z)); mud.rotation.x = -PI/2; }   // v291: a muddy bank, round stones, reed clumps, notched lily pads
@@ -15634,7 +15675,8 @@ tray = boxMesh(0.5, 0.04, 0.35, mat(0xc8a060), 0, -0.62, 0.2);
 bess.arms[1].add(tray);
 for (let k = 0; k < 3; k++) tray.add(boxMesh(0.12/0.5, 0.1/0.04, 0.1/0.35, mat(0xd8a060), -0.3 + k*0.3, 1.5, 0));
 BESS_POS = new THREE.Vector3(-1.2, 0.6, VZ - 14.0); PAT_POS = new THREE.Vector3(-22.8, 0.6, VZ - 14.0); PLUM_POS = new THREE.Vector3(12, 0.6, VZ - 37.6);
-for (const [x, z, ry, o] of [[-30, 15.4, PI, {sit: true, y: -0.47}], [-22, 15.4, PI, {sit: true, y: -0.47}], [-22, 17.0, 0, {sit: true, y: -0.47}]]) VFOLK.push({H: vPerson(x, z, ry, o), kind: 'sit'});
+// v300: the pub-garden drinkers face their table, sitting on the planks (seat top 0.48 m, hips 0.58 m) with their hands on the table, not sunk through the bench backwards
+for (const [x, z, ry, o] of [[-30, 15.45, 0, {sit: true, y: -0.34}], [-22, 15.45, 0, {sit: true, y: -0.34}], [-22, 16.95, PI, {sit: true, y: -0.34}]]){ const H = vPerson(x, z, ry, o); for (const a of H.arms) a.rotation.x = -1.05; VFOLK.push({H, kind: 'sit'}); }
 for (const [x, z, ry] of [[33, -2.6, PI], [39.5, -4.6, PI], [47, -2.6, PI], [35, 14.6, 0], [45, 14.4, 0], [42, 4, 0.5], [37, 8, -2.2]]) VFOLK.push({H: vPerson(x, z, ry), kind: 'fete', ph: rand()*6});
 for (let k = 0; k < 4; k++){ const H = vPerson(0, 0, 0); VFOLK.push({H, kind: 'walk', t: k*0.25, sp: rr(0.012, 0.018)*(k % 2 ? 1 : -1), ph: rand()*6}); }
 for (let k = 0; k < 2; k++){ const H = vPerson(0, 0, 0, {shirt: pick(SHIRTS)}); H.g.scale.setScalar(0.62); VFOLK.push({H, kind: 'kid', t: k*PI, ph: 0}); }
@@ -20727,7 +20769,8 @@ let seenDistricts;
 // (049-districts-new-interiors-the-harbour-and-)
 const interiorGroups = [];
 
-function igroup(x, z, r = 60){ const g = new THREE.Group(); scene.add(g); interiorGroups.push({g, x, z, r}); return g; }
+function igroup(x, z, r = 60){ const g = new THREE.Group(); g.userData.sbRoot = true; scene.add(g);   // v299: its own batches, which hide with it (render/static-batch.js)
+  interiorGroups.push({g, x, z, r}); return g; }
 
 function gadd(g, m){ g.add(m); return m; }
 
@@ -20844,6 +20887,9 @@ function v23Init(){
   for (const o of scene.children){
     if (!o.isMesh || o.isInstancedMesh || o.matrixAutoUpdate !== false || occ.has(o) || !o.visible) continue;
     if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+    // v300: the world matrix isn't worked out yet on the first frame (the scene's matrices are done later in the frame): with
+    // it, 896 of 1,194 props were filed in the cell at the origin, hidden anywhere far from it (Westfield Lake was never seen)
+    { const e = o.matrix.elements; if (Math.abs(e[12] - o.position.x) > 0.01 || Math.abs(e[13] - o.position.y) > 0.01 || Math.abs(e[14] - o.position.z) > 0.01) o.updateMatrix(); o.matrixWorld.copy(o.matrix); }
     sph.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld); if (sph.radius > 9) continue;
     const k = Math.floor(sph.center.x/32) + ',' + Math.floor(sph.center.z/32);
     if (!propCells.has(k)) propCells.set(k, {x: (Math.floor(sph.center.x/32) + 0.5)*32, z: (Math.floor(sph.center.z/32) + 0.5)*32, list: [], on: true});
@@ -21045,237 +21091,237 @@ GAME_VER.name = 'Polish';
 /* ---------- boot: base ---------- */
 // The load sequence for the original game and its first patches (the base, sections 001-213). Each feature module defines its pieces; this runs their load-time steps
 // (building meshes, registering talkers, systems and hooks) in the order the versions added them.
-step(bs_coreSettings_1, 20261005);         // try { const st = JSON.pa, setTimeout
-step(bs_renderRenderer_1, 20261005);       // canvas, renderer, renderer.shadowMap.enabled, renderer.shadowMap.type, renderer.shadowMap.autoUpdate, scene, ...
-step(bs_renderTextures_1, 20261005);       // facadeMats, trimMats, glassMat, roofMat, cobbleTex, grassTex, ...
-step(bs_coreCollision_1, 511477772);        // UG_HOLES
-step(bs_worldNewYolkGroundRoads_1, 511477772); // roadLines, roadTex.repeat.set, ground, ground.rotation.x, ground.receiveShadow, scene.add, ...
-step(bs_worldNewYolkCityPieces_1, 511477772); // awningMats, shopMats, shopTop, woodMat, trunkMat, leafGeo, ...
-step(bs_worldNewYolkWiderCity_1, -1637377935); // outerSidesIM, FAR_MATS, for (let bi = -7; bi <= , { // slabs, tops and cur, { const t = towerSolid, , lampHeadMat, ...
-step(bs_worldNewYolkPark_1, -1395592389);     // grassTex.repeat.set, for (const [x,z] of [[-6, bench, for (let k=0;k<12;k++){ , bronze, scene.add, ...
-step(bs_castPigeons_1, 853256603);          // player, scene.add, landRing, landRing.rotation.x, gus, gus.g.position.copy, ...
-step(bs_castHumans_1, 853256603);           // parkBlock, for (let k=0;k<26;k++) a, for (let k=0;k<4;k++){ c
-step(bs_castSitters_1, -895884616);          // feeder, addSitter, for (const b of benchSpo
-step(bs_castDogs_1, 1055987291);             // for (const [b, col, name
-step(bs_worldNewYolkHotDogCart_1, 2063893843); // { const g = new THREE.Gr, hotdog, hotdog.position.set, scene.add, sal, sal.H.snack.visible, ...
-step(bs_castSeagull_1, 1432058173);          // gull, scene.add
-step(bs_castTraffic_1, 1432058173);          // wheelGeo, for (let k=0;k<16;k++) a, for (let k=0;k<2;k++) ad
-step(bs_worldNewYolkSteamVents_1, 1672670361); // for (let k=0;k<9;k++){ l
-step(bs_castSparrows_1, 25351839);         // sparrowBody, wingG, wingG.translate, sparrowWingR, sparrowWingL, scene.add, ...
-step(bs_castButterflies_1, -997707313);      // bfGeo, bfGeo.translate, bfGeo.rotateX, bfHomes, butterflies, bfR, ...
-step(bs_gameplayFood_1, 10199239);         // crumbMat, for (let k=0;k<MAX_FOOD , for (const [x,z] of [[1.
-step(bs_castPigeonFlocks_1, 10199239);     // addFlock
-step(bs_uiBeacon_1, -1844095474);             // beacon, beam, gem, beacon.add, scene.add
-step(bs_renderParticles_1, -1844095474);      // PK
-step(bs_audioAudio_1, -1844095474);           // music, mrand, for (const ev of ['touch, document.addEventListener
-step(bs_worldNewYolkCharmPlaces_1, -1844095474); // Object.assign, { const arms = [], pots , { const planters = [], b, { const A = 11.2, B = 20, flagGeo, flagGeo.setAttribute, ...
-step(bs_worldNewYolkShops_1, -811958637);    // Object.assign, plankTex, FOOD.bun, foodGeo.bun, cafeRoom, awning, ...
-step(bs_castTownsfolk_1, 191702412);        // margot, margot.g.position.copy, margot.g.rotation.y, bruno, bruno.g.position.copy, bruno.g.rotation.y, ...
-step(bs_worldNewYolkPembertonLoft_1, -1703804598); // loftB, LOFT, { const {x, y, z} = LOFT, PEMB_POS, pemberton, pemberton.g.position.copy, ...
-step(bs_castWoodPigeons_1, 503832097);      // for (const [x, z, s] of , addFlock, WENDELL_POS, wendell, { const mono = mesh(new , wendell.g.position.copy, ...
-step(bs_castSquirrels_1, 1759927137);        // parkTrees, squirrels
-step(bs_castCyclists_1, 1064150270);         // cyclists
-step(bs_uiPortraits_1, 1816292034);          // { const V = (x, y, z) =>
-step(bs_storyFavours_1, 992632773);         // FLOWER_BEDS, spoonB, spoonObj, spoonObj.scale.setScalar, spoonObj.position.set, spoonObj.visible, ...
-step(bs_storyConversations_1, -2102604380);   // addTalker, MOODS, pagesAway, ...
-step(bs_renderRenderer_2, -2102604380);       // { const segs = []; for (
-step(bs_worldNewYolkCityPieces_2, -2102604380); // { const list = []; for (
-step(bs_worldNewYolkFinishingTouches_1, -2102604380); // { const tuftTex = pxTex(, twinkles
-step(bs_worldNewYolkCharmPlaces_2, -124414124); // twinkleSpots
-step(bs_worldNewYolkFinishingTouches_2, -4108030); // scene.add
-step(bs_renderTextures_2, -4108030);       // lampGlow, scene.add
-step(bs_worldNewYolkFinishingTouches_3, -4108030); // skyBits, skyBits.scale.setScalar, scene.add, stars
-step(bs_renderTextures_3, -824436494);       // sunDisc, moonDisc, skyBits.add, for (const p of [stars, 
-step(bs_renderRenderer_3, -824436494);       // post
-step(bs_worldNewYolkCharmPlaces_3, -824436494); // BATH, { const stoneM = mat(0xd, _bp, addTalker
-step(bs_storyConversations_2, -824436494);   // for (const t of talkers)
-step(bs_worldNewYolkFinishingTouches_4, -824436494); // $
-step(bs_coreSettings_2, -824436494);         // $
-step(bs_audioAudio_2, -824436494);           // Object.assign
-step(bs_renderTextures_4, -824436494);       // wireTex, wireTex.minFilter, wireTex.generateMipmaps
-step(bs_castTownsfolk_2, -824436494);        // Object.assign
-step(bs_worldNewYolkPetShop_1, -824436494);  // petRoom, awning, building, ottilie, ottilie.g.position.copy, ottilie.g.rotation.y, ...
-step(bs_worldNewYolkFlorist_1, 1304106404);  // floristRoom, awning, building, rosalind, rosalind.g.position.copy, rosalind.g.rotation.y, ...
-step(bs_gameplayShinies_1, -1516882564);      // addShiny
-step(bs_castTownsfolk_3, 2146249062);        // addNamedTalker, FOLK.push, { const V = (x, y, z) =>
-step(bs_worldNewYolkTrashCans_1, 882577722); // { const doorPts = rooms., canBody, canBand, canLid, { const d = new THREE.Ob, cans.forEach
-step(bs_gameplayBalloons_1, -2028412140);     // for (const k of kids) ad
-step(bs_castGrumps_1, -2028412140);           // for (const h of humans){, for (let k = 0; k < 2; k
-step(bs_worldSkyWeather_1, -12599036);      // rainIM, rainIM.frustumCulled, rainIM.count, scene.add, drops, for (let k = 0; k < 40; , ...
-step(bs_coreSettings_3, 1605915671);         // $
-step(bs_worldNewYolkTram_1, 1605915671);     // Object.assign, { const n = TRAM_CORNERS, ROUTE_LEN, { const rails = [], bed , tramM, tramFloor, ...
-step(bs_worldNewYolkRoostCourt_1, 1462880677); // HR.top, HRX0, STAIR, VCOL_MAT_, hrBrick, hrTrim, ...
-step(bs_castTraffic_2, 435576022);          // for (const c of cars) sc, cars.length, for (let k = 0; k < 12; , for (const rx of SIG_ROA, { const poles = [], stop, headIM, ...
-step(bs_gameplayFood_2, 1661365862);         // FOOD.popcorn
-step(bs_renderRenderer_4, 1661365862);       // foodGeo.popcorn
-step(bs_gameplayFood_3, 1661365862);         // FOOD.sardine
-step(bs_renderRenderer_5, 1661365862);       // foodGeo.sardine
-step(bs_castTownsfolk_4, 1661365862);        // Object.assign
-step(bs_worldNewYolkChurch_1, 1661365862);   // churchRoom, chG, { for (let z = -165; z <, for (let k = 0; k < 4; k, wren, scene.remove, ...
-step(bs_worldNewYolkClockTower_1, -520211136); // clockCanvas, clockCanvas.width, clockTex, clockTex.magFilter, drawClock, { const {x, z} = CLOCK, , ...
-step(bs_worldNewYolkMarketHall_1, -520211136); // marketRoom, mkG, { const goods = [['apple, vendors, vendors[1].H.g.visible, pip, ...
-step(bs_worldNewYolkFishMarket_1, 2018038641); // fishRoom, fsG, { for (const z of [28.5,, morag, scene.remove, fsG.add, ...
-step(bs_worldNewYolkRoxyCinema_1, -1148716009); // cinemaRoom, cnG, filmCanvas, filmCanvas.width, filmCanvas.height, filmTex, ...
-step(bs_worldNewYolkLaundrette_1, 1555297662); // laundryRoom, lnG, { for (let k = 0; k < 6;, laundryFolk, for (let k = 0; k < 2; k, dryerCat, ...
-step(bs_worldNewYolkHarbour_1, -1938739273);  // harbourTex, harbourTex.repeat.set, harbourWater, harbourWater.rotation.x, harbourWater.receiveShadow, scene.add, ...
-step(bs_worldNewYolkWestfieldLake_1, -314149651); // { const water = mesh(new, lakeDucks, WATERS.push
-step(bs_worldNewYolkWiderCity_2, -505973242); // OUTER_LIVE
-step(bs_castMoreLife_1, -505973242);         // for (let k = 0; k < 46; 
-step(bs_worldNewYolkWiderCity_3, 234346719); // for (const b of outerBlo
-step(bs_castPigeonFlocks_2, 843453489);     // addFlock
-step(bs_castTraffic_3, 459806307);          // LANES_OK, for (const kind of [...A, for (const v of cars){ i
-step(bs_castCyclists_2, -882958830);         // for (const c of cyclists
-step(bs_castTownsfolk_5, -882958830);        // addNamedTalker, dot, FOLK.push, { const V = (x, y, z) =>, addShiny, ...
-step(bs_renderFreezeStatic_1, 1452560259);   // { const moving = new Set
-step(bs_worldNewYolkDistricts_1, 1452560259); // seenDistricts
-step(bs_worldNewYolkCrumbLine_1, 1452560259); // Object.assign, UGL, ugTile, ugTerrazzo, ugBallast, UG_LIGHT, ...
-step(bs_worldNewYolkRiverQuill_1, -270521263); // stoneTex, stoneMat, riverTex, riverTex.repeat.set, { const water = mesh(new, BRIDGES, ...
-step(bs_uiTouchControls_1, 713741683);      // $, _tapv, { const taps = new Map(), { const pts = new Map();
-step(bs_castCharacters_1, 713741683);       // { const ok = h => !h.gru
-step(bs_worldNewYolkCrookedFeatherPub_1, 1217694959); // Object.assign, pubRoom, pG, { const dark = 0x4a2a16;
-step(bs_worldNewYolkMuseum_1, -181435075);   // museumRoom, mG, { const bone = mat(0xf4e
-step(bs_worldNewYolkBarber_1, -437199863);   // barberRoom, bG, GB
-step(bs_worldNewYolkPostOffice_1, 1450730847); // postRoom, oG, GB, FAV.postcard, { const m = mesh(new THR, for (const name of ['Dou, ...
-step(bs_worldNewYolkZoo_1, 1571036941);      // zG, { // the ground: lawns o, { const [px_, pz] = zw(P, giraffeTex, giraffes, zooBox, ...
-step(bs_uiQualityOfLife_1, -625692657);      // mapBig, { const frame = $('minim, $, applyHudSize, if (isTouch){ $('muteBtn
-step(bs_storyRomance_1, -625692657);         // plume, scene.add, plumeA, PLUME_HOME, PLUME_HOME.y, plume.g.position.copy, ...
-step(bs_worldNewYolkRailway_1, -1257528327);  // stationRoom, sG, { // the grassy railway , { const fieldTex = pxTex, trainM, for (const zc of TRAIN_C, ...
-step(bs_coreCameraCollision_1, 1416180144);  // treeGrid, for (const [x, z, s] of , fadeGrid, fadeRay
-step(bs_worldNewYolkStreetNames_1, 1416180144); // { const N = 32, c = docu, { const M = [mat(0xc8302, { const all = [...blocks, { const blocksC = blocks, { const furs = [[0x3a333
-step(bs_storyTownEvents_1, -709359984);      // FOOD.icecream, foodGeo.icecream, FOOD.sausage, foodGeo.sausage, PK.confetti, EV_POOL, ...
-step(bs_castMoreLife_2, -668147687);         // { const cols = [0xc98a4b, { const spots = [{x: -5,, starlings, for (let k = 0; k < 6; k, for (const b of building, _sd18
-step(bs_worldNewYolkFeatherland_1, 2057680178); // flG, scene.add, FLM, { // ground, paths, hedg, { const trees = [], beds, { const C = {x: -100, z:, ...
-step(bs_castTraffic_4, 110640453);          // FOOD.cream, foodGeo.cream, { const list = ['police'
-step(bs_castHats_1, -630594214);             // for (const h of humans){
-step(bs_gameplayHeadRiding_1, 290642241);   // addTalker
-step(bs_gameplayPeckableFurniture_1, 290642241); // propCd, addTalker
-step(bs_worldNewYolkFloorPiano_1, 290642241); // PIANO, { const W = 0.85, D = 3., pianoKey, addTalker
-step(bs_worldNewYolkPlayground_1, 290642241); // PG, { const g = igroup(PG.x,, addTalker
-step(bs_renderRooftopClutter_1, -1732747163); // { const M = [mat(0x8a8f9
-step(bs_gameplayKidsBall_1, -381560395);     // goMarker, goMarker.rotation.x, goMarker.visible, scene.add
-step(bs_worldSkyWind_1, -381560395);         // WIND, litter, THERMALS, thermIM, thermIM.frustumCulled, scene.add, ...
-step(bs_gameplayLoot_1, 1953958694);         // for (const [id, it] of O, for (let k = 0; k < 36; , $, addEventListener
-step(bs_worldNewYolkFourNewShops_1, -908242571); // Object.assign, LP, lpG, { const x0 = lostRoom.mi, AN, AN.z, ...
-step(bs_gameplayPuzzles_1, 644829554);      // AIR_SMOKE, RIDDLES, for (const p of RIDDLES), { const cand = buildings, addNamedTalker, questLoot, ...
-step(bs_storyTownEvents_2, 1212724027);      // gondolaM, gondolaMover, placeMover, EVENT_DEFS.push
-step(bs_renderContactShadows_1, 1212724027); // { const tex = (() => { c
-step(bs_worldNewYolkInteriors_1, 1212724027); // bookTex, bookMat, { // The Codfather: fish, { // Bosun's Flat: an ol, { // Studio Nine: a pain, { // New Yolk Library co, ...
-step(bs_castMoreLife_3, 1464243312);         // { const items = [], M = , { const cands = rooms.fi, foxes22, bats22, MOTHS, mothGeo.setAttribute, ...
-step(bs_renderLighting_1, -251261910);       // fillLight, scene.add, poolMat, poolIM, { const d = new THREE.Ob, poolIM.frustumCulled, ...
-step(bs_uiMap_1, -251261910);                // WMAP, wmCan, wmCan.addEventListener, $, addEventListener, ...
-step(bs_uiJournal_1, -251261910);            // hooks toast, document.getElementById, hooks renderJournal, addEventListener
-step(bs_renderReleasePolish_1, -251261910);  // ALLH, farHidden
-step(bs_coreCollision_2, -251261910);        // for (const m of skylineM, skylineMeshes.length
-step(bs_worldNewYolkWiderCity_4, -251261910); // XM, XC
-step(bs_renderReleasePolish_2, -251261910);  // NEWCH
-step(bs_worldNewYolkUptown_1, -251261910);   // for (let bi = -17; bi <=, empireLobby, { const ch = nch(EMPIRE., nhmRoom, { const ch = nch(MUSEUM., { const lawn = grassTex., ...
-step(bs_worldNewYolkMapleGrove_1, -2127698844); // for (let bi = -7; bi <= , { const ch = nch(0, 440)
-step(bs_worldNewYolkAirport_1, -1666787277);  // { const tm = mesh(new TH, terminal, { const ch = nch(55, -40, for (const [x, z] of [[1, flyer, flyerMover, ...
-step(bs_worldNewYolkInteriors_2, 668731812); // MU, muG, { const bone = mat(0xe8d, ITEMS.bone, drawIcon, FAV.bones, ...
-step(bs_castMoreLife_4, 1142379888);         // for (const b of uptownBl, for (let bi = -7; bi <= , { const n = 48; for (let, joggers, carriage, addSolid, ...
-step(bs_castTraffic_5, -623743343);          // for (const v of cars){ i, { const AVES = [-560, -5
-step(bs_worldNewYolkBroodlyn_1, 1937235334); // for (let cx = 368; cx <=, { const ch = nch(350, 0), { const wm = harbourWate, { const z = BR.bridgeZ, , { const ch = nch(LIB.x, 
-step(bs_renderGroundSlabs_1, -367391876);    // { const d = new THREE.Ob
-step(bs_coreDistricts_1, -367391876);        // Object.assign, setTimeout
-step(bs_audioSounds_1, -367391876);          // sfx.coo, sfx.npcCoo
-step(bs_audioMusic_1, -367391876);           // TRACKS, TRACK
-step(bs_castDogs_2, -367391876);             // MEAN_DOGS, for (const d of dogs){ d
-step(bs_castGrumps_2, -367391876);           // for (const h of humans) 
-step(bs_worldNewYolkQuietStart_1, -367391876); // for (const h of humans) 
-step(bs_castGossipPigeons_1, -1477121125);    // { const P = makePigeon({, addTalker
-step(bs_castCockatoos_1, -1477121125);        // { const spots = treeSpot, addTalker
-step(bs_storyMagpieMarks_1, -1578943822);     // DECAL_TEX, { const kinds = ['tag', , VIL, goldMat27
-step(bs_worldLittlePeckingVillage_1, 1018086943); // VC, vWinMat, XM.push, VWIN, vG, scene.add, ...
-step(bs_worldLittlePeckingMap_1, 1231724728); // VMAP, { const MS = 2.5; VMAP.c, VLABELS, DISTRICTS.pecking
-step(bs_storyMagpieMob_1, 1231724728);       // diamond27, { const V3 = (x, y, z) =, FOLK.push, gramps, CREW, for (const b of Object.v
-step(bs_worldLittlePeckingVillagers_1, 1231724728); // bess, pat, plum, mamaPica, for (const [H, x, z, ry], bess.arms[1].rotation.x, ...
-step(bs_storyTutorial_1, 1904772695);        // GRAMPS, addNamedTalker, addTalker, ...
-step(bs_worldNewYolkMamaPica_1, 1904772695); // picaRoom, PR, PICA_DOOR, { const checker = pxTex(, don, tony, ...
-step(bs_worldNewYolkTiffeathers_1, -1269558255); // jewelRoom, JR, BROOCH_POS, GB
-step(bs_storyBagelBoy_1, 1002019637);        // { const g = new THREE.Gr
-step(bs_storyGullGang_1, -261651703);        // { const spots = [[188, 2
-step(bs_storyBlueMoon_1, -261651703);        // { const x = MU.cx - 5.5,
-step(bs_storyJobs_1, -1525323043);            // addNamedTalker, addTalker, ...
-step(bs_storyHeat_1, -1525323043);            // for (let k = 0; k < 6; k, for (const o of [...COPS
-step(bs_uiHeatOverlay_1, -13463215);        // { const css = document.c
-step(bs_audioVoices_1, -13463215);          // BIRD_FOLK, hooks renderDlg, hooks advance, $
-step(bs_storyCinema_1, -13463215);          // { const css = document.c, addEventListener, hooks storyBegin, hooks showMobEnding
-step(bs_worldNewYolkBessBuns_1, -13463215); // { const r = roomBox(bake
-step(bs_worldNewYolkTwoScoops_1, 1122325731); // FOOD.icecream, iceMats, foodGeo.icecream, scoopRoom, SC, { const fl = pxTex(8, 8,
-step(bs_worldNewYolkIceCreamVan_1, 930502140); // ICEV, if (ICEV){ ICEV.ice = tr, addTalker
-step(bs_worldNewYolkMagpieSocialClub_1, 610796155); // clubRoom, CL, { const fl = pxTex(8, 8,, addNamedTalker
-step(bs_storyFamilyBusiness_1, -1732299234);  // COLL.stops, COLL.stops.forEach, addNamedTalker, { const want = [[-300, -
-step(bs_storyPartTwo_1, -1228345958);         // JOBS.push, hooks lootMesh, CARMINE_POS, carmine, carmine.g.userData.cr, PORTRAITS.Carmine, ...
-step(bs_castWildSide_1, -1860181628);         // FOX_ZONES, BAT_ZONES, for (let k = 0; k < 4; k
-step(bs_worldLittlePeckingMeadows_1, -1356228352); // { const inRect = (x, z) 
-step(bs_worldNewYolkWiderCity_5, -1438394294); // Object.assign
-step(bs_worldNewYolkBroodlyn_2, -1438394294); // setTimeout
-step(bs_worldNewYolkBroodlynLife_1, -1438394294); // { const pool = broodBloc, muralTex29, { const tag = DECAL_TEX., PORTRAITS.Stella, PORTRAITS.Starling, VOICES.Stella, ...
-step(bs_storyTheRoost_1, -597166342);        // roostRoom, RO, { for (let k = 0; k < 6;, addNamedTalker
-step(bs_worldNewYolkJoesPeeza_1, 1004694380); // FOOD.slice, foodGeo.slice, peezaRoom, PZ, GB
-step(bs_worldNewYolkCatzDeli_1, 244976316); // FOOD.pastrami, foodGeo.pastrami, deliRoom, DL, { const fl = pxTex(8, 8,, VOICES.Morty, ...
-step(bs_worldNewYolkMadisonSquabGarden_1, 173458819); // gardenRoom, GA, { // the drum outside, w, VOICES.Flappy, drawJumbo, addNamedTalker
-step(bs_worldNewYolkTimesSquab_1, 1903201935); // { const ADS = [['COO-CA-
-step(bs_gameplayChess_1, 1903201935);        // { const board = pxTex(8,, VOICES.Bobby, PORTRAITS.Bobby, { const css = document.c, addNamedTalker, addTalker
-step(bs_worldNewYolkEmpireFeather_1, 2023508029); // { const r = roomBox(empi, addTalker, { const up = talkers.fin
-step(bs_worldNewYolkLibirdyFerry_1, -1399011409); // FERRY29, { const boat = new THREE, addTalker
-step(bs_uiSideErrands_1, -1399011409);        // hooks renderStory, hooks storyTarget
-step(bs_storyPartThree_1, -1399011409);       // JOBS.push, hooks lootMesh, hooks brief, hooks talkDon, hooks jobText, hooks showMobEnding, ...
-step(bs_gameplayStashes_1, -1531139306);      // glintTex, STASH_SPOTS, { const wood = mat(0x8a5, addTalker
-step(bs_gameplayHoard_1, -2042668882);        // { const css = document.c, hooks renderBag, addNamedTalker, hooks talkDon
-step(bs_storyStarlingRaids_1, -2042668882);   // { for (let k = 0; k < 8;, hooks renderStory, hooks storyTarget
-step(bs_worldNewYolkBroodlynInteriors_1, 469521198); // recRoom, RC, { const sleeves = [0xd44, VOICES.Dez, addNamedTalker, addTalker, ...
-step(bs_uiComforts_1, -1313256018);           // { const lbl = document.c, hooks shot, hooks updateTW, setTimeout
-step(bs_coreControlsCamera_1, -1313256018);   // bonk0, sfx.bonk, addEventListener
-step(bs_audioMusic_2, -1313256018);           // hooks mvoice, hooks mdrums, Object.assign, hooks pickTrack
-step(bs_worldNewYolkRedCrookDocks_1, -1313256018); // { const i = solids.findI, DISTRICTS.redcrook, hooks districtOf29, { const items = [], wood, shackRoom, SK
-step(bs_storyTheShellfish_1, -809302742);    // { const port = (o, y = 0, hooks vsyl
-step(bs_worldNewYolkLobsterPot_1, 1270451559); // potRoom, LP30, { const r = LP30, g = lp
-step(bs_worldNewYolkFleaMarket_1, 382851101); // fleaRoom, FL30, { const r = FL30, g = fl, addNamedTalker
-step(bs_storyTheShellfish_2, 1375605053);    // for (const [kind, x, y, , hooks renderStory, hooks storyTarget, addNamedTalker, for (const s of SH.shell, addTalker, ...
-step(bs_gameplayBridgeDash_1, -519901957);   // DASH, speedy, PORTRAITS.Speedy, addNamedTalker
-step(bs_worldNewYolkLobsterPot_2, -519901957); // setTimeout
-step(bs_coreSettings_4, -519901957);         // { const lbl = document.c
-step(bs_worldNewYolkHarbour_2, -519901957);  // { const w0 = WATERS[0], 
-step(bs_storyBorisKempinski_1, -519901957);  // { const port = (o, y) =>
-step(bs_worldNewYolkAquarium_1, -1151737627); // aquaRoom, AQ, { const r = AQ, g = aqg,
-step(bs_storyContainerShip_1, -1678419803);   // SHIP, SHIP.g.position.set, scene.add, SHIP.g.userData.cr, SHIP.solids, SH.patrol.g.position.x, ...
-step(bs_worldPetersbirdCity_1, -1678419803);  // Object.assign, PGHOST51, PC, pgG, scene.add, { const cob = pxTex(32, , ...
-step(bs_worldPetersbirdPeople_1, 288863356); // { for (const [x, z, a, n, addTalker, addNamedTalker
-step(bs_worldPetersbirdEarlyInteriors_1, 698570235); // { // the Hermit-Age: gal, { // the Grand Hotel Kem, { // Masha's Matryoshkas, addNamedTalker, FOOD.pelmeni, foodGeo.pelmeni, ...
-step(bs_storyVoyages_1, -1223911178);         // addNamedTalker, { const crab = makeCrab(
-step(bs_storyShellfishAffair_1, 1807384778); // Object.assign, addNamedTalker, addTalker, hooks talkDon, hooks bust27, hooks storyBegin, ...
-step(bs_worldNewYolkHarbour_3, 1807384778);  // WATERS[WATERS.length - 1].pushFn
-step(bs_worldPetersbirdCity_2, 1807384778);  // hooks districtOf29
-step(bs_storyKidnapVan_1, 1807384778);       // VAN, FOLK.push, VOICES['Pavel']
-step(bs_storyShellfishCinematics_1, 1175549108); // { const pf = new THREE.G, BARREL
-step(bs_worldPetersbirdPootinPalace_1, 160066256); // POOT, PORTRAITS['President Pootin'], VOICES['President Pootin'], FOLK.push, addNamedTalker, posterTex_30, ...
-step(bs_worldPetersbirdNevsky_1, 160066256); // { const items = [], iron, TRAM_30
-step(bs_worldPetersbirdBliniKiosk_1, 160066256); // KIOSK
-step(bs_storyTheTank_1, 160066256);         // TANK31, LADAS
-step(bs_storyGoldeneggChase_1, -471769414);  // TRI, addNamedTalker
-step(bs_storyDoubleCross_1, -471769414);     // { const el = document.cr, PANEL, { const p = new THREE.Gr, addNamedTalker, { const q9 = SHELL_Q[9],, setTimeout
-step(bs_uiVersionTag_1, -471769414);         // setTimeout, ITEMS.glitter, drawIcon
-step(bs_gameplayLoot_2, -471769414);         // hooks giveTreasure
-step(bs_gameplayHoard_2, -471769414);        // { const css = document.c
-step(bs_worldNewYolkGoldieFinch_1, -471769414); // GOLDIE, addNamedTalker
-step(bs_worldPetersbirdShopfronts_1, -471769414); // { const items = []; cons
-step(bs_worldNewYolkFabrizio_1, -471769414); // FAB, addNamedTalker
-step(bs_worldNewYolkMadamePlume_1, -471769414); // PLUME, hooks gearStat, addNamedTalker
-step(bs_castKevinTheTourist_1, -471769414);  // SELFIE, KEVIN, ITEMS.camera33, drawIcon, addNamedTalker, addTalker
-step(bs_gameplayGearSets_1, 536137138);     // hooks gearChanged, hooks gearStat, hooks rollLoot
-step(bs_gameplayHoard_3, 536137138);        // hooks salvage
-step(bs_gameplayGearSets_2, 536137138);     // hooks renderHoard
-step(bs_coreSettings_5, 536137138);         // { const lbl = document.c, hooks giveTreasure
-step(bs_gameplayChess_2, 536137138);        // CHESS.opp, CROW35, addNamedTalker
-step(bs_worldPetersbirdKvass_1, 536137138); // VALYA, hooks gearStat, addNamedTalker
-step(bs_castKevinTheTourist_2, 1735867281);  // Object.defineProperty
-step(bs_worldPetersbirdCity_3, 1735867281);  // hooks districtOfPB
-step(bs_uiWhatsNew_1, 1735867281);           // { const host = document.
-step(bs_uiVersionTag_2, 1735867281);         // hooks storyBegin
-step(bs_worldNewYolkGoldieFinch_2, 1735867281); // hooks drawStash29
-step(bs_corePerFrame_1, 1735867281);         // setTimeout
-step(bs_history, 1735867281);                // GAME_VER.n, GAME_VER.name, ...
+step(bs_coreSettings_1, 20261005); await bootYield("bs_coreSettings_1");         // try { const st = JSON.pa, setTimeout
+step(bs_renderRenderer_1, 20261005); await bootYield("bs_renderRenderer_1");       // canvas, renderer, renderer.shadowMap.enabled, renderer.shadowMap.type, renderer.shadowMap.autoUpdate, scene, ...
+step(bs_renderTextures_1, 20261005); await bootYield("bs_renderTextures_1");       // facadeMats, trimMats, glassMat, roofMat, cobbleTex, grassTex, ...
+step(bs_coreCollision_1, 511477772); await bootYield("bs_coreCollision_1");        // UG_HOLES
+step(bs_worldNewYolkGroundRoads_1, 511477772); await bootYield("bs_worldNewYolkGroundRoads_1"); // roadLines, roadTex.repeat.set, ground, ground.rotation.x, ground.receiveShadow, scene.add, ...
+step(bs_worldNewYolkCityPieces_1, 511477772); await bootYield("bs_worldNewYolkCityPieces_1"); // awningMats, shopMats, shopTop, woodMat, trunkMat, leafGeo, ...
+step(bs_worldNewYolkWiderCity_1, -1637377935); await bootYield("bs_worldNewYolkWiderCity_1"); // outerSidesIM, FAR_MATS, for (let bi = -7; bi <= , { // slabs, tops and cur, { const t = towerSolid, , lampHeadMat, ...
+step(bs_worldNewYolkPark_1, -1395592389); await bootYield("bs_worldNewYolkPark_1");     // grassTex.repeat.set, for (const [x,z] of [[-6, bench, for (let k=0;k<12;k++){ , bronze, scene.add, ...
+step(bs_castPigeons_1, 853256603); await bootYield("bs_castPigeons_1");          // player, scene.add, landRing, landRing.rotation.x, gus, gus.g.position.copy, ...
+step(bs_castHumans_1, 853256603); await bootYield("bs_castHumans_1");           // parkBlock, for (let k=0;k<26;k++) a, for (let k=0;k<4;k++){ c
+step(bs_castSitters_1, -895884616); await bootYield("bs_castSitters_1");          // feeder, addSitter, for (const b of benchSpo
+step(bs_castDogs_1, 1055987291); await bootYield("bs_castDogs_1");             // for (const [b, col, name
+step(bs_worldNewYolkHotDogCart_1, 2063893843); await bootYield("bs_worldNewYolkHotDogCart_1"); // { const g = new THREE.Gr, hotdog, hotdog.position.set, scene.add, sal, sal.H.snack.visible, ...
+step(bs_castSeagull_1, 1432058173); await bootYield("bs_castSeagull_1");          // gull, scene.add
+step(bs_castTraffic_1, 1432058173); await bootYield("bs_castTraffic_1");          // wheelGeo, for (let k=0;k<16;k++) a, for (let k=0;k<2;k++) ad
+step(bs_worldNewYolkSteamVents_1, 1672670361); await bootYield("bs_worldNewYolkSteamVents_1"); // for (let k=0;k<9;k++){ l
+step(bs_castSparrows_1, 25351839); await bootYield("bs_castSparrows_1");         // sparrowBody, wingG, wingG.translate, sparrowWingR, sparrowWingL, scene.add, ...
+step(bs_castButterflies_1, -997707313); await bootYield("bs_castButterflies_1");      // bfGeo, bfGeo.translate, bfGeo.rotateX, bfHomes, butterflies, bfR, ...
+step(bs_gameplayFood_1, 10199239); await bootYield("bs_gameplayFood_1");         // crumbMat, for (let k=0;k<MAX_FOOD , for (const [x,z] of [[1.
+step(bs_castPigeonFlocks_1, 10199239); await bootYield("bs_castPigeonFlocks_1");     // addFlock
+step(bs_uiBeacon_1, -1844095474); await bootYield("bs_uiBeacon_1");             // beacon, beam, gem, beacon.add, scene.add
+step(bs_renderParticles_1, -1844095474); await bootYield("bs_renderParticles_1");      // PK
+step(bs_audioAudio_1, -1844095474); await bootYield("bs_audioAudio_1");           // music, mrand, for (const ev of ['touch, document.addEventListener
+step(bs_worldNewYolkCharmPlaces_1, -1844095474); await bootYield("bs_worldNewYolkCharmPlaces_1"); // Object.assign, { const arms = [], pots , { const planters = [], b, { const A = 11.2, B = 20, flagGeo, flagGeo.setAttribute, ...
+step(bs_worldNewYolkShops_1, -811958637); await bootYield("bs_worldNewYolkShops_1");    // Object.assign, plankTex, FOOD.bun, foodGeo.bun, cafeRoom, awning, ...
+step(bs_castTownsfolk_1, 191702412); await bootYield("bs_castTownsfolk_1");        // margot, margot.g.position.copy, margot.g.rotation.y, bruno, bruno.g.position.copy, bruno.g.rotation.y, ...
+step(bs_worldNewYolkPembertonLoft_1, -1703804598); await bootYield("bs_worldNewYolkPembertonLoft_1"); // loftB, LOFT, { const {x, y, z} = LOFT, PEMB_POS, pemberton, pemberton.g.position.copy, ...
+step(bs_castWoodPigeons_1, 503832097); await bootYield("bs_castWoodPigeons_1");      // for (const [x, z, s] of , addFlock, WENDELL_POS, wendell, { const mono = mesh(new , wendell.g.position.copy, ...
+step(bs_castSquirrels_1, 1759927137); await bootYield("bs_castSquirrels_1");        // parkTrees, squirrels
+step(bs_castCyclists_1, 1064150270); await bootYield("bs_castCyclists_1");         // cyclists
+step(bs_uiPortraits_1, 1816292034); await bootYield("bs_uiPortraits_1");          // { const V = (x, y, z) =>
+step(bs_storyFavours_1, 992632773); await bootYield("bs_storyFavours_1");         // FLOWER_BEDS, spoonB, spoonObj, spoonObj.scale.setScalar, spoonObj.position.set, spoonObj.visible, ...
+step(bs_storyConversations_1, -2102604380); await bootYield("bs_storyConversations_1");   // addTalker, MOODS, pagesAway, ...
+step(bs_renderRenderer_2, -2102604380); await bootYield("bs_renderRenderer_2");       // { const segs = []; for (
+step(bs_worldNewYolkCityPieces_2, -2102604380); await bootYield("bs_worldNewYolkCityPieces_2"); // { const list = []; for (
+step(bs_worldNewYolkFinishingTouches_1, -2102604380); await bootYield("bs_worldNewYolkFinishingTouches_1"); // { const tuftTex = pxTex(, twinkles
+step(bs_worldNewYolkCharmPlaces_2, -124414124); await bootYield("bs_worldNewYolkCharmPlaces_2"); // twinkleSpots
+step(bs_worldNewYolkFinishingTouches_2, -4108030); await bootYield("bs_worldNewYolkFinishingTouches_2"); // scene.add
+step(bs_renderTextures_2, -4108030); await bootYield("bs_renderTextures_2");       // lampGlow, scene.add
+step(bs_worldNewYolkFinishingTouches_3, -4108030); await bootYield("bs_worldNewYolkFinishingTouches_3"); // skyBits, skyBits.scale.setScalar, scene.add, stars
+step(bs_renderTextures_3, -824436494); await bootYield("bs_renderTextures_3");       // sunDisc, moonDisc, skyBits.add, for (const p of [stars, 
+step(bs_renderRenderer_3, -824436494); await bootYield("bs_renderRenderer_3");       // post
+step(bs_worldNewYolkCharmPlaces_3, -824436494); await bootYield("bs_worldNewYolkCharmPlaces_3"); // BATH, { const stoneM = mat(0xd, _bp, addTalker
+step(bs_storyConversations_2, -824436494); await bootYield("bs_storyConversations_2");   // for (const t of talkers)
+step(bs_worldNewYolkFinishingTouches_4, -824436494); await bootYield("bs_worldNewYolkFinishingTouches_4"); // $
+step(bs_coreSettings_2, -824436494); await bootYield("bs_coreSettings_2");         // $
+step(bs_audioAudio_2, -824436494); await bootYield("bs_audioAudio_2");           // Object.assign
+step(bs_renderTextures_4, -824436494); await bootYield("bs_renderTextures_4");       // wireTex, wireTex.minFilter, wireTex.generateMipmaps
+step(bs_castTownsfolk_2, -824436494); await bootYield("bs_castTownsfolk_2");        // Object.assign
+step(bs_worldNewYolkPetShop_1, -824436494); await bootYield("bs_worldNewYolkPetShop_1");  // petRoom, awning, building, ottilie, ottilie.g.position.copy, ottilie.g.rotation.y, ...
+step(bs_worldNewYolkFlorist_1, 1304106404); await bootYield("bs_worldNewYolkFlorist_1");  // floristRoom, awning, building, rosalind, rosalind.g.position.copy, rosalind.g.rotation.y, ...
+step(bs_gameplayShinies_1, -1516882564); await bootYield("bs_gameplayShinies_1");      // addShiny
+step(bs_castTownsfolk_3, 2146249062); await bootYield("bs_castTownsfolk_3");        // addNamedTalker, FOLK.push, { const V = (x, y, z) =>
+step(bs_worldNewYolkTrashCans_1, 882577722); await bootYield("bs_worldNewYolkTrashCans_1"); // { const doorPts = rooms., canBody, canBand, canLid, { const d = new THREE.Ob, cans.forEach
+step(bs_gameplayBalloons_1, -2028412140); await bootYield("bs_gameplayBalloons_1");     // for (const k of kids) ad
+step(bs_castGrumps_1, -2028412140); await bootYield("bs_castGrumps_1");           // for (const h of humans){, for (let k = 0; k < 2; k
+step(bs_worldSkyWeather_1, -12599036); await bootYield("bs_worldSkyWeather_1");      // rainIM, rainIM.frustumCulled, rainIM.count, scene.add, drops, for (let k = 0; k < 40; , ...
+step(bs_coreSettings_3, 1605915671); await bootYield("bs_coreSettings_3");         // $
+step(bs_worldNewYolkTram_1, 1605915671); await bootYield("bs_worldNewYolkTram_1");     // Object.assign, { const n = TRAM_CORNERS, ROUTE_LEN, { const rails = [], bed , tramM, tramFloor, ...
+step(bs_worldNewYolkRoostCourt_1, 1462880677); await bootYield("bs_worldNewYolkRoostCourt_1"); // HR.top, HRX0, STAIR, VCOL_MAT_, hrBrick, hrTrim, ...
+step(bs_castTraffic_2, 435576022); await bootYield("bs_castTraffic_2");          // for (const c of cars) sc, cars.length, for (let k = 0; k < 12; , for (const rx of SIG_ROA, { const poles = [], stop, headIM, ...
+step(bs_gameplayFood_2, 1661365862); await bootYield("bs_gameplayFood_2");         // FOOD.popcorn
+step(bs_renderRenderer_4, 1661365862); await bootYield("bs_renderRenderer_4");       // foodGeo.popcorn
+step(bs_gameplayFood_3, 1661365862); await bootYield("bs_gameplayFood_3");         // FOOD.sardine
+step(bs_renderRenderer_5, 1661365862); await bootYield("bs_renderRenderer_5");       // foodGeo.sardine
+step(bs_castTownsfolk_4, 1661365862); await bootYield("bs_castTownsfolk_4");        // Object.assign
+step(bs_worldNewYolkChurch_1, 1661365862); await bootYield("bs_worldNewYolkChurch_1");   // churchRoom, chG, { for (let z = -165; z <, for (let k = 0; k < 4; k, wren, scene.remove, ...
+step(bs_worldNewYolkClockTower_1, -520211136); await bootYield("bs_worldNewYolkClockTower_1"); // clockCanvas, clockCanvas.width, clockTex, clockTex.magFilter, drawClock, { const {x, z} = CLOCK, , ...
+step(bs_worldNewYolkMarketHall_1, -520211136); await bootYield("bs_worldNewYolkMarketHall_1"); // marketRoom, mkG, { const goods = [['apple, vendors, vendors[1].H.g.visible, pip, ...
+step(bs_worldNewYolkFishMarket_1, 2018038641); await bootYield("bs_worldNewYolkFishMarket_1"); // fishRoom, fsG, { for (const z of [28.5,, morag, scene.remove, fsG.add, ...
+step(bs_worldNewYolkRoxyCinema_1, -1148716009); await bootYield("bs_worldNewYolkRoxyCinema_1"); // cinemaRoom, cnG, filmCanvas, filmCanvas.width, filmCanvas.height, filmTex, ...
+step(bs_worldNewYolkLaundrette_1, 1555297662); await bootYield("bs_worldNewYolkLaundrette_1"); // laundryRoom, lnG, { for (let k = 0; k < 6;, laundryFolk, for (let k = 0; k < 2; k, dryerCat, ...
+step(bs_worldNewYolkHarbour_1, -1938739273); await bootYield("bs_worldNewYolkHarbour_1");  // harbourTex, harbourTex.repeat.set, harbourWater, harbourWater.rotation.x, harbourWater.receiveShadow, scene.add, ...
+step(bs_worldNewYolkWestfieldLake_1, -314149651); await bootYield("bs_worldNewYolkWestfieldLake_1"); // { const water = mesh(new, lakeDucks, WATERS.push
+step(bs_worldNewYolkWiderCity_2, -505973242); await bootYield("bs_worldNewYolkWiderCity_2"); // OUTER_LIVE
+step(bs_castMoreLife_1, -505973242); await bootYield("bs_castMoreLife_1");         // for (let k = 0; k < 46; 
+step(bs_worldNewYolkWiderCity_3, 234346719); await bootYield("bs_worldNewYolkWiderCity_3"); // for (const b of outerBlo
+step(bs_castPigeonFlocks_2, 843453489); await bootYield("bs_castPigeonFlocks_2");     // addFlock
+step(bs_castTraffic_3, 459806307); await bootYield("bs_castTraffic_3");          // LANES_OK, for (const kind of [...A, for (const v of cars){ i
+step(bs_castCyclists_2, -882958830); await bootYield("bs_castCyclists_2");         // for (const c of cyclists
+step(bs_castTownsfolk_5, -882958830); await bootYield("bs_castTownsfolk_5");        // addNamedTalker, dot, FOLK.push, { const V = (x, y, z) =>, addShiny, ...
+step(bs_renderFreezeStatic_1, 1452560259); await bootYield("bs_renderFreezeStatic_1");   // { const moving = new Set
+step(bs_worldNewYolkDistricts_1, 1452560259); await bootYield("bs_worldNewYolkDistricts_1"); // seenDistricts
+step(bs_worldNewYolkCrumbLine_1, 1452560259); await bootYield("bs_worldNewYolkCrumbLine_1"); // Object.assign, UGL, ugTile, ugTerrazzo, ugBallast, UG_LIGHT, ...
+step(bs_worldNewYolkRiverQuill_1, -270521263); await bootYield("bs_worldNewYolkRiverQuill_1"); // stoneTex, stoneMat, riverTex, riverTex.repeat.set, { const water = mesh(new, BRIDGES, ...
+step(bs_uiTouchControls_1, 713741683); await bootYield("bs_uiTouchControls_1");      // $, _tapv, { const taps = new Map(), { const pts = new Map();
+step(bs_castCharacters_1, 713741683); await bootYield("bs_castCharacters_1");       // { const ok = h => !h.gru
+step(bs_worldNewYolkCrookedFeatherPub_1, 1217694959); await bootYield("bs_worldNewYolkCrookedFeatherPub_1"); // Object.assign, pubRoom, pG, { const dark = 0x4a2a16;
+step(bs_worldNewYolkMuseum_1, -181435075); await bootYield("bs_worldNewYolkMuseum_1");   // museumRoom, mG, { const bone = mat(0xf4e
+step(bs_worldNewYolkBarber_1, -437199863); await bootYield("bs_worldNewYolkBarber_1");   // barberRoom, bG, GB
+step(bs_worldNewYolkPostOffice_1, 1450730847); await bootYield("bs_worldNewYolkPostOffice_1"); // postRoom, oG, GB, FAV.postcard, { const m = mesh(new THR, for (const name of ['Dou, ...
+step(bs_worldNewYolkZoo_1, 1571036941); await bootYield("bs_worldNewYolkZoo_1");      // zG, { // the ground: lawns o, { const [px_, pz] = zw(P, giraffeTex, giraffes, zooBox, ...
+step(bs_uiQualityOfLife_1, -625692657); await bootYield("bs_uiQualityOfLife_1");      // mapBig, { const frame = $('minim, $, applyHudSize, if (isTouch){ $('muteBtn
+step(bs_storyRomance_1, -625692657); await bootYield("bs_storyRomance_1");         // plume, scene.add, plumeA, PLUME_HOME, PLUME_HOME.y, plume.g.position.copy, ...
+step(bs_worldNewYolkRailway_1, -1257528327); await bootYield("bs_worldNewYolkRailway_1");  // stationRoom, sG, { // the grassy railway , { const fieldTex = pxTex, trainM, for (const zc of TRAIN_C, ...
+step(bs_coreCameraCollision_1, 1416180144); await bootYield("bs_coreCameraCollision_1");  // treeGrid, for (const [x, z, s] of , fadeGrid, fadeRay
+step(bs_worldNewYolkStreetNames_1, 1416180144); await bootYield("bs_worldNewYolkStreetNames_1"); // { const N = 32, c = docu, { const M = [mat(0xc8302, { const all = [...blocks, { const blocksC = blocks, { const furs = [[0x3a333
+step(bs_storyTownEvents_1, -709359984); await bootYield("bs_storyTownEvents_1");      // FOOD.icecream, foodGeo.icecream, FOOD.sausage, foodGeo.sausage, PK.confetti, EV_POOL, ...
+step(bs_castMoreLife_2, -668147687); await bootYield("bs_castMoreLife_2");         // { const cols = [0xc98a4b, { const spots = [{x: -5,, starlings, for (let k = 0; k < 6; k, for (const b of building, _sd18
+step(bs_worldNewYolkFeatherland_1, 2057680178); await bootYield("bs_worldNewYolkFeatherland_1"); // flG, scene.add, FLM, { // ground, paths, hedg, { const trees = [], beds, { const C = {x: -100, z:, ...
+step(bs_castTraffic_4, 110640453); await bootYield("bs_castTraffic_4");          // FOOD.cream, foodGeo.cream, { const list = ['police'
+step(bs_castHats_1, -630594214); await bootYield("bs_castHats_1");             // for (const h of humans){
+step(bs_gameplayHeadRiding_1, 290642241); await bootYield("bs_gameplayHeadRiding_1");   // addTalker
+step(bs_gameplayPeckableFurniture_1, 290642241); await bootYield("bs_gameplayPeckableFurniture_1"); // propCd, addTalker
+step(bs_worldNewYolkFloorPiano_1, 290642241); await bootYield("bs_worldNewYolkFloorPiano_1"); // PIANO, { const W = 0.85, D = 3., pianoKey, addTalker
+step(bs_worldNewYolkPlayground_1, 290642241); await bootYield("bs_worldNewYolkPlayground_1"); // PG, { const g = igroup(PG.x,, addTalker
+step(bs_renderRooftopClutter_1, -1732747163); await bootYield("bs_renderRooftopClutter_1"); // { const M = [mat(0x8a8f9
+step(bs_gameplayKidsBall_1, -381560395); await bootYield("bs_gameplayKidsBall_1");     // goMarker, goMarker.rotation.x, goMarker.visible, scene.add
+step(bs_worldSkyWind_1, -381560395); await bootYield("bs_worldSkyWind_1");         // WIND, litter, THERMALS, thermIM, thermIM.frustumCulled, scene.add, ...
+step(bs_gameplayLoot_1, 1953958694); await bootYield("bs_gameplayLoot_1");         // for (const [id, it] of O, for (let k = 0; k < 36; , $, addEventListener
+step(bs_worldNewYolkFourNewShops_1, -908242571); await bootYield("bs_worldNewYolkFourNewShops_1"); // Object.assign, LP, lpG, { const x0 = lostRoom.mi, AN, AN.z, ...
+step(bs_gameplayPuzzles_1, 644829554); await bootYield("bs_gameplayPuzzles_1");      // AIR_SMOKE, RIDDLES, for (const p of RIDDLES), { const cand = buildings, addNamedTalker, questLoot, ...
+step(bs_storyTownEvents_2, 1212724027); await bootYield("bs_storyTownEvents_2");      // gondolaM, gondolaMover, placeMover, EVENT_DEFS.push
+step(bs_renderContactShadows_1, 1212724027); await bootYield("bs_renderContactShadows_1"); // { const tex = (() => { c
+step(bs_worldNewYolkInteriors_1, 1212724027); await bootYield("bs_worldNewYolkInteriors_1"); // bookTex, bookMat, { // The Codfather: fish, { // Bosun's Flat: an ol, { // Studio Nine: a pain, { // New Yolk Library co, ...
+step(bs_castMoreLife_3, 1464243312); await bootYield("bs_castMoreLife_3");         // { const items = [], M = , { const cands = rooms.fi, foxes22, bats22, MOTHS, mothGeo.setAttribute, ...
+step(bs_renderLighting_1, -251261910); await bootYield("bs_renderLighting_1");       // fillLight, scene.add, poolMat, poolIM, { const d = new THREE.Ob, poolIM.frustumCulled, ...
+step(bs_uiMap_1, -251261910); await bootYield("bs_uiMap_1");                // WMAP, wmCan, wmCan.addEventListener, $, addEventListener, ...
+step(bs_uiJournal_1, -251261910); await bootYield("bs_uiJournal_1");            // hooks toast, document.getElementById, hooks renderJournal, addEventListener
+step(bs_renderReleasePolish_1, -251261910); await bootYield("bs_renderReleasePolish_1");  // ALLH, farHidden
+step(bs_coreCollision_2, -251261910); await bootYield("bs_coreCollision_2");        // for (const m of skylineM, skylineMeshes.length
+step(bs_worldNewYolkWiderCity_4, -251261910); await bootYield("bs_worldNewYolkWiderCity_4"); // XM, XC
+step(bs_renderReleasePolish_2, -251261910); await bootYield("bs_renderReleasePolish_2");  // NEWCH
+step(bs_worldNewYolkUptown_1, -251261910); await bootYield("bs_worldNewYolkUptown_1");   // for (let bi = -17; bi <=, empireLobby, { const ch = nch(EMPIRE., nhmRoom, { const ch = nch(MUSEUM., { const lawn = grassTex., ...
+step(bs_worldNewYolkMapleGrove_1, -2127698844); await bootYield("bs_worldNewYolkMapleGrove_1"); // for (let bi = -7; bi <= , { const ch = nch(0, 440)
+step(bs_worldNewYolkAirport_1, -1666787277); await bootYield("bs_worldNewYolkAirport_1");  // { const tm = mesh(new TH, terminal, { const ch = nch(55, -40, for (const [x, z] of [[1, flyer, flyerMover, ...
+step(bs_worldNewYolkInteriors_2, 668731812); await bootYield("bs_worldNewYolkInteriors_2"); // MU, muG, { const bone = mat(0xe8d, ITEMS.bone, drawIcon, FAV.bones, ...
+step(bs_castMoreLife_4, 1142379888); await bootYield("bs_castMoreLife_4");         // for (const b of uptownBl, for (let bi = -7; bi <= , { const n = 48; for (let, joggers, carriage, addSolid, ...
+step(bs_castTraffic_5, -623743343); await bootYield("bs_castTraffic_5");          // for (const v of cars){ i, { const AVES = [-560, -5
+step(bs_worldNewYolkBroodlyn_1, 1937235334); await bootYield("bs_worldNewYolkBroodlyn_1"); // for (let cx = 368; cx <=, { const ch = nch(350, 0), { const wm = harbourWate, { const z = BR.bridgeZ, , { const ch = nch(LIB.x, 
+step(bs_renderGroundSlabs_1, -367391876); await bootYield("bs_renderGroundSlabs_1");    // { const d = new THREE.Ob
+step(bs_coreDistricts_1, -367391876); await bootYield("bs_coreDistricts_1");        // Object.assign, setTimeout
+step(bs_audioSounds_1, -367391876); await bootYield("bs_audioSounds_1");          // sfx.coo, sfx.npcCoo
+step(bs_audioMusic_1, -367391876); await bootYield("bs_audioMusic_1");           // TRACKS, TRACK
+step(bs_castDogs_2, -367391876); await bootYield("bs_castDogs_2");             // MEAN_DOGS, for (const d of dogs){ d
+step(bs_castGrumps_2, -367391876); await bootYield("bs_castGrumps_2");           // for (const h of humans) 
+step(bs_worldNewYolkQuietStart_1, -367391876); await bootYield("bs_worldNewYolkQuietStart_1"); // for (const h of humans) 
+step(bs_castGossipPigeons_1, -1477121125); await bootYield("bs_castGossipPigeons_1");    // { const P = makePigeon({, addTalker
+step(bs_castCockatoos_1, -1477121125); await bootYield("bs_castCockatoos_1");        // { const spots = treeSpot, addTalker
+step(bs_storyMagpieMarks_1, -1578943822); await bootYield("bs_storyMagpieMarks_1");     // DECAL_TEX, { const kinds = ['tag', , VIL, goldMat27
+step(bs_worldLittlePeckingVillage_1, 1018086943); await bootYield("bs_worldLittlePeckingVillage_1"); // VC, vWinMat, XM.push, VWIN, vG, scene.add, ...
+step(bs_worldLittlePeckingMap_1, 1231724728); await bootYield("bs_worldLittlePeckingMap_1"); // VMAP, { const MS = 2.5; VMAP.c, VLABELS, DISTRICTS.pecking
+step(bs_storyMagpieMob_1, 1231724728); await bootYield("bs_storyMagpieMob_1");       // diamond27, { const V3 = (x, y, z) =, FOLK.push, gramps, CREW, for (const b of Object.v
+step(bs_worldLittlePeckingVillagers_1, 1231724728); await bootYield("bs_worldLittlePeckingVillagers_1"); // bess, pat, plum, mamaPica, for (const [H, x, z, ry], bess.arms[1].rotation.x, ...
+step(bs_storyTutorial_1, 1904772695); await bootYield("bs_storyTutorial_1");        // GRAMPS, addNamedTalker, addTalker, ...
+step(bs_worldNewYolkMamaPica_1, 1904772695); await bootYield("bs_worldNewYolkMamaPica_1"); // picaRoom, PR, PICA_DOOR, { const checker = pxTex(, don, tony, ...
+step(bs_worldNewYolkTiffeathers_1, -1269558255); await bootYield("bs_worldNewYolkTiffeathers_1"); // jewelRoom, JR, BROOCH_POS, GB
+step(bs_storyBagelBoy_1, 1002019637); await bootYield("bs_storyBagelBoy_1");        // { const g = new THREE.Gr
+step(bs_storyGullGang_1, -261651703); await bootYield("bs_storyGullGang_1");        // { const spots = [[188, 2
+step(bs_storyBlueMoon_1, -261651703); await bootYield("bs_storyBlueMoon_1");        // { const x = MU.cx - 5.5,
+step(bs_storyJobs_1, -1525323043); await bootYield("bs_storyJobs_1");            // addNamedTalker, addTalker, ...
+step(bs_storyHeat_1, -1525323043); await bootYield("bs_storyHeat_1");            // for (let k = 0; k < 6; k, for (const o of [...COPS
+step(bs_uiHeatOverlay_1, -13463215); await bootYield("bs_uiHeatOverlay_1");        // { const css = document.c
+step(bs_audioVoices_1, -13463215); await bootYield("bs_audioVoices_1");          // BIRD_FOLK, hooks renderDlg, hooks advance, $
+step(bs_storyCinema_1, -13463215); await bootYield("bs_storyCinema_1");          // { const css = document.c, addEventListener, hooks storyBegin, hooks showMobEnding
+step(bs_worldNewYolkBessBuns_1, -13463215); await bootYield("bs_worldNewYolkBessBuns_1"); // { const r = roomBox(bake
+step(bs_worldNewYolkTwoScoops_1, 1122325731); await bootYield("bs_worldNewYolkTwoScoops_1"); // FOOD.icecream, iceMats, foodGeo.icecream, scoopRoom, SC, { const fl = pxTex(8, 8,
+step(bs_worldNewYolkIceCreamVan_1, 930502140); await bootYield("bs_worldNewYolkIceCreamVan_1"); // ICEV, if (ICEV){ ICEV.ice = tr, addTalker
+step(bs_worldNewYolkMagpieSocialClub_1, 610796155); await bootYield("bs_worldNewYolkMagpieSocialClub_1"); // clubRoom, CL, { const fl = pxTex(8, 8,, addNamedTalker
+step(bs_storyFamilyBusiness_1, -1732299234); await bootYield("bs_storyFamilyBusiness_1");  // COLL.stops, COLL.stops.forEach, addNamedTalker, { const want = [[-300, -
+step(bs_storyPartTwo_1, -1228345958); await bootYield("bs_storyPartTwo_1");         // JOBS.push, hooks lootMesh, CARMINE_POS, carmine, carmine.g.userData.cr, PORTRAITS.Carmine, ...
+step(bs_castWildSide_1, -1860181628); await bootYield("bs_castWildSide_1");         // FOX_ZONES, BAT_ZONES, for (let k = 0; k < 4; k
+step(bs_worldLittlePeckingMeadows_1, -1356228352); await bootYield("bs_worldLittlePeckingMeadows_1"); // { const inRect = (x, z) 
+step(bs_worldNewYolkWiderCity_5, -1438394294); await bootYield("bs_worldNewYolkWiderCity_5"); // Object.assign
+step(bs_worldNewYolkBroodlyn_2, -1438394294); await bootYield("bs_worldNewYolkBroodlyn_2"); // setTimeout
+step(bs_worldNewYolkBroodlynLife_1, -1438394294); await bootYield("bs_worldNewYolkBroodlynLife_1"); // { const pool = broodBloc, muralTex29, { const tag = DECAL_TEX., PORTRAITS.Stella, PORTRAITS.Starling, VOICES.Stella, ...
+step(bs_storyTheRoost_1, -597166342); await bootYield("bs_storyTheRoost_1");        // roostRoom, RO, { for (let k = 0; k < 6;, addNamedTalker
+step(bs_worldNewYolkJoesPeeza_1, 1004694380); await bootYield("bs_worldNewYolkJoesPeeza_1"); // FOOD.slice, foodGeo.slice, peezaRoom, PZ, GB
+step(bs_worldNewYolkCatzDeli_1, 244976316); await bootYield("bs_worldNewYolkCatzDeli_1"); // FOOD.pastrami, foodGeo.pastrami, deliRoom, DL, { const fl = pxTex(8, 8,, VOICES.Morty, ...
+step(bs_worldNewYolkMadisonSquabGarden_1, 173458819); await bootYield("bs_worldNewYolkMadisonSquabGarden_1"); // gardenRoom, GA, { // the drum outside, w, VOICES.Flappy, drawJumbo, addNamedTalker
+step(bs_worldNewYolkTimesSquab_1, 1903201935); await bootYield("bs_worldNewYolkTimesSquab_1"); // { const ADS = [['COO-CA-
+step(bs_gameplayChess_1, 1903201935); await bootYield("bs_gameplayChess_1");        // { const board = pxTex(8,, VOICES.Bobby, PORTRAITS.Bobby, { const css = document.c, addNamedTalker, addTalker
+step(bs_worldNewYolkEmpireFeather_1, 2023508029); await bootYield("bs_worldNewYolkEmpireFeather_1"); // { const r = roomBox(empi, addTalker, { const up = talkers.fin
+step(bs_worldNewYolkLibirdyFerry_1, -1399011409); await bootYield("bs_worldNewYolkLibirdyFerry_1"); // FERRY29, { const boat = new THREE, addTalker
+step(bs_uiSideErrands_1, -1399011409); await bootYield("bs_uiSideErrands_1");        // hooks renderStory, hooks storyTarget
+step(bs_storyPartThree_1, -1399011409); await bootYield("bs_storyPartThree_1");       // JOBS.push, hooks lootMesh, hooks brief, hooks talkDon, hooks jobText, hooks showMobEnding, ...
+step(bs_gameplayStashes_1, -1531139306); await bootYield("bs_gameplayStashes_1");      // glintTex, STASH_SPOTS, { const wood = mat(0x8a5, addTalker
+step(bs_gameplayHoard_1, -2042668882); await bootYield("bs_gameplayHoard_1");        // { const css = document.c, hooks renderBag, addNamedTalker, hooks talkDon
+step(bs_storyStarlingRaids_1, -2042668882); await bootYield("bs_storyStarlingRaids_1");   // { for (let k = 0; k < 8;, hooks renderStory, hooks storyTarget
+step(bs_worldNewYolkBroodlynInteriors_1, 469521198); await bootYield("bs_worldNewYolkBroodlynInteriors_1"); // recRoom, RC, { const sleeves = [0xd44, VOICES.Dez, addNamedTalker, addTalker, ...
+step(bs_uiComforts_1, -1313256018); await bootYield("bs_uiComforts_1");           // { const lbl = document.c, hooks shot, hooks updateTW, setTimeout
+step(bs_coreControlsCamera_1, -1313256018); await bootYield("bs_coreControlsCamera_1");   // bonk0, sfx.bonk, addEventListener
+step(bs_audioMusic_2, -1313256018); await bootYield("bs_audioMusic_2");           // hooks mvoice, hooks mdrums, Object.assign, hooks pickTrack
+step(bs_worldNewYolkRedCrookDocks_1, -1313256018); await bootYield("bs_worldNewYolkRedCrookDocks_1"); // { const i = solids.findI, DISTRICTS.redcrook, hooks districtOf29, { const items = [], wood, shackRoom, SK
+step(bs_storyTheShellfish_1, -809302742); await bootYield("bs_storyTheShellfish_1");    // { const port = (o, y = 0, hooks vsyl
+step(bs_worldNewYolkLobsterPot_1, 1270451559); await bootYield("bs_worldNewYolkLobsterPot_1"); // potRoom, LP30, { const r = LP30, g = lp
+step(bs_worldNewYolkFleaMarket_1, 382851101); await bootYield("bs_worldNewYolkFleaMarket_1"); // fleaRoom, FL30, { const r = FL30, g = fl, addNamedTalker
+step(bs_storyTheShellfish_2, 1375605053); await bootYield("bs_storyTheShellfish_2");    // for (const [kind, x, y, , hooks renderStory, hooks storyTarget, addNamedTalker, for (const s of SH.shell, addTalker, ...
+step(bs_gameplayBridgeDash_1, -519901957); await bootYield("bs_gameplayBridgeDash_1");   // DASH, speedy, PORTRAITS.Speedy, addNamedTalker
+step(bs_worldNewYolkLobsterPot_2, -519901957); await bootYield("bs_worldNewYolkLobsterPot_2"); // setTimeout
+step(bs_coreSettings_4, -519901957); await bootYield("bs_coreSettings_4");         // { const lbl = document.c
+step(bs_worldNewYolkHarbour_2, -519901957); await bootYield("bs_worldNewYolkHarbour_2");  // { const w0 = WATERS[0], 
+step(bs_storyBorisKempinski_1, -519901957); await bootYield("bs_storyBorisKempinski_1");  // { const port = (o, y) =>
+step(bs_worldNewYolkAquarium_1, -1151737627); await bootYield("bs_worldNewYolkAquarium_1"); // aquaRoom, AQ, { const r = AQ, g = aqg,
+step(bs_storyContainerShip_1, -1678419803); await bootYield("bs_storyContainerShip_1");   // SHIP, SHIP.g.position.set, scene.add, SHIP.g.userData.cr, SHIP.solids, SH.patrol.g.position.x, ...
+step(bs_worldPetersbirdCity_1, -1678419803); await bootYield("bs_worldPetersbirdCity_1");  // Object.assign, PGHOST51, PC, pgG, scene.add, { const cob = pxTex(32, , ...
+step(bs_worldPetersbirdPeople_1, 288863356); await bootYield("bs_worldPetersbirdPeople_1"); // { for (const [x, z, a, n, addTalker, addNamedTalker
+step(bs_worldPetersbirdEarlyInteriors_1, 698570235); await bootYield("bs_worldPetersbirdEarlyInteriors_1"); // { // the Hermit-Age: gal, { // the Grand Hotel Kem, { // Masha's Matryoshkas, addNamedTalker, FOOD.pelmeni, foodGeo.pelmeni, ...
+step(bs_storyVoyages_1, -1223911178); await bootYield("bs_storyVoyages_1");         // addNamedTalker, { const crab = makeCrab(
+step(bs_storyShellfishAffair_1, 1807384778); await bootYield("bs_storyShellfishAffair_1"); // Object.assign, addNamedTalker, addTalker, hooks talkDon, hooks bust27, hooks storyBegin, ...
+step(bs_worldNewYolkHarbour_3, 1807384778); await bootYield("bs_worldNewYolkHarbour_3");  // WATERS[WATERS.length - 1].pushFn
+step(bs_worldPetersbirdCity_2, 1807384778); await bootYield("bs_worldPetersbirdCity_2");  // hooks districtOf29
+step(bs_storyKidnapVan_1, 1807384778); await bootYield("bs_storyKidnapVan_1");       // VAN, FOLK.push, VOICES['Pavel']
+step(bs_storyShellfishCinematics_1, 1175549108); await bootYield("bs_storyShellfishCinematics_1"); // { const pf = new THREE.G, BARREL
+step(bs_worldPetersbirdPootinPalace_1, 160066256); await bootYield("bs_worldPetersbirdPootinPalace_1"); // POOT, PORTRAITS['President Pootin'], VOICES['President Pootin'], FOLK.push, addNamedTalker, posterTex_30, ...
+step(bs_worldPetersbirdNevsky_1, 160066256); await bootYield("bs_worldPetersbirdNevsky_1"); // { const items = [], iron, TRAM_30
+step(bs_worldPetersbirdBliniKiosk_1, 160066256); await bootYield("bs_worldPetersbirdBliniKiosk_1"); // KIOSK
+step(bs_storyTheTank_1, 160066256); await bootYield("bs_storyTheTank_1");         // TANK31, LADAS
+step(bs_storyGoldeneggChase_1, -471769414); await bootYield("bs_storyGoldeneggChase_1");  // TRI, addNamedTalker
+step(bs_storyDoubleCross_1, -471769414); await bootYield("bs_storyDoubleCross_1");     // { const el = document.cr, PANEL, { const p = new THREE.Gr, addNamedTalker, { const q9 = SHELL_Q[9],, setTimeout
+step(bs_uiVersionTag_1, -471769414); await bootYield("bs_uiVersionTag_1");         // setTimeout, ITEMS.glitter, drawIcon
+step(bs_gameplayLoot_2, -471769414); await bootYield("bs_gameplayLoot_2");         // hooks giveTreasure
+step(bs_gameplayHoard_2, -471769414); await bootYield("bs_gameplayHoard_2");        // { const css = document.c
+step(bs_worldNewYolkGoldieFinch_1, -471769414); await bootYield("bs_worldNewYolkGoldieFinch_1"); // GOLDIE, addNamedTalker
+step(bs_worldPetersbirdShopfronts_1, -471769414); await bootYield("bs_worldPetersbirdShopfronts_1"); // { const items = []; cons
+step(bs_worldNewYolkFabrizio_1, -471769414); await bootYield("bs_worldNewYolkFabrizio_1"); // FAB, addNamedTalker
+step(bs_worldNewYolkMadamePlume_1, -471769414); await bootYield("bs_worldNewYolkMadamePlume_1"); // PLUME, hooks gearStat, addNamedTalker
+step(bs_castKevinTheTourist_1, -471769414); await bootYield("bs_castKevinTheTourist_1");  // SELFIE, KEVIN, ITEMS.camera33, drawIcon, addNamedTalker, addTalker
+step(bs_gameplayGearSets_1, 536137138); await bootYield("bs_gameplayGearSets_1");     // hooks gearChanged, hooks gearStat, hooks rollLoot
+step(bs_gameplayHoard_3, 536137138); await bootYield("bs_gameplayHoard_3");        // hooks salvage
+step(bs_gameplayGearSets_2, 536137138); await bootYield("bs_gameplayGearSets_2");     // hooks renderHoard
+step(bs_coreSettings_5, 536137138); await bootYield("bs_coreSettings_5");         // { const lbl = document.c, hooks giveTreasure
+step(bs_gameplayChess_2, 536137138); await bootYield("bs_gameplayChess_2");        // CHESS.opp, CROW35, addNamedTalker
+step(bs_worldPetersbirdKvass_1, 536137138); await bootYield("bs_worldPetersbirdKvass_1"); // VALYA, hooks gearStat, addNamedTalker
+step(bs_castKevinTheTourist_2, 1735867281); await bootYield("bs_castKevinTheTourist_2");  // Object.defineProperty
+step(bs_worldPetersbirdCity_3, 1735867281); await bootYield("bs_worldPetersbirdCity_3");  // hooks districtOfPB
+step(bs_uiWhatsNew_1, 1735867281); await bootYield("bs_uiWhatsNew_1");           // { const host = document.
+step(bs_uiVersionTag_2, 1735867281); await bootYield("bs_uiVersionTag_2");         // hooks storyBegin
+step(bs_worldNewYolkGoldieFinch_2, 1735867281); await bootYield("bs_worldNewYolkGoldieFinch_2"); // hooks drawStash29
+step(bs_corePerFrame_1, 1735867281); await bootYield("bs_corePerFrame_1");         // setTimeout
+step(bs_history, 1735867281); await bootYield("bs_history");                // GAME_VER.n, GAME_VER.name, ...
 /* ---------- world: petersbird/with-love ---------- */
 // From v37. The ld_* steps are run by boot/world.js, in load order.
 // set by the steps below
@@ -22475,7 +22521,7 @@ MR = roomBox(metroRoom); MG = igroup(MR.cx, MR.z, 70); METRO = {trains: [], peop
     c.fillStyle = '#ffffff'; c.font = 'bold 7px monospace'; c.fillText('PIGEONS OF THE WORLD,', 6, 43); c.fillText('UNITE!', 70, 43);
   }), 10, 5, r.x1 - 0.04, 5.9, Z9(136), -PI/2);
   // benches between the columns, and the commuters
-  for (const x of [23.6, 30.4]) for (const z of [134.9, 137.1]){ GB(g, 2.4, 0.12, 0.6, 0x8a5a34, X9(x), 0.6, Z9(z), true, 'bench'); GB(g, 2.4, 0.5, 0.1, 0x8a5a34, X9(x), 0.85, Z9(z + (z < 136 ? -0.28 : 0.28))); }
+  for (const x of [23.6, 30.4]) for (const z of [134.9, 137.1]){ GB(g, 2.4, 0.12, 0.6, 0x8a5a34, X9(x), 0.6, Z9(z), true, 'bench'); for (const e of [-1.05, 1.05]) GB(g, 0.08, 0.54, 0.5, 0x3a2a22, X9(x + e), 0.27, Z9(z));   /* v300: legs (it hung in the air) */ GB(g, 2.4, 0.5, 0.1, 0x8a5a34, X9(x), 0.85, Z9(z + (z < 136 ? -0.28 : 0.28))); }
   for (let k = 0; k < 9; k++){ const side = k % 2 ? 1 : -1, x = rr(21, 37), z = 136 + side*rr(2.6, 4.4); const H = person22(g, X9(x), Z9(z), side > 0 ? 0 : PI, {shirt: pick(PB_SHIRTS), hair: pick([0x2a1a10, 0x6a4a2a, 0xd8d4cc, 0x1a1a1a])}); METRO.people.push({H, x, z, side, walk: k < 3, dir: rand() < 0.5 ? 1 : -1, ph: rand()*6}); if (k === 4){ H.arms[0].rotation.x = H.arms[1].rotation.x = -1.2; H.g.add(boxMesh(0.5, 0.36, 0.02, mat(0xf4ead2), 0, 1.25, 0.32)); } }
   // the trains: a blue Soviet train on each side, clipped at the tunnel mouths
   const clip = [new THREE.Plane(new THREE.Vector3(1, 0, 0), -(r.x0 + 0.02)), new THREE.Plane(new THREE.Vector3(-1, 0, 0), r.x1 - 0.02)];
@@ -27127,7 +27173,10 @@ P52.bench = (K, x, z, ry, c = 0x6b4a2e) => {   // v289: slatted seat and back on
     for (const u of [-0.8, 0.8]){ for (const [a, b] of [[[u, 0, 0.19], [u, 0.47, 0.16]], [[u, 0, -0.2], [u, 0.47, -0.22]], [[u, 0.47, -0.22], [u, 0.98, -0.31]], [[u, 0.46, 0.2], [u, 0.46, -0.23]], [[u, 0.66, 0.22], [u, 0.68, -0.27]]]) ir.push({geo: ckRodGeo(a, b, 0.028, 5)});
       ir.push({geo: ckBlobGeo(), m: ckM(u, 0.66, 0.24, 0, 0, 0, 0.045)}); ir.push({geo: new THREE.BoxGeometry(0.12, 0.03, 0.08), m: ckM(u, 0.015, 0.19)}, {geo: new THREE.BoxGeometry(0.12, 0.03, 0.08), m: ckM(u, 0.015, -0.2)}); }
     return [ckMerge(sl), ckMerge(ir)]; });
-  K.part(slats, c, x, 0, z, 1, 1, 1, ry); K.part(iron, 0x2a2a30, x, 0, z, 1, 1, 1, ry, true); addSolid(x, z, 1.8, 1.8, 0.15, 0.55, 'bench'); };
+  // v300: stood on what's under it (a pavement slab, a kerb, a quay, a hillside), not at y = 0, where it sank into slabs or hung over dips
+  // (only pavement-height ground, up to 0.3 m: a bench's own older collision box at the same spot lifted it 0.55 m, Grandpa's bench in v300)
+  let gy = 0; try { gy = floorAt(x, z, 0.25); } catch (e){ try { gy = floorAtBase(x, z, 0.25); } catch (e2){} } if (!(gy > -3 && gy <= 0.3)) gy = 0;
+  K.part(slats, c, x, gy, z, 1, 1, 1, ry); K.part(iron, 0x2a2a30, x, gy, z, 1, 1, 1, ry, true); addSolid(x, z, 1.8, 1.8, gy + 0.15, gy + 0.55, 'bench'); };
 P52.planter = (K, x, z, w, d, c = 0x8a8478) => { K.box(w, 0.6, d, x, 0.45, z, c); K.box(w - 0.2, 0.1, d - 0.2, x, 0.78, z, 0x5a3a24); for (let k = 0; k < Math.round(w*d); k++) K.box(rr52(0.3, 0.6), rr52(0.3, 0.7), rr52(0.3, 0.6), x + rr52(-w/2 + 0.3, w/2 - 0.3), 1.0, z + rr52(-d/2 + 0.3, d/2 - 0.3), pick52([0x3f7a34, 0x4f8a3a, 0x5f9a44, 0xe8403a, 0xffd23a])); addSolid(x, z, w, d, 0, 0.8, 'planter'); };
 P52.tree = (K, x, z, s = 1, leaf = 0x4f8a3a) => { K.inst('ptTrunk279', ckTrunkGeo(0.13, 0.2, 2.6, 7), 0x6a4a2e, x, 1.45*s, z, s, s, s); K.inst('leaf' + leaf, leafGeo, leaf, x, 3.4*s, z, 1.25*s, 1.0*s, 1.25*s, r52()*6); K.inst('leaf' + leaf, leafGeo, leaf, x + 0.3*s, 4.3*s, z - 0.2*s, 0.8*s, 0.65*s, 0.8*s, r52()*6);   /* v279: leafy crowns */ addSolid(x, z, 0.4*s, 0.4*s, 0, 2.6*s, 'trunk'); };
 P52.flag = (K, x, y, z, ry, cols) => { const A = at52(x, z, ry); const [px, pz] = A(0, 0.6); K.box(0.05, 0.05, 1.2, px, y, pz, 0x8a8f94, {ry}); cols.forEach((c, i) => { const [fx, fz] = A(-0.25 + i*0.25, 1.15); K.box(0.25, 0.6, 0.02, fx, y - 0.35, fz, c, {ry}); }); };
@@ -27209,6 +27258,7 @@ P52.flowerbox = (K, x, y, z, ry) => { const a = at52(x, z, ry), [px, pz] = a(0, 
         P52.car(A.K, x, z, carRy, {kind: kind === 'taxi' ? 'taxi' : kind === 'van' ? 'van' : 'car'}); const s_ = addSolid(x, z, along ? 4.1 : 1.9, along ? 1.9 : 4.1, 0, kind === 'van' ? 2.3 : 1.75, 'parked52'); CARS52.push({x, z, s: s_}); }
       // strings of lights or lanterns across the street
       if ((T.festoon || T.lanterns) && (sx > 0 || sz > 0)){ for (let k = 0; k < 2; k++){ const u = -6 + k*12 + rr52(-1.5, 1.5), a = P(u, 11.4), b = P(u, 20.6), h = rr52(6, 7.4);
+          for (const e of [a, b]){ A.K.box(0.12, h + 0.1, 0.12, e[0], (h + 0.1)/2, e[1], 0x2e3a34); A.K.box(0.26, 0.16, 0.26, e[0], h + 0.16, e[1], 0x2e3a34); A.K.box(0.24, 0.3, 0.24, e[0], 0.15, e[1], 0x2e3a34); addSolid(e[0], e[1], 0.2, 0.2, 0, h, 'post'); }   // v300: a slim post at each end (they hung from nothing above the kerbs)
           if (T.lanterns){ const n = 7; for (let q = 0; q <= n; q++){ const t = q/n, px = a[0] + (b[0] - a[0])*t, pz = a[1] + (b[1] - a[1])*t, py = h - Math.sin(t*PI)*0.8; A.bulbs.push([[px, py - 0.35, pz], 0xd4202a, 2.4]); if (q < n){ const t2 = (q + 1)/n; A.wires.push(px, py, pz, a[0] + (b[0] - a[0])*t2, h - Math.sin(t2*PI)*0.8, a[1] + (b[1] - a[1])*t2); } } }
           else P52.festoon(A, a, b, h, T.festoon); } }
       // flags over the doors
@@ -27437,7 +27487,7 @@ function reveal52(){
   }); }, 1200);
 }
 
-function updateGramps52(){ if (S.story !== 'tutorial' && gramps && gramps.P){ gramps.P.g.visible = false; } if (NOTE52.m) NOTE52.m.visible = S.story !== 'tutorial'; }
+function updateGramps52(){ if (gramps && gramps.P){ const v = S.story === 'tutorial'; if (gramps.P.g.visible !== v) gramps.P.g.visible = v; }   /* v300: both ways (he was hidden on the title screen, before the save's story was known, and never shown again) */ if (NOTE52.m) NOTE52.m.visible = S.story !== 'tutorial'; }
 
 // Gus's first lines in the park become a reunion (GUS is defined later in the file, so set them on the first frame)
 let gusLines52 = false;
@@ -31879,6 +31929,9 @@ NYPARK91 = mapRects.filter(r => r.kind === 'park'); NYTREE91 = mapRects.filter(r
 NYG91 = new THREE.Group();
 scene.add(NYG91);
 NYGREEN91 = scatterGreen91(NYPARK91, 9000, NYG91);
+// v300: no tufts or flowers on the ponds (the scatter's draws stay as they were; the wet ones are scaled to nothing)
+{ const wet = (x, z) => Math.hypot(x + 336, z + 490) < 11.6 || WATERS.some(w => w.fn ? w.fn(x, z) : w.circle ? (x - w.x)**2 + (z - w.z)**2 < (w.r + 0.6)**2 : x > w.x0 - 0.6 && x < w.x1 + 0.6 && z > w.z0 - 0.6 && z < w.z1 + 0.6), M = new THREE.Matrix4(), Z = new THREE.Matrix4().makeScale(0, 0, 0);
+  for (const im of [NYGREEN91 && NYGREEN91.g1, NYGREEN91 && NYGREEN91.g2]){ if (!im || !im.isInstancedMesh) continue; let n = 0; for (let i = 0; i < im.count; i++){ im.getMatrixAt(i, M); if (wet(M.elements[12], M.elements[14])){ im.setMatrixAt(i, Z); n++; } } if (n){ im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere && im.computeBoundingSphere(); } } }
 NYPITS91 = scatterGreen91(NYTREE91.map(r => ({x0: r.x0 - 0.6, x1: r.x1 + 0.6, z0: r.z0 - 0.6, z1: r.z1 + 0.6})), 2600, NYG91, {flowers: 0.25});
 // trash bags on the kerbs, cardboard, a mattress (there is always a mattress)
 { const K = kit47(), bags = []; for (let k = 0; k < 170; k++){ const r = NYSLAB91[Math.floor(RNG91()*NYSLAB91.length)]; if (!r) break; const edge = Math.floor(RNG91()*4), x = edge < 2 ? (edge ? r.x1 - 0.8 : r.x0 + 0.8) : rr91(r.x0, r.x1), z = edge >= 2 ? (edge === 3 ? r.z1 - 0.8 : r.z0 + 0.8) : rr91(r.z0, r.z1);
@@ -40400,119 +40453,119 @@ WHATS_NEW.unshift(['190 · Finition III', 'A polishing pass over the new Paree: 
 /* ---------- boot: world ---------- */
 // The load sequence for v37-v190 (St. Petersbird, New Yolk's north, Bangcluck, Tokyoo, the wide world, Paree and Bavaria). Each feature module defines its pieces; this runs their load-time steps
 // (building meshes, registering talkers, systems and hooks) in the order the versions added them.
-step(ld_petersbirdWithLove_1, 1735867281);   // XM.push, LAMPX, THREE.Object3D.prototype.updateMatrixWorld, { const c = document.cre, C37, { // Nevsky: asphalt, gr, ...
-step(ld_petersbirdStreetLife_1, 1517069287); // { const south = linePath, pbFlock, for (let k = 0; k < 7; k, for (const [col, roof, l, PBLIFE.boats.push, { const g = new THREE.Gr, ...
-step(ld_audioTunes_1, 1155236299);           // Object.assign, hooks schedMusic, hooks pickTrack, hooks updateAudio
-step(ld_petersbirdHaymarket_1, 1155236299);  // C38, { const W = WALL38, t = , BLOCK38, TRO.splice, WALLCAM38, hooks tankChase, ...
-step(ld_petersbirdFavours_1, 1274627687);    // RODION, CANAL38, ALYONA, PORFIRY, SONYA, FAV.crumb38, ...
-step(ld_lookGlow_1, 2019193151);             // V39, renderer.localClippingEnabled, SUNSPRITE, { const wing = new THREE, POOLS
-step(ld_petersbirdInteriors_1, -643608223);  // C39, kommRoom, pbSkin, KM, { const g = KMG, r = KM;, KOMM.bicker, ...
-step(ld_petersbirdComrades_1, -873313314);   // bronze39, { const L0 = LENIN; { co, MARX, COMRADES39, FAV.unite39, marker38, ...
-step(ld_newYolkBackToSchool_1, 1424324275);  // V47, FAC47, facadeMats.push, lawn47, sand47, pave47, ...
-step(ld_newYolkWildAcres_1, -528462338);     // waG, water47, zebraMat47, { const K = kit47(), G =, { const add = (o, lx, lz, { const g = new THREE.Gr, ...
-step(ld_newYolkFeatherstone_1, -43907165);  // UNI47, uniG, bookTex47, clockTex47, uniLibRoom, { const K = kit47(), G =, ...
-step(ld_storyShellfishSaga_1, 669438393);   // lotG47, { const K = kit47(), G =, SAGA47.cones, SAGA47.car, SAGA47.doris, FAV.licence47, ...
-step(ld_petersbirdComrades_2, -1297586114);   // Object.assign
-step(ld_newYolkBackToSchool_2, -1297586114);  // hooks pickTrack
-step(ld_petersbirdComrades_3, -1297586114);   // ALM42.push
-step(ld_uiAlmanac_1, -1297586114);            // { const st = document.cr
-step(ld_newYolkBackToSchool_3, -1297586114);  // SYS47
-step(ld_bangcluckClawsOut_1, -1297586114);    // V48, SREG48, solids.push, solids.splice, SDIRTY48, FAC48, ...
-step(ld_bangcluckPeople_1, 670731653);      // KHUN48, SOMSAK48, SOMCHAI48, { const place = (C, x, y, { for (let k = 0; k < 10, for (let k = 0; k < 36; , ...
-step(ld_storyPartFour_1, -7476523);        // LOOK48, hooks renderStory, hooks storyTarget, hooks talkDon, addNamedTalker, rumbleG48, ...
-step(ld_bangcluckSoiLife_1, -703253390);     // FAR49, PK.stink, CH49, { const poleG = new THRE, SKY49, build49, ...
-step(ld_bangcluckCityLife_1, -423586344);    // D49, MT49, build49, addNamedTalker, VOICES.Bookie, { const Lp = BK.lumpini,, ...
-step(ld_bangcluckLouder_1, 1312818366);      // hooks gearStat, canTex49, canM49, addTalker, for (const [i, j] of [[1, build49, ...
-step(ld_uiQuestTracker_1, -819970035);       // try { QT49.min = localSt, hooks renderQuest, hooks questTarget, { const st = document.cr, hooks renderWMList
-step(ld_bangcluckSaffronHunt_1, -819970035); // Object.assign, WAR48.eyebrow, hooks renderStory, BELLS50, addNamedTalker, { const T = talkers.find, ...
-step(ld_bangcluckGrandHotels_1, 364607508); // lastCoo51, hooks coo, MAT51, facadeMats.push, MAND51, KEMP51, ...
-step(ld_bangcluckRiverCruise_1, -598755950); // CRUISE51, CRUISEPATH51, addNamedTalker, VOICES['Cruise steward'], MOG51, addTalker, ...
-step(ld_petersbirdCanal_1, -1941849114);      // PBCOLS51, { // the canal: a curvin, PLABELS.push, for (let k = 0; k < 8; k
-step(ld_bangcluckGrandHotels_2, -373037710); // SYS51, if (typeof updateBang51 
-step(ld_bangcluckBrotherBoris_1, -373037710); // NOTE52, VOICES['HAIKU-9000'], VOICES['Brother Boris (safe mode)'], WAR48.eyebrow, Object.assign, ROBO52, ...
-step(ld_lookCharacter_1, -373037710);        // ATLAS52, TAGNY52, GRAF52, ORDERTAG52, POSTERS52.forEach
-step(ld_lookPropKit_1, -373037710);          // P52.car, P52.bin, P52.dumpster, P52.crates, P52.pot, P52.bike, ...
-step(ld_newYolkNeighbourhoods_1, -373037710); // Object.assign, DISTRICTS.centre.sub, DISTRICTS.oldtown.sub, DISTRICTS.westend.sub, DISTRICTS.harbour.sub, hooks districtOf25, ...
-step(ld_newYolkLandmarks_1, -373037710);     // FIDI52, LM52, bronze52, { const K = kit47(); // , addTalker, addNamedTalker, ...
-step(ld_bangcluckBrotherBoris_2, -373037710); // SYS52, system deco
-step(ld_littlePeckingCharacter_1, -373037710); // VIL53, { const A = newArea53(0,, addTalker, ...
-step(ld_bangcluckLouder_2, -373037710);      // { const x = -14, z = VZ 
-step(ld_petersbirdUsdr_1, -373037710);       // P52.lada, P52.kvass, P52.chess, TH53, PB53, { const L = (x, z) => [P, ...
-step(ld_bangcluckCharacter_1, -373037710);   // BK54, { const AR = new Map(), , for (let k = 0; k < 6; k, addNamedTalker, addTalker, Object.assign, ...
-step(ld_newYolkAmericana_1, -91213225);     // NY55, { const AR = new Map(), , addTalker, addNamedTalker, VOICES.Mom, { const M = BK54.merchic, ...
-step(ld_bangcluckJusticeBeaver_1, -91213225); // BK56, FL56, TR56, VOICES['Justice Beaver'], VOICES['Steel Jaw'], VOICES.Ramboo, ...
-step(ld_petersbirdMatryoshkin_1, 1439130000); // NK56, MAT56, VOICES.Ivan, VOICES.Vanya, addNamedTalker, system pb56, ...
-step(ld_eventsSharknado_1, 1311247606);      // NADO56, system nado56
-step(ld_storyPartFour_2, -1231247674);        // hooks talkDon, hooks renderStory, hooks storyTarget
-step(ld_petersbirdDasBrot_1, -1231247674);    // VOICES.Semyon, VOICES['Kapitän Kadaver'], SEM57, UB57, ROUTE57, ROUTE57.r, ...
-step(ld_skyBlueSkies_1, -734870698);         // CITYC58, CL58, for (const c of clouds) , if (typeof PB_CLOUDS !==, BLIMPS58, BPL58, ...
-step(ld_newYolkGhostbirders_1, -1301263786);  // NY58, { const AR = new Map(), , addNamedTalker, addTalker, system ny58
-step(ld_skyBlimps_1, 1658514673);            // YOLK59, hooks updateSky58, for (const e of SYS52) i, HANG59, { const x = BK54.hawker., VOICES['Al-hen'], ...
-step(ld_storySpecialSeeds_1, -300933534);    // VOICES['Officer Brannigan'], VOICES['Officer Kowalski'], CUST60, C60, CUST60.forEach, hooks talkDon, ...
-step(ld_storyTheTrip_1, 1466691082);         // TRIP61, scene.add, TRIP61.g.visible, MAT61, WM61, TOAST61, ...
-step(ld_storyTheCount_1, 1466691082);        // VOICES['Count Pagurus'], VOICES.Jeeves, { const g = new THREE.Gr, countRoom, CR62, { const { cx, cz } = COU, ...
-step(ld_lookGoldenHour_1, 706973018);       // CONES64, MOTES64, STAR64, system gold64
-step(ld_storyWordOnTheStreet_1, -1354297886); // SPIDER65, system v65, hooks humanity59
-step(ld_skyBlimps_2, -1354297886);            // { const T = HANG59.tiger
-step(ld_tokyooFlight9000_1, -1354297886);     // VOICES['Security officer'], VOICES['Captain Overcoo'], VOICES.Roger, VOICES.Gloria, VOICES['Dr. Rumacoo'], VOICES['Samuel L. Peckson'], ...
-step(ld_tokyooArrival_1, -1377026786);        // tkG, scene.add, tkG.visible, WORLDNAME49.tk, CITYC58.tk, BANNERS58.tk, ...
-step(ld_tokyooCity_1, -1128838298);           // JPV68, JPH68, RNG90, PAVE90, PAVEM90, ASPH90, ...
-step(ld_tokyooStreetLife_1, -1949166762);     // FUJI67.g.traverse, WALK68, CARS68, system street68, hooks openMap, setTimeout, ...
-step(ld_tokyooKyotoo_1, -1099447804);         // AR69, RNG69, { const A = area69(TX(-9, { const A = area69(TX(GI, OKIMI69, VOICES['Okimi-san'], ...
-step(ld_tokyooAkihabirda_1, -283364843);     // AR70, CAFE70, VOICES.Daifuku, talker "Talk to Daifuku, the luc", talker "Pet a cat", GACHA70, ...
-step(ld_tokyooShinjukoo_1, -321246343);      // AR71, FACE71, HQ71, { const K = area71(HQ71., paintFeed71, VOICES['Reception robot'], ...
-step(ld_tokyooOsakaaNaraa_1, 111189436);    // AR72, RNG72, { const D = DOTO72, A0 =, RUNNER72, CRAB72, BIG72, ...
-step(ld_tokyooShinkansen_1, 727872506);     // AR73, LOOP73, { const P = LOOP73.pts, , STN73, CREW73, TRAIN73, ...
-step(ld_tokyooSumo_1, 1735779058);           // AR74, KOKU74, YOKO74, VOICES['Yokozuna Mochiyama'], addNamedTalker, CAPS74, ...
-step(ld_tokyooKaraoke_1, 674838406);        // AR75, KARA75, paintLyrics75, VOICES['Mama-san Reiko'], talker "Sing karaoke", talker "Talk to Mama-san Reiko", ...
-step(ld_tokyooTsukiji_1, -1115515110);        // AR76, MKT76, VOICES['Auctioneer'], talker "Look at the open crate", talker "Join the tuna auction", SUSHI76, ...
-step(ld_tokyooGojirra_1, 693321803);        // AR77, HIMEJI77, PIER77, BARGE77, GLOW77, GOJI77, ...
-step(ld_tokyooHimeji_1, 1893051946);         // AR78, CASTLE78, GATE78, VOICES['Samurai robot'], addNamedTalker, GATESOLID78, ...
-step(ld_tokyooOnsen_1, -1081879113);          // AR79, ONSEN79, MONKEYS79, RES79, VOICES['Saru-sensei'], addNamedTalker, ...
-step(ld_tokyooStationery_1, -285194255);     // AR80, ITOYA80, VOICES['Pen sommelier'], talker "Talk to the pen sommelie", talker "Write your Terms of Serv", DAISO80, ...
-step(ld_tokyooPecketmon_1, 255725815);      // PMON81, BALL81, PMON81.forEach, POOL81, system whimsy81, OAK81, ...
-step(ld_tokyooBroadcast_1, 1703644446);      // DECK82, PA82, CREW82, VOICES['Mama-san Reiko'], addNamedTalker, CREW82.plugs.forEach, ...
-step(ld_tokyooStormTheTower_1, -255803761);  // PYL83, ALLY83, PYL83.forEach, Object.assign, system storm83, hooks updateGoji77, ...
-step(ld_tokyooServerTemple_1, 184208318);   // AR84, TEMPLE84, VAC84, VOICES['Boris Kempinski'], talker "Take the elevator down", talker "Take the elevator up", ...
-step(ld_tokyooHaikuCore_1, -2020097580);      // CORE85, VOICES['HAIKU-9000'], addNamedTalker, Object.assign, system core85
-step(ld_tokyooMatsuri_1, 379362706);        // AR86, FEST86, tkG.add, FEST86.visible, FG86, YX86, ...
-step(ld_tokyooSayonara_1, 676339791);       // VOICES['Boris Kempinski'], hooks hop67, Object.assign, system repair87
-step(ld_tokyooBeyondTheEdge_1, 676339791);  // BD88, { const land = mesh(new , { for (const [w, d, x, z, AR88, RNG88, { for (let lz = -560; lz, ...
-step(ld_skyWideWorld_1, -1837679701);         // RNG89, AR89, NYG89, scene.add, BDNY89, { const A = (x, z) => ar, ...
-step(ld_tokyooTexture_1, -1939243746);        // TUFTTEX90, FLOWTEX90, GRASS90G, AR90, { const r = () => RNG90(, buildTk68, ...
-step(ld_newYolkTexture_1, 422335040);       // RNG91, NYPARK91, NYG91, scene.add, NYGREEN91, NYPITS91, ...
-step(ld_petersbirdTexture_1, 294452646);    // RNG92, COBBLE92, GRANITE92, GRAVEL92, PBR92, PBGREEN92, ...
-step(ld_bangcluckTexture_1, 1806312474);     // RNG93, BKR93, BKP93, BKGREEN93, { const W = decals52(WAL, AR93, ...
-step(ld_gameplayLootSpiral_1, -976794994);   // LBASE.push, hooks lootIcon, SETS.salary, hooks rollLoot, { const css = document.c, hooks dropLoot29, ...
-step(ld_gameplayCareerLadder_1, -495570618); // { const css = document.c, hooks levelUp40, hooks addXP, hooks giveTreasure, hooks treePoints40, hooks updateHUD, ...
-step(ld_tokyooTheOffice_1, -879217800);      // AR96, DM96, buildTk68, TLAB68.push, ['Michael Scoot', 'Dwigh, addNamedTalker, ...
-step(ld_tokyooMiddleOut_1, -1262864982);      // AR97, PP97, buildTk68, TLAB68.push, ['Richard Hendricoos', ', addNamedTalker, ...
-step(ld_tokyooHooli_1, -886794100);          // AR98, HL98, buildTk68, TLAB68.push, ['Gavin Belson-coo', 'Sp, talker "Talk to Gavin Belson-coo", ...
-step(ld_tokyooStreetKarts_1, -1398323676);    // ROUTE99, for (let i = 0; i < ROUT, KART99, RIV99, SHOP99, { const a = ROUTE99[0], , ...
-step(ld_tokyooMechaGojirra_1, 745371822);   // ARENA100, MECHA100, NOTIF100, { const css = document.c, addNamedTalker, system mecha100, ...
-step(ld_tokyooCozyHome_1, 745371822);       // hooks gearStat, HOME101, TLAB68.push, talker "Look at your trophies", talker "Nap on the futon", talker "Sit at the kotatsu", ...
-step(ld_castLod_1, 1817219571);              // LOD102, system lod102, addEventListener
-step(ld_uiLeanHud_1, 1817219571);            // { const css = document.c, H103, { const q = document.get, hooks toggleHelp, system hud103
-step(ld_uiToasts_1, 1817219571);             // { const css = document.c, hooks toast, system toast104
-step(ld_uiControls_1, 1817219571);           // hooks saveSettings, addEventListener, system pad105, hooks updatePlayer
-step(ld_audioSoundscapes_1, 1817219571);     // system snd106
-step(ld_audioScore_1, 1817219571);           // Object.assign, hooks pickTrack, system duck107
-step(ld_skyLight_1, 1817219571);             // GRADE64.tk, hooks applyDay, system light108
-step(ld_castAlive_1, 1817219571);            // system alive109
-step(ld_tokyooStreets_1, 1817219571);        // RNG110, AR110, VEND110, LANT110, system streets110
-step(ld_lookFacades_1, 1817219571);          // RNG111, W111.vil, W111.pb, W111.ny, W111.bk
-step(ld_castOverheard_1, 1817219571);        // B112, system bark112
-step(ld_castSmallTalk_1, 1817219571);        // system news113
-step(ld_gameplayLootKindly_1, 1817219571);   // hooks updateDrops29, hooks giveTreasure, addEventListener, system loot114
-step(ld_uiSettings_1, 1817219571);           // settings.textSize, settings.barks, settings.autoWear, settings.showHint, settings.lootLabels, { const css = document.c, ...
-step(ld_castAlive_2, 1817219571);            // system fix116
-step(ld_uiDeeds_1, 1817219571);              // { const css = document.c, addEventListener
-step(ld_bangcluckCluck19_1, 1817219571);     // CL118, VOICES['Dr. Pim'], VOICES['Uncle Somsak'], VOICES['Khun Krystal'], VOICES['Kevin'], addNamedTalker, ...
-step(ld_uiSideJobs_1, 1440233983);           // hooks deedRows117, { const b = [...document
-step(ld_gameplayFeel_1, 1440233983);         // hooks updateCamera, hooks land44, if (typeof camPost30 ===, hooks tone, hooks noise, for (const k of ['hop', 
-step(ld_tokyooNightLights_1, 1440233983);    // RNG121, TORO121, CHO121, system night121
-step(ld_uiThoughts_1, 1440233983);           // system think122
-step(ld_storyGone_1, 1440233983);            // paG, scene.add, paG.visible, WORLDNAME49.pa, CITYC58.pa, BANNERS58.pa, ...
+step(ld_petersbirdWithLove_1, 1735867281); await bootYield("ld_petersbirdWithLove_1");   // XM.push, LAMPX, THREE.Object3D.prototype.updateMatrixWorld, { const c = document.cre, C37, { // Nevsky: asphalt, gr, ...
+step(ld_petersbirdStreetLife_1, 1517069287); await bootYield("ld_petersbirdStreetLife_1"); // { const south = linePath, pbFlock, for (let k = 0; k < 7; k, for (const [col, roof, l, PBLIFE.boats.push, { const g = new THREE.Gr, ...
+step(ld_audioTunes_1, 1155236299); await bootYield("ld_audioTunes_1");           // Object.assign, hooks schedMusic, hooks pickTrack, hooks updateAudio
+step(ld_petersbirdHaymarket_1, 1155236299); await bootYield("ld_petersbirdHaymarket_1");  // C38, { const W = WALL38, t = , BLOCK38, TRO.splice, WALLCAM38, hooks tankChase, ...
+step(ld_petersbirdFavours_1, 1274627687); await bootYield("ld_petersbirdFavours_1");    // RODION, CANAL38, ALYONA, PORFIRY, SONYA, FAV.crumb38, ...
+step(ld_lookGlow_1, 2019193151); await bootYield("ld_lookGlow_1");             // V39, renderer.localClippingEnabled, SUNSPRITE, { const wing = new THREE, POOLS
+step(ld_petersbirdInteriors_1, -643608223); await bootYield("ld_petersbirdInteriors_1");  // C39, kommRoom, pbSkin, KM, { const g = KMG, r = KM;, KOMM.bicker, ...
+step(ld_petersbirdComrades_1, -873313314); await bootYield("ld_petersbirdComrades_1");   // bronze39, { const L0 = LENIN; { co, MARX, COMRADES39, FAV.unite39, marker38, ...
+step(ld_newYolkBackToSchool_1, 1424324275); await bootYield("ld_newYolkBackToSchool_1");  // V47, FAC47, facadeMats.push, lawn47, sand47, pave47, ...
+step(ld_newYolkWildAcres_1, -528462338); await bootYield("ld_newYolkWildAcres_1");     // waG, water47, zebraMat47, { const K = kit47(), G =, { const add = (o, lx, lz, { const g = new THREE.Gr, ...
+step(ld_newYolkFeatherstone_1, -43907165); await bootYield("ld_newYolkFeatherstone_1");  // UNI47, uniG, bookTex47, clockTex47, uniLibRoom, { const K = kit47(), G =, ...
+step(ld_storyShellfishSaga_1, 669438393); await bootYield("ld_storyShellfishSaga_1");   // lotG47, { const K = kit47(), G =, SAGA47.cones, SAGA47.car, SAGA47.doris, FAV.licence47, ...
+step(ld_petersbirdComrades_2, -1297586114); await bootYield("ld_petersbirdComrades_2");   // Object.assign
+step(ld_newYolkBackToSchool_2, -1297586114); await bootYield("ld_newYolkBackToSchool_2");  // hooks pickTrack
+step(ld_petersbirdComrades_3, -1297586114); await bootYield("ld_petersbirdComrades_3");   // ALM42.push
+step(ld_uiAlmanac_1, -1297586114); await bootYield("ld_uiAlmanac_1");            // { const st = document.cr
+step(ld_newYolkBackToSchool_3, -1297586114); await bootYield("ld_newYolkBackToSchool_3");  // SYS47
+step(ld_bangcluckClawsOut_1, -1297586114); await bootYield("ld_bangcluckClawsOut_1");    // V48, SREG48, solids.push, solids.splice, SDIRTY48, FAC48, ...
+step(ld_bangcluckPeople_1, 670731653); await bootYield("ld_bangcluckPeople_1");      // KHUN48, SOMSAK48, SOMCHAI48, { const place = (C, x, y, { for (let k = 0; k < 10, for (let k = 0; k < 36; , ...
+step(ld_storyPartFour_1, -7476523); await bootYield("ld_storyPartFour_1");        // LOOK48, hooks renderStory, hooks storyTarget, hooks talkDon, addNamedTalker, rumbleG48, ...
+step(ld_bangcluckSoiLife_1, -703253390); await bootYield("ld_bangcluckSoiLife_1");     // FAR49, PK.stink, CH49, { const poleG = new THRE, SKY49, build49, ...
+step(ld_bangcluckCityLife_1, -423586344); await bootYield("ld_bangcluckCityLife_1");    // D49, MT49, build49, addNamedTalker, VOICES.Bookie, { const Lp = BK.lumpini,, ...
+step(ld_bangcluckLouder_1, 1312818366); await bootYield("ld_bangcluckLouder_1");      // hooks gearStat, canTex49, canM49, addTalker, for (const [i, j] of [[1, build49, ...
+step(ld_uiQuestTracker_1, -819970035); await bootYield("ld_uiQuestTracker_1");       // try { QT49.min = localSt, hooks renderQuest, hooks questTarget, { const st = document.cr, hooks renderWMList
+step(ld_bangcluckSaffronHunt_1, -819970035); await bootYield("ld_bangcluckSaffronHunt_1"); // Object.assign, WAR48.eyebrow, hooks renderStory, BELLS50, addNamedTalker, { const T = talkers.find, ...
+step(ld_bangcluckGrandHotels_1, 364607508); await bootYield("ld_bangcluckGrandHotels_1"); // lastCoo51, hooks coo, MAT51, facadeMats.push, MAND51, KEMP51, ...
+step(ld_bangcluckRiverCruise_1, -598755950); await bootYield("ld_bangcluckRiverCruise_1"); // CRUISE51, CRUISEPATH51, addNamedTalker, VOICES['Cruise steward'], MOG51, addTalker, ...
+step(ld_petersbirdCanal_1, -1941849114); await bootYield("ld_petersbirdCanal_1");      // PBCOLS51, { // the canal: a curvin, PLABELS.push, for (let k = 0; k < 8; k
+step(ld_bangcluckGrandHotels_2, -373037710); await bootYield("ld_bangcluckGrandHotels_2"); // SYS51, if (typeof updateBang51 
+step(ld_bangcluckBrotherBoris_1, -373037710); await bootYield("ld_bangcluckBrotherBoris_1"); // NOTE52, VOICES['HAIKU-9000'], VOICES['Brother Boris (safe mode)'], WAR48.eyebrow, Object.assign, ROBO52, ...
+step(ld_lookCharacter_1, -373037710); await bootYield("ld_lookCharacter_1");        // ATLAS52, TAGNY52, GRAF52, ORDERTAG52, POSTERS52.forEach
+step(ld_lookPropKit_1, -373037710); await bootYield("ld_lookPropKit_1");          // P52.car, P52.bin, P52.dumpster, P52.crates, P52.pot, P52.bike, ...
+step(ld_newYolkNeighbourhoods_1, -373037710); await bootYield("ld_newYolkNeighbourhoods_1"); // Object.assign, DISTRICTS.centre.sub, DISTRICTS.oldtown.sub, DISTRICTS.westend.sub, DISTRICTS.harbour.sub, hooks districtOf25, ...
+step(ld_newYolkLandmarks_1, -373037710); await bootYield("ld_newYolkLandmarks_1");     // FIDI52, LM52, bronze52, { const K = kit47(); // , addTalker, addNamedTalker, ...
+step(ld_bangcluckBrotherBoris_2, -373037710); await bootYield("ld_bangcluckBrotherBoris_2"); // SYS52, system deco
+step(ld_littlePeckingCharacter_1, -373037710); await bootYield("ld_littlePeckingCharacter_1"); // VIL53, { const A = newArea53(0,, addTalker, ...
+step(ld_bangcluckLouder_2, -373037710); await bootYield("ld_bangcluckLouder_2");      // { const x = -14, z = VZ 
+step(ld_petersbirdUsdr_1, -373037710); await bootYield("ld_petersbirdUsdr_1");       // P52.lada, P52.kvass, P52.chess, TH53, PB53, { const L = (x, z) => [P, ...
+step(ld_bangcluckCharacter_1, -373037710); await bootYield("ld_bangcluckCharacter_1");   // BK54, { const AR = new Map(), , for (let k = 0; k < 6; k, addNamedTalker, addTalker, Object.assign, ...
+step(ld_newYolkAmericana_1, -91213225); await bootYield("ld_newYolkAmericana_1");     // NY55, { const AR = new Map(), , addTalker, addNamedTalker, VOICES.Mom, { const M = BK54.merchic, ...
+step(ld_bangcluckJusticeBeaver_1, -91213225); await bootYield("ld_bangcluckJusticeBeaver_1"); // BK56, FL56, TR56, VOICES['Justice Beaver'], VOICES['Steel Jaw'], VOICES.Ramboo, ...
+step(ld_petersbirdMatryoshkin_1, 1439130000); await bootYield("ld_petersbirdMatryoshkin_1"); // NK56, MAT56, VOICES.Ivan, VOICES.Vanya, addNamedTalker, system pb56, ...
+step(ld_eventsSharknado_1, 1311247606); await bootYield("ld_eventsSharknado_1");      // NADO56, system nado56
+step(ld_storyPartFour_2, -1231247674); await bootYield("ld_storyPartFour_2");        // hooks talkDon, hooks renderStory, hooks storyTarget
+step(ld_petersbirdDasBrot_1, -1231247674); await bootYield("ld_petersbirdDasBrot_1");    // VOICES.Semyon, VOICES['Kapitän Kadaver'], SEM57, UB57, ROUTE57, ROUTE57.r, ...
+step(ld_skyBlueSkies_1, -734870698); await bootYield("ld_skyBlueSkies_1");         // CITYC58, CL58, for (const c of clouds) , if (typeof PB_CLOUDS !==, BLIMPS58, BPL58, ...
+step(ld_newYolkGhostbirders_1, -1301263786); await bootYield("ld_newYolkGhostbirders_1");  // NY58, { const AR = new Map(), , addNamedTalker, addTalker, system ny58
+step(ld_skyBlimps_1, 1658514673); await bootYield("ld_skyBlimps_1");            // YOLK59, hooks updateSky58, for (const e of SYS52) i, HANG59, { const x = BK54.hawker., VOICES['Al-hen'], ...
+step(ld_storySpecialSeeds_1, -300933534); await bootYield("ld_storySpecialSeeds_1");    // VOICES['Officer Brannigan'], VOICES['Officer Kowalski'], CUST60, C60, CUST60.forEach, hooks talkDon, ...
+step(ld_storyTheTrip_1, 1466691082); await bootYield("ld_storyTheTrip_1");         // TRIP61, scene.add, TRIP61.g.visible, MAT61, WM61, TOAST61, ...
+step(ld_storyTheCount_1, 1466691082); await bootYield("ld_storyTheCount_1");        // VOICES['Count Pagurus'], VOICES.Jeeves, { const g = new THREE.Gr, countRoom, CR62, { const { cx, cz } = COU, ...
+step(ld_lookGoldenHour_1, 706973018); await bootYield("ld_lookGoldenHour_1");       // CONES64, MOTES64, STAR64, system gold64
+step(ld_storyWordOnTheStreet_1, -1354297886); await bootYield("ld_storyWordOnTheStreet_1"); // SPIDER65, system v65, hooks humanity59
+step(ld_skyBlimps_2, -1354297886); await bootYield("ld_skyBlimps_2");            // { const T = HANG59.tiger
+step(ld_tokyooFlight9000_1, -1354297886); await bootYield("ld_tokyooFlight9000_1");     // VOICES['Security officer'], VOICES['Captain Overcoo'], VOICES.Roger, VOICES.Gloria, VOICES['Dr. Rumacoo'], VOICES['Samuel L. Peckson'], ...
+step(ld_tokyooArrival_1, -1377026786); await bootYield("ld_tokyooArrival_1");        // tkG, scene.add, tkG.visible, WORLDNAME49.tk, CITYC58.tk, BANNERS58.tk, ...
+step(ld_tokyooCity_1, -1128838298); await bootYield("ld_tokyooCity_1");           // JPV68, JPH68, RNG90, PAVE90, PAVEM90, ASPH90, ...
+step(ld_tokyooStreetLife_1, -1949166762); await bootYield("ld_tokyooStreetLife_1");     // FUJI67.g.traverse, WALK68, CARS68, system street68, hooks openMap, setTimeout, ...
+step(ld_tokyooKyotoo_1, -1099447804); await bootYield("ld_tokyooKyotoo_1");         // AR69, RNG69, { const A = area69(TX(-9, { const A = area69(TX(GI, OKIMI69, VOICES['Okimi-san'], ...
+step(ld_tokyooAkihabirda_1, -283364843); await bootYield("ld_tokyooAkihabirda_1");     // AR70, CAFE70, VOICES.Daifuku, talker "Talk to Daifuku, the luc", talker "Pet a cat", GACHA70, ...
+step(ld_tokyooShinjukoo_1, -321246343); await bootYield("ld_tokyooShinjukoo_1");      // AR71, FACE71, HQ71, { const K = area71(HQ71., paintFeed71, VOICES['Reception robot'], ...
+step(ld_tokyooOsakaaNaraa_1, 111189436); await bootYield("ld_tokyooOsakaaNaraa_1");    // AR72, RNG72, { const D = DOTO72, A0 =, RUNNER72, CRAB72, BIG72, ...
+step(ld_tokyooShinkansen_1, 727872506); await bootYield("ld_tokyooShinkansen_1");     // AR73, LOOP73, { const P = LOOP73.pts, , STN73, CREW73, TRAIN73, ...
+step(ld_tokyooSumo_1, 1735779058); await bootYield("ld_tokyooSumo_1");           // AR74, KOKU74, YOKO74, VOICES['Yokozuna Mochiyama'], addNamedTalker, CAPS74, ...
+step(ld_tokyooKaraoke_1, 674838406); await bootYield("ld_tokyooKaraoke_1");        // AR75, KARA75, paintLyrics75, VOICES['Mama-san Reiko'], talker "Sing karaoke", talker "Talk to Mama-san Reiko", ...
+step(ld_tokyooTsukiji_1, -1115515110); await bootYield("ld_tokyooTsukiji_1");        // AR76, MKT76, VOICES['Auctioneer'], talker "Look at the open crate", talker "Join the tuna auction", SUSHI76, ...
+step(ld_tokyooGojirra_1, 693321803); await bootYield("ld_tokyooGojirra_1");        // AR77, HIMEJI77, PIER77, BARGE77, GLOW77, GOJI77, ...
+step(ld_tokyooHimeji_1, 1893051946); await bootYield("ld_tokyooHimeji_1");         // AR78, CASTLE78, GATE78, VOICES['Samurai robot'], addNamedTalker, GATESOLID78, ...
+step(ld_tokyooOnsen_1, -1081879113); await bootYield("ld_tokyooOnsen_1");          // AR79, ONSEN79, MONKEYS79, RES79, VOICES['Saru-sensei'], addNamedTalker, ...
+step(ld_tokyooStationery_1, -285194255); await bootYield("ld_tokyooStationery_1");     // AR80, ITOYA80, VOICES['Pen sommelier'], talker "Talk to the pen sommelie", talker "Write your Terms of Serv", DAISO80, ...
+step(ld_tokyooPecketmon_1, 255725815); await bootYield("ld_tokyooPecketmon_1");      // PMON81, BALL81, PMON81.forEach, POOL81, system whimsy81, OAK81, ...
+step(ld_tokyooBroadcast_1, 1703644446); await bootYield("ld_tokyooBroadcast_1");      // DECK82, PA82, CREW82, VOICES['Mama-san Reiko'], addNamedTalker, CREW82.plugs.forEach, ...
+step(ld_tokyooStormTheTower_1, -255803761); await bootYield("ld_tokyooStormTheTower_1");  // PYL83, ALLY83, PYL83.forEach, Object.assign, system storm83, hooks updateGoji77, ...
+step(ld_tokyooServerTemple_1, 184208318); await bootYield("ld_tokyooServerTemple_1");   // AR84, TEMPLE84, VAC84, VOICES['Boris Kempinski'], talker "Take the elevator down", talker "Take the elevator up", ...
+step(ld_tokyooHaikuCore_1, -2020097580); await bootYield("ld_tokyooHaikuCore_1");      // CORE85, VOICES['HAIKU-9000'], addNamedTalker, Object.assign, system core85
+step(ld_tokyooMatsuri_1, 379362706); await bootYield("ld_tokyooMatsuri_1");        // AR86, FEST86, tkG.add, FEST86.visible, FG86, YX86, ...
+step(ld_tokyooSayonara_1, 676339791); await bootYield("ld_tokyooSayonara_1");       // VOICES['Boris Kempinski'], hooks hop67, Object.assign, system repair87
+step(ld_tokyooBeyondTheEdge_1, 676339791); await bootYield("ld_tokyooBeyondTheEdge_1");  // BD88, { const land = mesh(new , { for (const [w, d, x, z, AR88, RNG88, { for (let lz = -560; lz, ...
+step(ld_skyWideWorld_1, -1837679701); await bootYield("ld_skyWideWorld_1");         // RNG89, AR89, NYG89, scene.add, BDNY89, { const A = (x, z) => ar, ...
+step(ld_tokyooTexture_1, -1939243746); await bootYield("ld_tokyooTexture_1");        // TUFTTEX90, FLOWTEX90, GRASS90G, AR90, { const r = () => RNG90(, buildTk68, ...
+step(ld_newYolkTexture_1, 422335040); await bootYield("ld_newYolkTexture_1");       // RNG91, NYPARK91, NYG91, scene.add, NYGREEN91, NYPITS91, ...
+step(ld_petersbirdTexture_1, 294452646); await bootYield("ld_petersbirdTexture_1");    // RNG92, COBBLE92, GRANITE92, GRAVEL92, PBR92, PBGREEN92, ...
+step(ld_bangcluckTexture_1, 1806312474); await bootYield("ld_bangcluckTexture_1");     // RNG93, BKR93, BKP93, BKGREEN93, { const W = decals52(WAL, AR93, ...
+step(ld_gameplayLootSpiral_1, -976794994); await bootYield("ld_gameplayLootSpiral_1");   // LBASE.push, hooks lootIcon, SETS.salary, hooks rollLoot, { const css = document.c, hooks dropLoot29, ...
+step(ld_gameplayCareerLadder_1, -495570618); await bootYield("ld_gameplayCareerLadder_1"); // { const css = document.c, hooks levelUp40, hooks addXP, hooks giveTreasure, hooks treePoints40, hooks updateHUD, ...
+step(ld_tokyooTheOffice_1, -879217800); await bootYield("ld_tokyooTheOffice_1");      // AR96, DM96, buildTk68, TLAB68.push, ['Michael Scoot', 'Dwigh, addNamedTalker, ...
+step(ld_tokyooMiddleOut_1, -1262864982); await bootYield("ld_tokyooMiddleOut_1");      // AR97, PP97, buildTk68, TLAB68.push, ['Richard Hendricoos', ', addNamedTalker, ...
+step(ld_tokyooHooli_1, -886794100); await bootYield("ld_tokyooHooli_1");          // AR98, HL98, buildTk68, TLAB68.push, ['Gavin Belson-coo', 'Sp, talker "Talk to Gavin Belson-coo", ...
+step(ld_tokyooStreetKarts_1, -1398323676); await bootYield("ld_tokyooStreetKarts_1");    // ROUTE99, for (let i = 0; i < ROUT, KART99, RIV99, SHOP99, { const a = ROUTE99[0], , ...
+step(ld_tokyooMechaGojirra_1, 745371822); await bootYield("ld_tokyooMechaGojirra_1");   // ARENA100, MECHA100, NOTIF100, { const css = document.c, addNamedTalker, system mecha100, ...
+step(ld_tokyooCozyHome_1, 745371822); await bootYield("ld_tokyooCozyHome_1");       // hooks gearStat, HOME101, TLAB68.push, talker "Look at your trophies", talker "Nap on the futon", talker "Sit at the kotatsu", ...
+step(ld_castLod_1, 1817219571); await bootYield("ld_castLod_1");              // LOD102, system lod102, addEventListener
+step(ld_uiLeanHud_1, 1817219571); await bootYield("ld_uiLeanHud_1");            // { const css = document.c, H103, { const q = document.get, hooks toggleHelp, system hud103
+step(ld_uiToasts_1, 1817219571); await bootYield("ld_uiToasts_1");             // { const css = document.c, hooks toast, system toast104
+step(ld_uiControls_1, 1817219571); await bootYield("ld_uiControls_1");           // hooks saveSettings, addEventListener, system pad105, hooks updatePlayer
+step(ld_audioSoundscapes_1, 1817219571); await bootYield("ld_audioSoundscapes_1");     // system snd106
+step(ld_audioScore_1, 1817219571); await bootYield("ld_audioScore_1");           // Object.assign, hooks pickTrack, system duck107
+step(ld_skyLight_1, 1817219571); await bootYield("ld_skyLight_1");             // GRADE64.tk, hooks applyDay, system light108
+step(ld_castAlive_1, 1817219571); await bootYield("ld_castAlive_1");            // system alive109
+step(ld_tokyooStreets_1, 1817219571); await bootYield("ld_tokyooStreets_1");        // RNG110, AR110, VEND110, LANT110, system streets110
+step(ld_lookFacades_1, 1817219571); await bootYield("ld_lookFacades_1");          // RNG111, W111.vil, W111.pb, W111.ny, W111.bk
+step(ld_castOverheard_1, 1817219571); await bootYield("ld_castOverheard_1");        // B112, system bark112
+step(ld_castSmallTalk_1, 1817219571); await bootYield("ld_castSmallTalk_1");        // system news113
+step(ld_gameplayLootKindly_1, 1817219571); await bootYield("ld_gameplayLootKindly_1");   // hooks updateDrops29, hooks giveTreasure, addEventListener, system loot114
+step(ld_uiSettings_1, 1817219571); await bootYield("ld_uiSettings_1");           // settings.textSize, settings.barks, settings.autoWear, settings.showHint, settings.lootLabels, { const css = document.c, ...
+step(ld_castAlive_2, 1817219571); await bootYield("ld_castAlive_2");            // system fix116
+step(ld_uiDeeds_1, 1817219571); await bootYield("ld_uiDeeds_1");              // { const css = document.c, addEventListener
+step(ld_bangcluckCluck19_1, 1817219571); await bootYield("ld_bangcluckCluck19_1");     // CL118, VOICES['Dr. Pim'], VOICES['Uncle Somsak'], VOICES['Khun Krystal'], VOICES['Kevin'], addNamedTalker, ...
+step(ld_uiSideJobs_1, 1440233983); await bootYield("ld_uiSideJobs_1");           // hooks deedRows117, { const b = [...document
+step(ld_gameplayFeel_1, 1440233983); await bootYield("ld_gameplayFeel_1");         // hooks updateCamera, hooks land44, if (typeof camPost30 ===, hooks tone, hooks noise, for (const k of ['hop', 
+step(ld_tokyooNightLights_1, 1440233983); await bootYield("ld_tokyooNightLights_1");    // RNG121, TORO121, CHO121, system night121
+step(ld_uiThoughts_1, 1440233983); await bootYield("ld_uiThoughts_1");           // system think122
+step(ld_storyGone_1, 1440233983); await bootYield("ld_storyGone_1");            // paG, scene.add, paG.visible, WORLDNAME49.pa, CITYC58.pa, BANNERS58.pa, ...
 // Paree and Bavaria (v125-v190) are a region: built when the story reaches "To Paree" (stage 50), or when
 // Pidge is in Paree or Bavaria (a save, a warp).
 region('paree', () => WARST48() >= 50 || inParis124() || inBav146(), [
@@ -44447,6 +44500,8 @@ MOONSET151.add(SURF218);
 [HOTEL195.g, PLAT196.g, LUNE197.g, MC198.g, KER206.g, RES208.g, EPI211.g, POST212.g, LUN216.g].forEach(g => g && SURF218.attach(g));
 MOONSET151.children.slice().forEach(o => { if (o.geometry && o.geometry.type === 'TorusGeometry') SURF218.attach(o); });
 FLOORS218 = [[BAS199.g, [BAS199.L.y, BAS199.K.y]], [CF204.g, [CF204.B.y]], [BQ200.g, [BQ200.B.y]], [CV201.g, [CV201.B.y]], [AR202.g, [AR202.B.y]], [BO203.g, [BO203.B.y]]];
+// v299: the surface and each floor keep their own batches, so a lift trip hides them without unbatching the moon
+for (const g of [SURF218, ...FLOORS218.map(f => f[0]), ...[typeof SUITE220 !== 'undefined' && SUITE220, typeof CH232 !== 'undefined' && CH232, typeof OUB233 !== 'undefined' && OUB233, typeof PHARE213 !== 'undefined' && PHARE213, typeof LIFE225 !== 'undefined' && LIFE225, typeof SUN227 !== 'undefined' && SUN227].map(o => o && o.g)]) if (g) g.userData.sbRoot = true;
 if (typeof SYS52 !== 'undefined'){ SYS52.push(['mus218', updateMus218]); SYS52.push(['vis218', updateVis218]); }
 };
 
@@ -47280,11 +47335,35 @@ WHATS_NEW.unshift(['297 · Open for Business', 'Bangcluck’s shopping streets a
 GAME_VER.n = 298;
 GAME_VER.name = 'Pavé';
 WHATS_NEW.unshift(['298 · Pavé', 'Paree underfoot: the great squares are laid with granite setts, the pavements and open squares are a warm grey-beige instead of glaring sand, the park paths are calmer, and the light is softer, with shadows lifted a little towards violet instead of flat dark brown.']);
+/* =====================================================================
+   v299 · KEEP IT TOGETHER: interiors and the moon's floors keep their
+   merged batches while hidden; batch upkeep by the clock; the fast GPU
+   ===================================================================== */
+// v299
+GAME_VER.n = 299;
+GAME_VER.name = 'Keep It Together';
+WHATS_NEW.unshift(['299 · Keep It Together', 'Smoother frames: shop interiors and the moon’s hotel floors no longer fall apart into hundreds of separate pieces each time they are hidden and shown, new scenery is merged into batches within seconds even on slower machines, and laptops with two graphics chips are asked for the fast one.']);
+/* =====================================================================
+   v300 · SNAGGING: Grandpa Coo back on his bench, villagers sitting at
+   their tables, benches with legs and feet on the ground, trees out of
+   the walls, lantern strings on posts, Westfield Lake found again
+   ===================================================================== */
+// v300
+GAME_VER.n = 300;
+GAME_VER.name = 'Snagging';
+WHATS_NEW.unshift(['300 · Snagging', 'A round of fixes: Grandpa Coo is on his bench again at the start, the pub-garden regulars sit at proper picnic tables facing each other, benches all over New Yolk have legs and stand on the pavement instead of hanging in the air or sinking into it, street trees no longer grow out of the brownstones and houses, the lantern strings hang between posts, and Westfield Lake (with its ducks) is back. Small props far from the city centre were being hidden by mistake; they show again, and those near the centre are no longer drawn when far away.']);
+/* =====================================================================
+   v301 · LOADING: the title screen shows how far the world has got
+   ===================================================================== */
+// v301
+GAME_VER.n = 301;
+GAME_VER.name = 'Loading';
+WHATS_NEW.unshift(['301 · Loading', 'The first load no longer freezes the page: the title screen shows a load bar (“Building New Yolk… 45%”) while the cities are put together, and the Start button wakes up when everything is ready.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
 // seed of its own, so adding steps here never moves anything that loads before.
-step(ld_newYolkDetail_1, 261001);
+step(ld_newYolkDetail_1, 261001); await bootYield("ld_newYolkDetail_1");
 // the other cities are dressed the first time Pidge gets there
 region('vilDetail', () => inVillage(), [
   [ld_villageDetail_1, 262001],
@@ -47304,7 +47383,7 @@ region('paDetail', () => inParis124(), [
 region('byDetail', () => inBav146(), [
   [ld_bavariaDetail_1, 267001],
 ], ['paree']);
-step(dt_history, 268001);   // GAME_VER.n, GAME_VER.name, WHATS_NEW.unshift, ...
+step(dt_history, 268001); await bootYield("dt_history");   // GAME_VER.n, GAME_VER.name, WHATS_NEW.unshift, ...
 /* ---------- progression ---------- */
 const LV = [0, 40, 110, 220, 380, 600, 900, 1300, 1800, 2500]; for (let i = 10; i < 60; i++) LV.push(LV[i - 1] + 600 + (i - 9)*90);
 const S = {level:1, xp:0, crumbs:0, qi:0, qp:0, time:0, handouts:0, gulls:0, eaten:0, won:false, shinies:[], fav:{}, favFocus:null, racersFound:[], met:[], popped:0, rides:0, tramStops:[], photos:0, scarf:false};
@@ -48551,6 +48630,7 @@ function frameBody47(now){
   renderer.shadowMap.needsUpdate = (frameN++ % shadowEvery) === 0;
   post.render();
 }
+bootDone();   // v301: the load is done: held timers run, the title screen's buttons wake up (core/start.js)
 requestAnimationFrame(frame);
 })();
 </script>
