@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v295 (a frame-rate pass: smoother cities, steadier long sessions, and an automatic quality governor).
+Current version: v298 (the look pass, part four: Tokyoo's windows, Bangcluck's open shops and Paree's squares).

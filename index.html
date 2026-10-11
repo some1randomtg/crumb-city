@@ -2021,7 +2021,7 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
   const sceneNormal = normalTex ? T.sample(uv => colorToDirection(normalTex.sample(uv).rgb)) : null;   // sampleable: the effects read normals at many offsets
   let aoNode = null, ssrNode = null, bloomNode = null, blurNode = null;
   if (hd){
-    if (FX.ao){ aoNode = A.ao(depthTex, sceneNormal, camera); aoNode.resolutionScale = 0.5; aoNode.radius.value = 0.7; aoNode.thickness.value = 1.2; aoNode.scale.value = 1.15; aoNode.samples.value = 8; }
+    if (FX.ao){ aoNode = A.ao(depthTex, sceneNormal, camera); aoNode.resolutionScale = 0.5; aoNode.radius.value = 0.7; aoNode.thickness.value = 1.2; aoNode.scale.value = 1.15; aoNode.samples.value = 16; o.aoNode = aoNode; }   /* v296: 16 samples: 8 left soft stains on big flat walls */
     if (FX.ssr){ ssrNode = A.ssr(colorTex, depthTex, sceneNormal, {metalnessNode: normalTex.a, roughnessNode: float(0.12), camera}); ssrNode.resolutionScale = 0.4; ssrNode.maxDistance.value = 120; ssrNode.thickness.value = 0.6; ssrNode.quality.value = 0.4; }
     if (FX.bloom) bloomNode = A.bloom(glowTex, 0.6, 0.5, 0.05);   // from the emissive channel only
     if (settings.tilt === true) blurNode = A.gaussianBlur(colorTex, null, 3, {resolutionScale: 0.35});   // only built when chosen
@@ -2116,6 +2116,7 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
     for (const L of lights) L.intensity *= PI;   // r128's light units (see core/three-compat.js)
     // see further on high quality: the fog (however a city or the weather set it) and the far plane, a
     // third further out, just for this frame; the cascades split the longer view between them
+    if (window.__nightMats) for (const m of window.__nightMats){ const n = m.userData.night; m.emissiveIntensity = n[0] + nightF*n[1]; }   // v297: materials that light up after dusk (set where they're made)
     const F = scene.fog, far0 = camera.far, n0 = F && F.near, f0 = F && F.far, deep = hd && settings.quality === 'high' && F && camera.far <= 300 && F.far < 400;   /* v293: the longer view is a High-quality extra (P022), not the default */
     if (deep){ F.near = n0*1.2; F.far = f0*1.32; camera.far = Math.max(far0, F.far + 25); camera.updateProjectionMatrix(); }
     // shadows are drawn every frame: r186 loses track of a shadow map that skips frames ("destroyed texture"), so instead
@@ -28821,7 +28822,7 @@ function hookShelly62(){ if (COUNT62.hooked) return; COUNT62.hooked = 1; const S
 // set by the steps below
 let CONES64, MOTES64, STAR64;
 
-const GRADE64 = {ny: [[1.0, 0.99, 0.97], [0.0, 0.0, 0.004]], bk: [[1.06, 1.0, 0.86], [0.022, 0.014, 0.0]], pb: [[1.0, 0.99, 0.97], [0.018, 0.012, 0.016]]   /* v281: warmer */, vil: [[1.02, 1.04, 0.94], [0.01, 0.012, 0.0]], by: [[1.05, 0.97, 0.9], [0.02, 0.012, 0.004]]   /* v292: Bavaria, late afternoon: warmer, the lawn-green softened */};
+const GRADE64 = {ny: [[1.0, 0.99, 0.97], [0.0, 0.0, 0.004]], bk: [[1.06, 1.0, 0.86], [0.022, 0.014, 0.0]], pb: [[1.0, 0.99, 0.97], [0.018, 0.012, 0.016]]   /* v281: warmer */, vil: [[1.02, 1.04, 0.94], [0.01, 0.012, 0.0]], by: [[1.05, 0.97, 0.9], [0.02, 0.012, 0.004]], pa: [[1.0, 0.985, 0.955], [0.026, 0.02, 0.034]]   /* v298: Paree: warm light, softer violet-lifted shadows */   /* v292: Bavaria, late afternoon: warmer, the lawn-green softened */};
 
 const G64 = {g: new THREE.Vector3(1, 1, 1), l: new THREE.Vector3()};
 
@@ -29218,7 +29219,7 @@ RNG90 = (() => { let s = 900090; return () => (s = (s*16807) % 2147483647)/21474
 PAVE90 = canTex90(128, 128, (g) => { for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++){ const v = 196 + (RNG90()*22 | 0); g.fillStyle = `rgb(${v},${v - 4},${v - 10})`; g.fillRect(i*64, j*64, 64, 64); for (let k = 0; k < 60; k++){ const u = v - 20 + (RNG90()*30 | 0); g.fillStyle = `rgba(${u},${u - 3},${u - 8},.5)`; g.fillRect(i*64 + RNG90()*62, j*64 + RNG90()*62, 2, 2); } } g.fillStyle = 'rgba(70,64,58,.55)'; g.fillRect(0, 0, 128, 2); g.fillRect(0, 64, 128, 2); g.fillRect(0, 0, 2, 128); g.fillRect(64, 0, 2, 128); });
 PAVEM90 = new THREE.MeshLambertMaterial({map: PAVE90});
 // asphalt: speckles, patches, the odd crack
-ASPH90 = canTex90(128, 128, (g) => { g.fillStyle = '#4a4a52'; g.fillRect(0, 0, 128, 128); for (let k = 0; k < 900; k++){ const v = 60 + (RNG90()*40 | 0); g.fillStyle = `rgb(${v},${v},${v + 6})`; g.fillRect(RNG90()*128, RNG90()*128, 1 + (RNG90()*2 | 0), 1); } g.fillStyle = 'rgba(30,30,36,.35)'; g.fillRect(20, 40, 40, 28); g.strokeStyle = 'rgba(25,25,30,.6)'; g.lineWidth = 1; g.beginPath(); g.moveTo(80, 0); g.lineTo(86, 30); g.lineTo(79, 60); g.lineTo(90, 128); g.stroke(); });
+ASPH90 = canTex90(128, 128, (g) => { g.fillStyle = '#4a4a52'; g.fillRect(0, 0, 128, 128); for (let k = 0; k < 900; k++){ const v = 60 + (RNG90()*40 | 0); g.fillStyle = `rgb(${v},${v},${v + 6})`; g.fillRect(RNG90()*128, RNG90()*128, 1 + (RNG90()*2 | 0), 1); } g.fillStyle = 'rgba(30,30,36,.16)'; for (const [x, y, w, h] of [[6, 12, 22, 13], [10, 18, 12, 14], [66, 70, 31, 17], [74, 64, 14, 10], [38, 102, 15, 11]]) g.fillRect(x, y, w, h);   /* v296: soft, uneven patches (one big dark square repeated in a grid read as tiling) */ g.strokeStyle = 'rgba(25,25,30,.6)'; g.lineWidth = 1; g.beginPath(); g.moveTo(80, 0); g.lineTo(86, 30); g.lineTo(79, 60); g.lineTo(90, 128); g.stroke(); });
 ASPHM90 = new THREE.MeshLambertMaterial({map: ASPH90});
 // grass: blades and tones, so a lawn looks like a lawn from a pigeon's height
 GRASS90 = canTex90(128, 128, (g) => { g.fillStyle = '#5f9150'; g.fillRect(0, 0, 128, 128); for (let k = 0; k < 1400; k++){ const v = RNG90(); g.fillStyle = v < 0.33 ? '#4f8040' : v < 0.66 ? '#6fa05a' : v < 0.9 ? '#7ab060' : '#8ac070'; g.fillRect(RNG90()*128, RNG90()*128, 1, 2 + (RNG90()*3 | 0)); } for (let k = 0; k < 20; k++){ g.fillStyle = 'rgba(120,90,50,.25)'; g.fillRect(RNG90()*128, RNG90()*128, 4, 3); } });
@@ -29230,7 +29231,8 @@ WALLTEX90 = canTex90(512, 256, (g) => { const C = (i, f) => { const x = (i % 4)*
   C(2, g => { g.fillStyle = 'rgba(30,30,30,.25)'; g.fillRect(0, 63, 128, 2); g.fillRect(63, 0, 2, 128); for (const [x, y] of [[8, 8], [72, 8], [8, 72], [72, 72], [56, 8], [120, 8]]) { g.fillStyle = 'rgba(30,30,30,.25)'; g.fillRect(x, y, 3, 3); } for (let k = 0; k < 9; k++){ const x = RNG90()*128, gr = g.createLinearGradient(0, 0, 0, 80 + RNG90()*48); gr.addColorStop(0, 'rgba(40,40,40,.22)'); gr.addColorStop(1, 'rgba(40,40,40,0)'); g.fillStyle = gr; g.fillRect(x, 0, 2 + RNG90()*5, 128); } });
   C(3, g => { for (let y = 0; y < 128; y += 8){ g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(0, y, 128, 1); g.fillStyle = 'rgba(255,255,255,.1)'; g.fillRect(0, y + 1, 128, 1); } });
   C(4, g => { for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++){ g.fillStyle = `rgba(${RNG90() < 0.5 ? 255 : 120},${RNG90() < 0.5 ? 255 : 140},${RNG90() < 0.5 ? 255 : 160},${0.05 + RNG90()*0.12})`; g.fillRect(i*8, j*8, 7, 7); } });
-  C(5, g => { for (let k = 0; k < 500; k++){ g.fillStyle = `rgba(${RNG90() < 0.5 ? '0,0,0' : '255,255,255'},${0.05 + RNG90()*0.08})`; g.fillRect(RNG90()*128, RNG90()*128, 2 + RNG90()*4, 2 + RNG90()*4); } const gr = g.createLinearGradient(0, 128, 0, 70); gr.addColorStop(0, 'rgba(60,50,40,.3)'); gr.addColorStop(1, 'rgba(60,50,40,0)'); g.fillStyle = gr; g.fillRect(0, 70, 128, 58); });
+  C(5, g => { for (let k = 0; k < 3000; k++) RNG90();   // v296: clean small facade tiles, not stains (the draws still used up)
+    for (let y = 0; y < 128; y += 8) for (let x = 0; x < 128; x += 8){ g.fillStyle = (x + y) % 16 ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.11)'; g.fillRect(x + 1, y + 1, 7, 7); g.fillStyle = 'rgba(40,40,40,.16)'; g.fillRect(x, y, 8, 1); g.fillRect(x, y, 1, 8); } const gr = g.createLinearGradient(0, 128, 0, 70); gr.addColorStop(0, 'rgba(60,50,40,.3)'); gr.addColorStop(1, 'rgba(60,50,40,0)'); g.fillStyle = gr; g.fillRect(0, 70, 128, 58); });
   C(6, g => { for (let x = 0; x < 128; x += 6){ g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(x, 0, 1, 128); g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(x + 2, 0, 2, 128); } });
   C(7, g => { const gr = g.createLinearGradient(0, 128, 0, 30); gr.addColorStop(0, 'rgba(50,45,40,.35)'); gr.addColorStop(1, 'rgba(50,45,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); g.fillStyle = 'rgba(20,20,20,.3)'; for (let k = 0; k < 3; k++) g.fillRect(10 + k*40, 30 + RNG90()*40, 1, 40 + RNG90()*40); }); });
 WALL90 = {mat: new THREE.MeshBasicMaterial({map: WALLTEX90, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2}), cell: i => { const u0 = (i % 4)/4, v1 = 1 - Math.floor(i/4)/2; return [u0, v1 - 0.5, u0 + 0.25, v1]; }};
@@ -29350,6 +29352,13 @@ function buildTk68(map, parent){ for (const A of map.values()){ const g = new TH
 // v284: the office towers' windows, up all four faces: dark glass by day; at night about two floors in five lit, whole floors
 // at a time, in warm and cool white (one shared texture pair, the glow follows nightF), and a red light on every roof
 let TKWIN284 = null;
+// v296: the vending machine's front: a lit header, three rows of drinks with price buttons, a coin slot (one shared material)
+let VENDM296 = null;
+function vendMat296(){ if (VENDM296) return VENDM296; const c = document.createElement('canvas'); c.width = 64; c.height = 80; const g = c.getContext('2d'), cans = ['#d8302a', '#2a6ad4', '#f4c030', '#3a9a5a', '#f4f0e6', '#e86a2a', '#8a4ac8'];
+  g.fillStyle = '#e8eef4'; g.fillRect(0, 0, 64, 80); g.fillStyle = '#fff6d8'; g.fillRect(2, 2, 60, 9); g.fillStyle = '#c8302a'; g.fillRect(4, 4, 56, 5);
+  for (let r = 0; r < 3; r++){ g.fillStyle = '#c8d8e4'; g.fillRect(3, 13 + r*18, 58, 15); for (let k = 0; k < 6; k++){ g.fillStyle = cans[(k*3 + r*2) % cans.length]; g.fillRect(5 + k*9.6, 14 + r*18, 6, 9); g.fillStyle = 'rgba(255,255,255,.45)'; g.fillRect(6 + k*9.6, 15 + r*18, 1, 7); g.fillStyle = '#2a2a30'; g.fillRect(6 + k*9.6, 25 + r*18, 4, 2); } }
+  g.fillStyle = '#2a2a30'; g.fillRect(44, 66, 3, 6); g.fillStyle = '#9aa4ac'; g.fillRect(50, 65, 9, 8);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; VENDM296 = new THREE.MeshToonMaterial({color: 0xffffff, map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.18, gradientMap: TOON}); return VENDM296; }
 // v284: crows on the wires, two to five in a row on about three spans in ten (placed by hash: no random draws)
 const crowGeo284 = () => ckOnce(CK.geo, 'crow284', () => ckMerge([{geo: ckBlobGeo(), m: ckM(0, 0.13, 0, 0, 0, 0, 0.1, 0.1, 0.17)}, {geo: ckBlobGeo(), m: ckM(0, 0.24, 0.13, 0, 0, 0, 0.075)}, {geo: new THREE.ConeGeometry(0.03, 0.1, 4).rotateX(PI/2), m: ckM(0, 0.235, 0.24)}, {geo: new THREE.BoxGeometry(0.1, 0.02, 0.16), m: ckM(0, 0.12, -0.2, 0.35, 0, 0)}, {geo: new THREE.BoxGeometry(0.02, 0.12, 0.02), m: ckM(-0.03, 0.04, 0.02)}, {geo: new THREE.BoxGeometry(0.02, 0.12, 0.02), m: ckM(0.03, 0.04, 0.02)}]));
 function crows284(A){ const W = A.wires; if (!W || !W.length || !A.K.part) return;
@@ -29410,7 +29419,10 @@ function jpBuilding68(A, x, z, w, d, h, face, st){ // face: unit vector out to t
   const fxp = x + fx*(d/2 + 0.03), fzp = z + fz*(d/2 + 0.03), floors = Math.floor((h - 3)/3.3);
   K.box(along ? w*0.94 : 0.06, 2.4, along ? 0.06 : w*0.94, fxp, 1.4, fzp, pick68([0xfff4d8, 0xe8f4ff, 0xfff0e0, 0x8fb8cc])); // shop front
   if (st.tower){ for (let k = -w/2 + 1; k < w/2; k += 2) K.box(along ? 0.14 : 0.1, h - 4, along ? 0.1 : 0.14, fxp + (along ? k : 0), 2.15 + h/2, fzp + (along ? 0 : k), 0x4a5a6a); for (let y = 6; y < h - 1; y += 6.6) K.box(along ? w : 0.12, 0.5, along ? 0.12 : w, fxp, y, fzp, 0xd8dce4); }
-  else for (let f = 0; f < floors; f++) K.box(along ? w*0.86 : 0.05, 1.1, along ? 0.05 : w*0.86, fxp, 4.6 + f*3.3, fzp, pick68([0x3a4a5a, 0x2a3a4a, 0x5a6a7a]));
+  else for (let f = 0; f < floors; f++){ const gc = pick68([0x3a4a5a, 0x2a3a4a, 0x5a6a7a]), y = 4.6 + f*3.3, n = Math.max(1, Math.round(w*0.86/1.8)), cw = w*0.86/n, B = (a, b, c, u, yy, o, col) => K.box(along ? a : c, b, along ? c : a, fxp + fx*o + (along ? u : 0), yy, fzp + fz*o + (along ? 0 : u), col);   // v296: framed windows with a sill, a mullion and curtains, not a dark strip
+    for (let i = 0; i < n; i++){ const u = -w*0.43 + cw*(i + 0.5), h = Math.abs(Math.sin((fxp + u)*12.9898 + y*78.233 + fzp*3.7)*43758.5453) % 1, ww = cw*0.74;
+      B(ww, 1.12, 0.04, u, y, 0.0, gc); B(ww + 0.16, 0.1, 0.1, u, y + 0.6, 0.02, 0xe4e0d6); B(ww + 0.26, 0.09, 0.2, u, y - 0.6, 0.06, 0xd8d4ca); B(0.07, 1.12, 0.07, u, y, 0.02, 0xe4e0d6);
+      if (h < 0.42) B(ww*0.42, 0.98, 0.03, u + (h < 0.21 ? -1 : 1)*ww*0.27, y + 0.02, 0.025, [0xf4ecd8, 0xe8c8a0, 0xc8d8e8, 0xd8a8a8][(h*19 | 0) & 3]); } }
   if (st.tower && h > 16){ const L = A.T284 || (A.T284 = {p: [], n: [], u: []}), W2 = along ? w : d, D2 = along ? d : w; let yt = 2.75; for (let y = 2.75 + 1.65; y < Math.min(h - 0.2, 14); y += 3.3) yt = y + 1.65;   // v284: windows all the way up
     tkWinQuad284(L, fxp + fx*0.02, fzp + fz*0.02, fx, fz, w - 0.2, yt, h - 1.2); tkWinQuad284(L, x - fx*(d/2 + 0.02), z - fz*(d/2 + 0.02), -fx, -fz, w - 0.2, 3, h - 1.2);
     for (const s of [-1, 1]) tkWinQuad284(L, x + fz*s*(w/2 + 0.02), z - fx*s*(w/2 + 0.02), fz*s, -fx*s, d - 0.2, 3, h - 1.2);
@@ -29434,7 +29446,7 @@ function jpBlock68(cx, cz){ const st = TSTYLE68[styleAt68(cx, cz)], X = TX(cx), 
     tmr(cx + (along ? -E : fx > 0 ? E - d : -E), cz + (along ? (fz > 0 ? E - d : -E) : -len/2), cx + (along ? E : fx > 0 ? E : -E + d), cz + (along ? (fz > 0 ? E : -E + d) : len/2), '#a8a49c', 'bld'); }
   // street life on the pavement: vending machines, bikes, a red post box
   for (let k = 0; k < 3; k++){ const side = pick68([[0, 1], [0, -1], [1, 0], [-1, 0]]), u = rr68(-11, 11), x = X + side[0]*14.1 + (side[1] ? u : 0), z = Z + side[1]*14.1 + (side[0] ? u : 0), col = pick68([0xd8202a, 0x2a6ad4, 0xf4f0e6, 0x2a8a4a, 0xffd23a]), ry = Math.atan2(side[0], side[1]);
-    K.box(side[0] ? 0.8 : 1.0, 1.85, side[0] ? 1.0 : 0.8, x, 1.07, z, col); K.box(side[0] ? 0.04 : 0.8, 1.0, side[0] ? 0.8 : 0.04, x + side[0]*0.42, 1.25, z + side[1]*0.42, 0xf4f8fc); A.bulbs.push([[x + side[0]*0.45, 1.3, z + side[1]*0.45], 0xf4f8fc, 2.0]); addSolid(x, z, side[0] ? 0.8 : 1.0, side[0] ? 1.0 : 0.8, 0, 2.0, 'vend'); }
+    K.box(side[0] ? 0.8 : 1.0, 1.85, side[0] ? 1.0 : 0.8, x, 1.07, z, col); K.box(side[0] ? 0.04 : 0.8, 1.0, side[0] ? 0.8 : 0.04, x + side[0]*0.42, 1.25, z + side[1]*0.42, vendMat296());   /* v296: drinks, buttons and a lit header */ A.bulbs.push([[x + side[0]*0.45, 1.3, z + side[1]*0.45], 0xf4f8fc, 2.0]); addSolid(x, z, side[0] ? 0.8 : 1.0, side[0] ? 1.0 : 0.8, 0, 2.0, 'vend'); }
   if (RNG68() < 0.5){ const x = X + 14.9, z = Z + rr68(-10, 10); K.box(0.5, 1.1, 0.4, x, 0.7, z, 0xd8202a); }
   if (RNG68() < 0.6) P52.bike(K, X - 14.9, Z + rr68(-10, 10), PI/2);
 }
@@ -33833,14 +33845,14 @@ const ld_pareePlan_1 = () => {
 PL125.ND = [188, SEINE125(188)];
 // the shapes nothing else may cover: parks, plazas, landmarks (local coords)
 ZONES125 = [
-  {k: 'park', name: 'Champ de Mars', rect: [-325, 100, -255, 262], col: '#7aa858', path: '#d8cca8'},
-  {k: 'park', name: 'Jardins du Trocadéro', rect: [-372, -78, -294, -2], col: '#78a858', path: '#d8cca8'},
-  {k: 'park', name: 'Jardin des Tuileries', rect: [-54, -104, 28, -46], col: '#86a860', path: '#e0d4b0'},
-  {k: 'land', name: 'The Louvre', rect: [32, -106, 142, -40], col: '#d8cfba'},
-  {k: 'park', name: 'Jardin du Luxembourg', rect: [40, 190, 130, 262], col: '#7aa858', path: '#e0d4b0'},
-  {k: 'park', name: 'Les Invalides', rect: [-198, 32, -142, 140], col: '#7fae5a', path: '#d8cca8'},
-  {k: 'plaza', name: 'Étoile', circ: [PL125.E[0], PL125.E[1], 34], col: '#d8cfba'},
-  {k: 'plaza', name: 'Concorde', circ: [PL125.C[0], PL125.C[1], 26], col: '#dcd2bc'},
+  {k: 'park', name: 'Champ de Mars', rect: [-325, 100, -255, 262], col: '#7aa858', path: '#cbbf9e'},
+  {k: 'park', name: 'Jardins du Trocadéro', rect: [-372, -78, -294, -2], col: '#78a858', path: '#cbbf9e'},
+  {k: 'park', name: 'Jardin des Tuileries', rect: [-54, -104, 28, -46], col: '#86a860', path: '#d0c4a2'},
+  {k: 'land', name: 'The Louvre', rect: [32, -106, 142, -40], col: '#cbc3b0'},
+  {k: 'park', name: 'Jardin du Luxembourg', rect: [40, 190, 130, 262], col: '#7aa858', path: '#d0c4a2'},
+  {k: 'park', name: 'Les Invalides', rect: [-198, 32, -142, 140], col: '#7fae5a', path: '#cbbf9e'},
+  {k: 'plaza', name: 'Étoile', circ: [PL125.E[0], PL125.E[1], 34], col: '#bdb6a8'},
+  {k: 'plaza', name: 'Concorde', circ: [PL125.C[0], PL125.C[1], 26], col: '#c2bbac'},
   {k: 'plaza', name: 'Opéra', circ: [PL125.OP[0], PL125.OP[1], 18], col: '#dcd2bc'},
   {k: 'plaza', name: 'Panthéon', circ: [PL125.PAN[0], PL125.PAN[1], 22], col: '#dcd2bc'},
   {k: 'plaza', name: 'Bastille', circ: [PL125.BAS[0], PL125.BAS[1], 22], col: '#dcd2bc'},
@@ -33903,7 +33915,7 @@ SEG125 = []; SG125 = new Map();
 for (const R of ROADS125) for (let i = 0; i < R.pts.length - 1; i++){ const [ax, az] = R.pts[i], [bx, bz] = R.pts[i + 1], s = {ax, az, bx, bz, hw: R.w/2, R}; SEG125.push(s); const x0 = Math.floor((Math.min(ax, bx) - 20)/40), x1 = Math.floor((Math.max(ax, bx) + 20)/40), z0 = Math.floor((Math.min(az, bz) - 20)/40), z1 = Math.floor((Math.max(az, bz) + 20)/40); for (let i2 = x0; i2 <= x1; i2++) for (let j = z0; j <= z1; j++){ const k = i2 + ',' + j; if (!SG125.has(k)) SG125.set(k, []); SG125.get(k).push(s); } }
 /* ---------- the painted ground (also the map) ---------- */
 MAP125 = (() => { const MSc = 2.5, W = 960, c = document.createElement('canvas'); c.width = c.height = W*MSc; const g = c.getContext('2d'), X = lx => (lx + 480)*MSc, Z = lz => (lz + 480)*MSc;
-  g.fillStyle = '#c4c0b6'; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = '#b2aca0'; g.fillRect(0, 0, c.width, c.height);   // v298: a warm grey-beige, not sand (it glared in the sun)
   const shape = (Z_, fill) => { g.fillStyle = fill; g.beginPath(); if (Z_.rect){ const [a, b, cc, d] = Z_.rect; g.rect(X(a), Z(b), (cc - a)*MSc, (d - b)*MSc); } else g.arc(X(Z_.circ[0]), Z(Z_.circ[1]), Z_.circ[2]*MSc, 0, PI*2); g.fill(); };
   for (const Z_ of ZONES125) if (Z_.k !== 'hill') shape(Z_, Z_.col);
   { const [mx, mz] = PL125.MM, gr = g.createRadialGradient(X(mx), Z(mz), 0, X(mx), Z(mz), 96*MSc); gr.addColorStop(0, '#d8cfba'); gr.addColorStop(0.18, '#d8cfba'); gr.addColorStop(0.2, '#7aa45a'); gr.addColorStop(1, '#86b060'); g.fillStyle = gr; g.beginPath(); g.arc(X(mx), Z(mz), 96*MSc, 0, PI*2); g.fill(); g.strokeStyle = '#d8cca8'; g.lineWidth = 2.6*MSc; for (let k = 0; k < 6; k++){ g.beginPath(); for (let t = 0; t <= 1; t += 0.05){ const a = k/6*PI*2 + t*2.2, r = 96 - t*78; t ? g.lineTo(X(mx + Math.cos(a)*r), Z(mz + Math.sin(a)*r)) : g.moveTo(X(mx + Math.cos(a)*r), Z(mz + Math.sin(a)*r)); } g.stroke(); } }
@@ -33911,10 +33923,16 @@ MAP125 = (() => { const MSc = 2.5, W = 960, c = document.createElement('canvas')
   for (const Z_ of ZONES125.filter(z => z.k === 'park')){ const [a, b, cc, d] = Z_.rect; g.strokeStyle = Z_.path; g.lineWidth = 3*MSc; g.beginPath(); g.moveTo(X(a), Z(b)); g.lineTo(X(cc), Z(d)); g.moveTo(X(cc), Z(b)); g.lineTo(X(a), Z(d)); g.moveTo(X((a + cc)/2), Z(b)); g.lineTo(X((a + cc)/2), Z(d)); g.stroke(); g.lineWidth = 4*MSc; g.strokeRect(X(a) + 2*MSc, Z(b) + 2*MSc, (cc - a - 4)*MSc, (d - b - 4)*MSc); }
   // pavements, then the roads, then the lines
   g.lineCap = 'round'; g.lineJoin = 'round'; const stroke = (R, w, col, dash) => { g.strokeStyle = col; g.lineWidth = w*MSc; g.setLineDash(dash || []); g.beginPath(); R.pts.forEach(([x, z], i) => i ? g.lineTo(X(x), Z(z)) : g.moveTo(X(x), Z(z))); g.stroke(); g.setLineDash([]); };
-  for (const R of ROADS125) if (R.kind !== 'bridge') stroke(R, R.w + 6, '#bdb3a0'); for (const R of ROADS125) if (R.kind !== 'bridge') stroke(R, R.w + 4.6, '#c9c0ac');
+  for (const R of ROADS125) if (R.kind !== 'bridge') stroke(R, R.w + 6, '#a8a090'); for (const R of ROADS125) if (R.kind !== 'bridge') stroke(R, R.w + 4.6, '#b8b0a0');
   for (const R of ROADS125) if (R.kind !== 'bridge') stroke(R, R.w, R.kind === 'quay' ? '#8a8478' : '#5e5a54');
   for (const R of ROADS125) if (R.kind === 'avenue' || R.kind === 'boulevard') stroke(R, 0.3, '#ece6d8', [3*MSc, 4*MSc]);
   for (const Z_ of ZONES125.filter(z => z.k === 'plaza')) shape(Z_, Z_.col);
+  // v298: granite setts on the squares (a darker grout, stones of a few greys), so a square reads as stone, not sand
+  for (const Z_ of ZONES125.filter(z => z.k === 'plaza')){ g.save(); g.beginPath(); if (Z_.rect){ const [a, b, cc, d] = Z_.rect; g.rect(X(a), Z(b), (cc - a)*MSc, (d - b)*MSc); } else g.arc(X(Z_.circ[0]), Z(Z_.circ[1]), Z_.circ[2]*MSc, 0, PI*2); g.clip();
+    const [x0, z0, x1, z1] = Z_.rect || [Z_.circ[0] - Z_.circ[2], Z_.circ[1] - Z_.circ[2], Z_.circ[0] + Z_.circ[2], Z_.circ[1] + Z_.circ[2]];
+    g.fillStyle = 'rgba(70,64,58,.35)'; g.fillRect(X(x0), Z(z0), (x1 - x0)*MSc, (z1 - z0)*MSc);
+    for (let z = z0; z < z1; z += 0.9) for (let x = x0 + ((z - z0)/0.9 % 2)*0.45; x < x1; x += 0.9){ const v = Math.random(); g.fillStyle = v < 0.3 ? '#b4aea2' : v < 0.6 ? '#aca69a' : v < 0.85 ? '#bcb5a8' : '#a29c90'; g.fillRect(X(x) + 0.4, Z(z) + 0.4, 0.9*MSc - 0.8, 0.9*MSc - 0.8); }
+    g.restore(); }
   // the river and the islands
   g.fillStyle = '#4f7f9c'; g.beginPath(); for (let x = -480; x <= 480; x += 6) g.lineTo(X(x), Z(SEINE125(x) - SW125(x)/2)); for (let x = 480; x >= -480; x -= 6) g.lineTo(X(x), Z(SEINE125(x) + SW125(x)/2)); g.fill();
   for (const I of ISLES125){ g.fillStyle = '#c4c0b6'; g.beginPath(); for (let a = 0; a <= PI*2 + 0.01; a += 0.1){ const x = I.x + Math.cos(a)*I.rx; g.lineTo(X(x), Z(SEINE125(x) + Math.sin(a)*I.rz)); } g.fill(); }
@@ -37954,7 +37972,7 @@ PRISM48 = (() => { const g = new THREE.CylinderGeometry(1, 1, 1, 3, 1, false, PI
 
 /* ---------- the city's pieces live in chunks of 128 m that hide when far away ---------- */
 BCH48 = new Map();
-paveB48 = mat(0xffffff, {map: pxTex(16, 16, g => { px(g, 0, 0, '#b8b4ac', 16, 16); for (let i = 0; i < 24; i++) px(g, ri(0, 16), ri(0, 16), pick(['#a8a49c', '#c4c0b8', '#9a968e'])); for (let y = 0; y < 16; y += 4) px(g, 0, y, '#8a8680', 16, 1); for (let x = 0; x < 16; x += 4) px(g, x, 0, '#8a8680', 1, 16); })});
+paveB48 = mat(0xbcb6aa, {map: pxTex(16, 16, g => { px(g, 0, 0, '#b8b4ac', 16, 16); for (let i = 0; i < 24; i++) px(g, ri(0, 16), ri(0, 16), pick(['#a8a49c', '#c4c0b8', '#9a968e'])); for (const [tx, ty, c] of [[4, 0, '#a49e94'], [8, 8, '#aaa498'], [0, 12, '#b2ac9f'], [12, 4, '#9c968c']]) px(g, tx + 1, ty + 1, c, 3, 3); px(g, 9, 2, '#958f84', 2, 1); for (let y = 0; y < 16; y += 4) px(g, 0, y, '#7a766f', 16, 1); for (let x = 0; x < 16; x += 4) px(g, x, 0, '#7a766f', 1, 16); })});   /* v297: a darker tint, some tiles a shade off, a stain, darker grout (it glared in the sun) */
  // rooftops worth a stash, a perch or a lookout
 bangG = new THREE.Group();
 scene.add(bangG);
@@ -38211,8 +38229,11 @@ function shopTex48(base, bar, opts = {}){
       px(g, x0 - 1, y0 - 1, shade(base, 0.7), ww + 2, wh + 2); px(g, x0, y0, glass, ww, wh);
       if (lit) ge.fillStyle = pick(['#ffe0a0', '#d0e8ff', '#ffd0e0']), ge.fillRect(x0, y0, ww, wh);
       if (rand() < 0.5) px(g, x0, y0, pick(['#c8b890', '#9ab8c8', '#d8a8a8']), ww, ri(4, 9));
-      for (let x = x0 + 2; x < x0 + ww; x += 3) px(g, x, y0, bar, 1, wh);
-      px(g, x0, y0 + 6, bar, ww, 1);
+      const vv = (x0 + base.charCodeAt(2)*3 + bar.charCodeAt(3)) % 4;   // v297: not every window barred: open shutters, a plant on the sill, washing on a line (the draws above unchanged)
+      if (vv === 0){ for (let x = x0 + 2; x < x0 + ww; x += 3) px(g, x, y0, bar, 1, wh); px(g, x0, y0 + 6, bar, ww, 1); }
+      else if (vv === 1){ const sc = ['#3f7a5a', '#3a5a8a', '#8a5a3a'][x0 % 3]; px(g, x0 - 6, y0, sc, 5, wh); px(g, x0 + ww + 1, y0, sc, 5, wh); for (let y = y0 + 1; y < y0 + wh; y += 2){ px(g, x0 - 6, y, shade(sc, 0.75), 5, 1); px(g, x0 + ww + 1, y, shade(sc, 0.75), 5, 1); } px(g, x0 + ww/2, y0, bar, 1, wh); }
+      else if (vv === 2){ px(g, x0 - 1, y0 + wh - 1, shade(base, 0.6), ww + 2, 2); for (let k = 0; k < 4; k++){ px(g, x0 + 2 + k*5, y0 + wh - 4, '#8a4a2a', 3, 3); px(g, x0 + 1 + k*5, y0 + wh - 7, k % 2 ? '#3f8a3a' : '#e84a6a', 5, 3); } px(g, x0 + ww/2, y0, bar, 1, wh - 4); }
+      else { px(g, x0 - 2, y0 + 2, '#6a6a6a', ww + 4, 1); for (let k = 0; k < 5; k++) px(g, x0 + k*4, y0 + 3, ['#f4f0e6', '#d84a4a', '#4a8ad4', '#f4c030', '#e8e8e0'][k], 3, 4 + (k % 2)*2); }
       if (opts.balcony) { px(g, x0 - 2, y0 + wh - 3, shade(base, 0.6), ww + 4, 1); for (let x = x0 - 2; x < x0 + ww + 2; x += 2) px(g, x, y0 + wh - 3, shade(base, 0.6), 1, 4); }
       if (rand() < 0.45){ const ax = x0 + ri(0, ww - 8); px(g, ax, y0 + wh + 2, '#d8dde0', 8, 5); px(g, ax + 1, y0 + wh + 3, '#9aa0a4', 6, 1); px(g, ax + 1, y0 + wh + 5, '#9aa0a4', 6, 1); }
       if (rand() < 0.3) px(g, x0 + ri(0, ww - 6), y0 - 3, pick(['#d43a3a', '#2a6ad4', '#3f9a5a', '#ffd23a']), 6, 2);
@@ -38249,6 +38270,23 @@ const CLUCK48 = [], SPA48 = [], GOLD48 = [], TERR48 = [];
 
  // TERR48: every shophouse front, for later decoration
 // a shophouse terrace along one side of a block: fronts face the street at any angle, signs over the awnings
+// v297: the shophouse fronts. Most shops are open: a warm interior panel (shelves of goods, a counter, a lamp, the
+// shopkeeper) that glows at night, and goods out on the pavement; the rest wear a roll-up slatted shutter with a padlock.
+// Shared materials, chosen per shop by hash (the row's random draws are untouched)
+const SHOP297 = {};
+function shopTex297(kind){ const k = 'in' + kind; if (SHOP297[k]) return SHOP297[k]; const c = document.createElement('canvas'); c.width = 128; c.height = 64; const g = c.getContext('2d');
+  const wall = ['#e8d0a8', '#d8e0d0', '#f0dcc8', '#e0d8e8'][kind], goods = [['#d8302a', '#f4c030', '#3a9a5a', '#e86a2a', '#f4f0e6'], ['#2a6ad4', '#e84a9a', '#f4c030', '#8a4ac8', '#3ac8c8'], ['#c89a5a', '#8a5a34', '#e8d8b8', '#5a8a3a', '#d8a050'], ['#3a3a42', '#d8d8dc', '#2a6ad4', '#f4f0e6', '#c8302a']][kind];
+  g.fillStyle = wall; g.fillRect(0, 0, 128, 64); const lg = g.createRadialGradient(64, 6, 2, 64, 6, 60); lg.addColorStop(0, 'rgba(255,230,160,.85)'); lg.addColorStop(1, 'rgba(255,230,160,0)'); g.fillStyle = lg; g.fillRect(0, 0, 128, 64);
+  for (let r = 0; r < 3; r++){ g.fillStyle = '#8a6a44'; g.fillRect(4, 16 + r*13, 120, 2); for (let i = 0; i < 18; i++){ g.fillStyle = goods[(i*7 + r*3) % goods.length]; const hh = 5 + (i*13 + r*5) % 6; g.fillRect(6 + i*6.6, 16 + r*13 - hh, 5, hh); } }
+  g.fillStyle = '#6a4a2e'; g.fillRect(70, 46, 52, 18); g.fillStyle = '#8a6a44'; g.fillRect(70, 46, 52, 3);
+  g.fillStyle = '#3a2a22'; g.beginPath(); g.arc(92, 37, 4.5, 0, Math.PI*2); g.fill(); g.fillStyle = ['#d8302a', '#2a6ad4', '#f4f0e6', '#3a9a5a'][kind]; g.fillRect(87, 41, 10, 6);
+  g.fillStyle = '#fff4c8'; g.fillRect(62, 0, 4, 5); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 62, 128, 2);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  const m = SHOP297[k] = new THREE.MeshToonMaterial({color: 0xffffff, map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.12, gradientMap: TOON}); m.userData.night = [0.12, 0.5]; (window.__nightMats || (window.__nightMats = [])).push(m); return m; }
+function shutterMat297(kind){ const k = 'sh' + kind; if (SHOP297[k]) return SHOP297[k]; const c = document.createElement('canvas'); c.width = 32; c.height = 64; const g = c.getContext('2d'), base = ['#6a7a70', '#5a6a80', '#7a7a76'][kind];
+  g.fillStyle = base; g.fillRect(0, 0, 32, 64); for (let y = 0; y < 64; y += 3){ g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(0, y, 32, 1); g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(0, y + 2, 32, 1); }
+  g.fillStyle = '#3a3a3e'; g.fillRect(0, 60, 32, 4); g.fillStyle = '#c8a030'; g.fillRect(14, 55, 4, 5); g.fillStyle = 'rgba(200,60,60,.5)'; g.fillRect(4 + kind*7, 22, 6, 4);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return SHOP297[k] = new THREE.MeshToonMaterial({color: 0xffffff, map: t, gradientMap: TOON}); }
 function terrace48(x0, z0, len, ry, opt = {}){
   // (x0, z0) is the start of the row on the building line; ry: the direction the fronts face (0 = +z); the row runs along (cos ry, -sin ry)
   const fx = Math.sin(ry), fz = Math.cos(ry), ax = Math.cos(ry), az = -Math.sin(ry); let u = 0;
@@ -38263,9 +38301,13 @@ function terrace48(x0, z0, len, ry, opt = {}){
     K.box(w + 0.3, 0.3, depth + 0.3, cx, 0.15 + h + 0.1, cz, pick([0xd8d0c4, 0x9a9488, 0xb8b0a4]), {ry});
     // the shop at street level: an open front, a shutter, an awning and a sign
     const sx = x0 + ax*(u + w/2) + fx*0.06, sz = z0 + az*(u + w/2) + fz*0.06;
-    K.box(w - 0.6, 2.4, 0.1, sx, 1.35, sz, pick([0x2a2622, 0x3a3028, 0x2a2a30]), {ry});
+    { pick([0x2a2622, 0x3a3028, 0x2a2a30]); const hs = Math.abs(Math.sin(sx*12.9898 + sz*78.233)*43758.5453) % 1;   // v297: open (two in three) or shuttered (the colour draw kept)
+      if (hs < 0.67){ K.box(w - 0.6, 2.4, 0.1, sx, 1.35, sz, shopTex297((hs*37 | 0) & 3), {ry}); for (let i = 0; i < 2 + ((hs*91 | 0) % 3); i++){ const o = -w/2 + 0.8 + i*1.1, gx = sx + fx*0.55 + ax*o, gz = sz + fz*0.55 + az*o, kk = (i + (hs*13 | 0)) % 3;
+          if (kk === 0) K.part(ckOnce(CK.geo, 'bucket297', () => new THREE.CylinderGeometry(0.22, 0.17, 0.36, 10)), [0xd8302a, 0x2a6ad4, 0x3a9a5a][i % 3], gx, 0.33, gz); else if (kk === 1) K.part(ckBlobGeo(), 0xe8dcc0, gx, 0.36, gz, 0.26, 0.24, 0.22, i); else K.box(0.6, 0.5, 0.45, gx, 0.4, gz, 0x9a7a4a, {ry}); } }
+      else K.box(w - 0.6, 2.4, 0.1, sx, 1.35, sz, shutterMat297((hs*29 | 0) % 3), {ry}); }
     K.box(w - 0.5, 0.5, 0.12, sx + fx*0.02, 2.75, sz + fz*0.02, pick([0x9a9a9a, 0xb8b0a0, 0x8a8f94]), {ry});
-    K.box(w - 0.2, 0.12, 1.8, sx + fx*0.9, 3.15, sz + fz*0.9, pick([0xd4483a, 0x3f8a5a, 0x2a6ad4, 0xe0a33a, 0xe84a9a, 0xf4f0e6, 0x1a8a8a]), {ry});
+    { const ac = pick([0xd4483a, 0x3f8a5a, 0x2a6ad4, 0xe0a33a, 0xe84a9a, 0xf4f0e6, 0x1a8a8a]), [ga, gb] = awningGeos285(), aox = x0 + ax*(u + w/2), aoz = z0 + az*(u + w/2);   // v297: a striped, sloping awning with a scalloped edge
+      K.part(ga, ac, aox, -0.32, aoz, w - 0.2, 1, 1.38, ry); K.part(gb, ac === 0xf4f0e6 ? 0x3f8a5a : 0xf4ecd8, aox, -0.32, aoz, w - 0.2, 1, 1.38, ry); }
     // some shops are something: a Cluck-Eleven, a wing spa, a gold shop (more of those in Chinatown)
     const kind = rand(), spot = {x: sx + fx*1.6, z: sz + fz*1.6, ry};
     let cell = opt.cell != null ? opt.cell + ri(0, 3) : ri(0, 128);
@@ -46726,7 +46768,7 @@ DK.stones(G, rocks); DK.stones(G, steps, 0.0);
 // ---- the concrete: vending machines, bikes, pots, bollards, benches ----
 const pools = [];   // v284: where the vending machines' light falls
 const vend = (x, z, ry) => { const K = Kat(x, z), c = pick([0xe8402a, 0x2a6ad4, 0xf4f0e6, 0x3a9a5a]); K.box(1.0, 1.85, 0.75, x, 0.93, z, c, {ry}); const s = Math.sin(ry), co = Math.cos(ry);
-  K.box(0.8, 0.9, 0.04, x + s*0.39, 1.25, z + co*0.39, 0xd8e8f0, {ry}); K.box(0.8, 0.25, 0.04, x + s*0.39, 0.35, z + co*0.39, 0x2a2a30, {ry}); addSolid(x, z, 1.0, 1.0, 0, 1.85, 'vending'); pools.push([x + s*1.0, z + co*1.0]); };   // v284: a soft light pool in front
+  K.box(0.8, 0.9, 0.04, x + s*0.39, 1.25, z + co*0.39, vendMat296(), {ry});   /* v296: drinks, buttons and a lit header */ K.box(0.8, 0.25, 0.04, x + s*0.39, 0.35, z + co*0.39, 0x2a2a30, {ry}); addSolid(x, z, 1.0, 1.0, 0, 1.85, 'vending'); pools.push([x + s*1.0, z + co*1.0]); };   // v284: a soft light pool in front
 let n = {vend: 0, bikes: 0, pots: 0, bollards: 0, benches: 0};
 for (const [px, pz, u] of DK.scatter(X0, X1, Z0, Z1, 15, 265003, (x, z) => cls(x, z) === 'paved' && DK.kind(x, z) !== 'road' && DK.open(x, z, 3))){
   const ry = Math.round(R()*4)*PI/2;
@@ -47210,6 +47252,34 @@ WHATS_NEW.unshift(['294 · Long Haul', 'Smoother the longer you play: things tha
 GAME_VER.n = 295;
 GAME_VER.name = 'Steady';
 WHATS_NEW.unshift(['295 · Steady', 'On Auto quality the game now watches its own frame rate: when frames run long for a few seconds it draws at a slightly lower resolution (and drops the soft glow if it has to), and steps back up once things are smooth again. Steam, sparks, leaves, dust and feathers are drawn together by kind instead of one by one.']);
+/* =====================================================================
+   v296 · TILE & GLASS: Tokyoo's houses get framed windows with sills and
+   curtains, clean facade tiles, honest vending machines and calmer
+   asphalt; and the soft shading no longer stains big flat walls
+   ===================================================================== */
+// v296
+GAME_VER.n = 296;
+GAME_VER.name = 'Tile & Glass';
+WHATS_NEW.unshift(['296 · Tile & Glass', 'Tokyoo up close: the dark window strips are rows of framed windows with sills and curtains, the stained walls are clean facade tiles, vending machines show rows of drinks under a lit header, and the roads lose their repeating dark squares. Everywhere: big flat walls no longer show soft grey blotches from the shading.']);
+/* =====================================================================
+   v297 · OPEN FOR BUSINESS: Bangcluck's shophouses. Two shops in three
+   open, with shelves, a counter and the shopkeeper, glowing at night,
+   goods out front; roll-up slatted shutters; striped, scalloped awnings;
+   windows with shutters, plants and washing; calmer paving
+   ===================================================================== */
+// v297
+GAME_VER.n = 297;
+GAME_VER.name = 'Open for Business';
+WHATS_NEW.unshift(['297 · Open for Business', 'Bangcluck’s shopping streets are open: most shops show shelves of goods, a counter and the shopkeeper, glow warm at night and put buckets, sacks and crates out front; the rest wear roll-up slatted shutters with a padlock. Awnings are striped with a scalloped edge, the windows above have open shutters, plants and washing instead of the same bars everywhere, and the paving no longer glares.']);
+/* =====================================================================
+   v298 · PAVÉ: Paree's ground and light. Granite setts on the great
+   squares, warm grey-beige instead of glaring sand, and a softer light
+   with shadows lifted a little towards violet
+   ===================================================================== */
+// v298
+GAME_VER.n = 298;
+GAME_VER.name = 'Pavé';
+WHATS_NEW.unshift(['298 · Pavé', 'Paree underfoot: the great squares are laid with granite setts, the pavements and open squares are a warm grey-beige instead of glaring sand, the park paths are calmer, and the light is softer, with shadows lifted a little towards violet instead of flat dark brown.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
