@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v292 (the look pass, part three: Little Pecking's cottages, meadows and pond, and a warmer Bavaria).
+Current version: v295 (a frame-rate pass: smoother cities, steadier long sessions, and an automatic quality governor).

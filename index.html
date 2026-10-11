@@ -1682,11 +1682,11 @@ foodGeo.sardine = () => { const g = new THREE.Group(); g.add(boxMesh(0.36, 0.06,
 // set by the steps below
 let SBATCH;
 
-const SB_CELL = 640, SB_MAXV = 20000, SB_LAYER = 3, SB_PROXY = 1;
+const SB_CELL = 160, SB_MAXV = 20000, SB_LAYER = 3, SB_PROXY = 1;
 
 function sbInit(){
   if (SBATCH) return SBATCH;
-  SBATCH = {first: new WeakMap(), moved: new WeakSet(), src: new Map(), anc: new WeakMap(), buckets: new Map(), proxies: new Map(), rebuild: new Set(), big: new Set(), hid: new WeakMap(), frame: 0, bundles: new Map()};
+  SBATCH = {first: new WeakMap(), moved: new WeakSet(), src: new Map(), anc: new WeakMap(), buckets: new Map(), proxies: new Map(), rebuild: new Set(), big: new Set(), hid: new WeakMap(), cool: new WeakMap(), frame: 0, bundles: new Map()};
   // a batched mesh (or a group with batched meshes in it) taken out of the scene leaves its batch at once
   const rem = THREE.Object3D.prototype.remove;
   THREE.Object3D.prototype.remove = function(...objs){ for (const o of objs) if (o && o.isObject3D) sbGone(o, true); return rem.apply(this, objs); };
@@ -1790,6 +1790,7 @@ function sbScan(){
   B.big.clear(); for (const c of scene.children){ if (c.isMesh || !c.visible) continue; let n = 0; c.traverse(o => { if (o.isMesh) n++; }); if (n >= 300) B.big.add(c); }
   scene.traverseVisible(o => {
     if (B.src.has(o) || B.moved.has(o) || !sbEligible(o) || mine.has(o) || (o.parent && o.parent.userData.sbLively)) return;
+    { const c = B.cool.get(o); if (c !== undefined && performance.now() < c) return; }   // v294: shown again after a hide: it rejoins once its cool-down is over
     const root = sbRoot(o); if (!root || !sbShown(o, root)) return;
     const e = o.matrixWorld.elements, f = B.first.get(o);
     if (!f){ B.first.set(o, {e: e.slice(), n: 0}); return; }
@@ -1852,7 +1853,7 @@ function sbRelease(o, moved){
   const B = SBATCH, s = B.src.get(o); if (!s) return; B.src.delete(o); o.__sbS = undefined;
   if (o.__sbL === true) sbUnleaf(o);
   for (const p of s.anc){ const set = B.anc.get(p); if (set) set.delete(o); }
-  if (!moved){ const h = (B.hid.get(o) || 0) + 1; B.hid.set(o, h); if (h >= 2) moved = true; }   // hidden and shown again and again (distance culling): leave it be
+  if (!moved){ const h = (B.hid.get(o) || 0) + 1; B.hid.set(o, h); if (h >= 2) B.cool.set(o, performance.now() + Math.min(64000, 2000*2**Math.min(5, h - 1))); }   // v294: hidden and shown again (distance culling): it may rejoin, after a wait that doubles each time (4 s .. 64 s), instead of drawing alone for good
   if (moved){ B.moved.add(o);
     // a part of a small rig moved (a person's arm, a bird's wing): the whole rig is alive; it leaves the batches, and
     // stays out, instead of its parts being batched and taken out again one by one
@@ -2050,9 +2051,9 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
     // the old glow (as on r128): a tight halo round everything brighter than 0.8 (sunlit sand and walls, the sky), the
     // creamy warmth of a bright afternoon; the bloom above is the lamps, windows and neon
     If(U.glow.greaterThan(0.01), () => { const bl = vec3(0).toVar();
-      for (let i = 0; i < 8; i++){ const o = vec2(Math.cos(i*0.7854), Math.sin(i*0.7854)).mul(p);
-        bl.addAssign(max(colorTex.sample(vUv.add(o.mul(3))).rgb.sub(0.8), 0.0).add(max(colorTex.sample(vUv.add(o.mul(8))).rgb.sub(0.8), 0.0).mul(0.7))); }
-      c.addAssign(bl.mul(0.16).mul(U.glow)); });
+      for (let i = 0; i < 4; i++){ const o = vec2(Math.cos(i*1.5708 + 0.7854), Math.sin(i*1.5708 + 0.7854)).mul(p);   // v293: 4 taps, not 16 (the same halo, a quarter of the samples)
+        bl.addAssign(max(colorTex.sample(vUv.add(o.mul(5))).rgb.sub(0.8), 0.0)); }
+      c.addAssign(bl.mul(0.54).mul(U.glow)); });
     const far = max(max(lin(vUv.sub(vec2(p.x, 0))), lin(vUv.add(vec2(p.x, 0)))), max(lin(vUv.sub(vec2(0, p.y))), lin(vUv.add(vec2(0, p.y)))));
     const edge = step(d.mul(0.05).add(0.18), far.sub(d)).mul(U.outline).mul(float(1).sub(smoothstep(55.0, 120.0, d)));
     const l = dot(c, vec3(0.299, 0.587, 0.114));
@@ -2113,9 +2114,9 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
     const job = (PIPE.scanT = (PIPE.scanT + 1) % 90);
     if (job === 0) sbScan(); else if (job === 30) trimCasters(); else if (job === 60 && hd) markWater();
     for (const L of lights) L.intensity *= PI;   // r128's light units (see core/three-compat.js)
-    // see further on normal and high quality: the fog (however a city or the weather set it) and the far plane, a
+    // see further on high quality: the fog (however a city or the weather set it) and the far plane, a
     // third further out, just for this frame; the cascades split the longer view between them
-    const F = scene.fog, far0 = camera.far, n0 = F && F.near, f0 = F && F.far, deep = hd && F && camera.far <= 300 && F.far < 400;
+    const F = scene.fog, far0 = camera.far, n0 = F && F.near, f0 = F && F.far, deep = hd && settings.quality === 'high' && F && camera.far <= 300 && F.far < 400;   /* v293: the longer view is a High-quality extra (P022), not the default */
     if (deep){ F.near = n0*1.2; F.far = f0*1.32; camera.far = Math.max(far0, F.far + 25); camera.updateProjectionMatrix(); }
     // shadows are drawn every frame: r186 loses track of a shadow map that skips frames ("destroyed texture"), so instead
     // of skipping frames the WebGPU frame draws fewer casters (see trimCasters)
@@ -3324,6 +3325,7 @@ function tree(x, z, s=1, kind){
   for (const [ox, oy, oz, r, m] of [[0, 1.1, 0, 2.0, lm], [0.9, 0.6, 0.5, 1.4, dm], [-0.9, 0.7, -0.4, 1.5, dm], [0.2, 2.0, -0.2, 1.3, lm], [-0.2, 0.4, -0.9, 1.1, dm], [0.6, 2.3, 0.5, 0.85, hm], [-0.5, 1.8, 0.7, 0.8, hm]]){
     const c = mesh(leafGeo, m, ox*s, oy*s, oz*s, true); c.scale.setScalar(r*s); c.rotation.set(rand(), rand(), rand()); g.add(c);
   }
+  ckMergeKids(g);   // v294: the seven blobs as one mesh (the crown still sways as a whole): one draw, not seven, plus the shadow pass
   canopies.push({g, ph: rand()*6});
   addSolid(x, z, 0.5*s, 0.5*s, 0, 3.5*s, 'trunk');
   addSolid(x, z, 3*s, 3*s, 0.15 + 3.4*s, 0.15 + 6.2*s, 'canopy');
@@ -3666,7 +3668,7 @@ function makePigeon(o={}){
   const beak = new THREE.Mesh(ckBeakGeo(o.beak ?? 0x3a302a, !lite && !o.noCere), ckVC()); beak.position.set(0, 0.06, 0.15); neckP.add(beak);
   if (o.beakDot){ const dot = mesh(SPHERE, mat(0xd8392b), 0, 0.045, 0.22); dot.scale.setScalar(0.018); neckP.add(dot); }
   const er = o.eyeR ?? (o.hero ? 0.04 : 0.034);
-  ckEyes(neckP, {sep: o.hero ? 0.108 : 0.096, r: er, iris: o.eye ?? 0xf08a2c, ring: o.eyeRing ?? 0xd9d0c2, y: 0.11, z: o.hero ? 0.1 : 0.088, fwd: 0.42});
+  const eyeM293 = ckEyes(neckP, {sep: o.hero ? 0.108 : 0.096, r: er, iris: o.eye ?? 0xf08a2c, ring: o.eyeRing ?? 0xd9d0c2, y: 0.11, z: o.hero ? 0.1 : 0.088, fwd: 0.42});
   if (o.tuft){ const tf = new THREE.Mesh(ckTuftGeo(), headMat); tf.position.set(0, o.hero ? 0.215 : 0.2, 0.02); neckP.add(tf); }
   const wings = [];
   for (const s of [1,-1]){
@@ -3686,6 +3688,7 @@ function makePigeon(o={}){
     legs.push(lp);
   }
   if (o.scale) g.scale.setScalar(o.scale);
+  if (lite) (window.__pLOD293 || (window.__pLOD293 = [])).push({g, det: [beak, eyeM293, ...legs.map(l => l.children[0])].filter(Boolean), far: 0});   // v293: beak, eyes and legs drop out past 20 m (render/release-polish.js)
   return {g, bp, body, breast, neckP, wings, tail, legs};
 }
 
@@ -5005,23 +5008,34 @@ function emit(kind, pos, n, spread=1, up=1, mats){ return callHooked('emit', emi
 function emitBase(kind, pos, n, spread=1, up=1, mats){
   const k = PK[kind];
   for (let i = 0; i < n && particles.length < PCAP; i++){
-    const m = new THREE.Mesh(k.geo, (mats || k.mats)[Math.floor(Math.random()*(mats || k.mats).length)]);
+    const m = new THREE.Object3D(); m.geometry = k.geo; m.material = (mats || k.mats)[Math.floor(Math.random()*(mats || k.mats).length)];   // v295: drawn through a shared instanced mesh (flushParticles295)
     m.position.set(pos.x + (Math.random()-.5)*0.2, pos.y + Math.random()*0.2, pos.z + (Math.random()-.5)*0.2);
     m.rotation.set(Math.random()*6, Math.random()*6, Math.random()*6);
-    scene.add(m);
     particles.push({m, k, t:0, life: lerp(k.life[0], k.life[1], Math.random()), ph: Math.random()*6,
       vel: new THREE.Vector3((Math.random()-.5)*2*spread, Math.random()*up + up*0.3, (Math.random()-.5)*2*spread),
       spin: new THREE.Vector3((Math.random()-.5), (Math.random()-.5), (Math.random()-.5)).multiplyScalar(k.spin || 0)});
   }
 }
 
-function updateParticles(dt){ return callHooked('updateParticles', updateParticlesBase, [dt]); }
+function updateParticles(dt){ const r = callHooked('updateParticles', updateParticlesBase, [dt]); flushParticles295(); return r; }
+
+// v295: every live particle is one instance in a pool per geometry and material (an InstancedMesh that grows as needed),
+// not a mesh of its own added to and taken out of the scene: one draw per kind, no new render objects per puff
+const PPOOL295 = new Map();
+function flushParticles295(){
+  for (const P of PPOOL295.values()) P.n = 0;
+  for (const p of particles){ const m = p.m, g = m.geometry, mt = m.material; if (!g || !mt) continue; const key = g.uuid + '|' + mt.uuid; let P = PPOOL295.get(key);
+    if (!P || P.n >= P.cap){ const cap = P ? P.cap*2 : 32, im = new THREE.InstancedMesh(g, mt, cap); im.frustumCulled = false; im.count = 0; if (P){ for (let i = 0; i < P.n; i++){ P.im.getMatrixAt(i, _pm295); im.setMatrixAt(i, _pm295); } scene.remove(P.im); P.im.dispose(); } scene.add(im); P = {im, cap, n: P ? P.n : 0}; PPOOL295.set(key, P); }
+    m.updateMatrix(); P.im.setMatrixAt(P.n++, m.matrix); }
+  for (const P of PPOOL295.values()){ if (P.im.count !== P.n || P.n){ P.im.count = P.n; P.im.instanceMatrix.needsUpdate = true; } P.im.visible = P.n > 0; }
+}
+const _pm295 = new THREE.Matrix4();
 
 function updateParticlesBase(dt){
   for (let i = particles.length - 1; i >= 0; i--){
     const p = particles[i]; p.t += dt;
     const f = p.t / p.life;
-    if (f >= 1){ scene.remove(p.m); particles.splice(i, 1); continue; }
+    if (f >= 1){ particles.splice(i, 1); continue; }
     p.vel.y -= p.k.g*dt;
     p.vel.multiplyScalar(Math.exp(-p.k.drag*dt));
     if (p.k.drag > 1.5 || p.k.g < 0){ const wk = dt*Math.min(p.k.drag, 3)*0.45; p.vel.x += WIND.vx*wk; p.vel.z += WIND.vz*wk; }
@@ -6085,13 +6099,23 @@ function hollow(o){
   addSolid(cx, cz, w + 0.5, d + 0.5, top, top + 0.35, 'roof').ceil = true;
   const ft = plankTex.clone(); ft.needsUpdate = true; ft.repeat.set((w - 2*T)/2, (d - 2*T)/2);
   const floor = mesh(new THREE.PlaneGeometry(w - 2*T, d - 2*T), mat(0xffffff, {map: ft}), cx, base + 0.012, cz); floor.rotation.x = -PI/2; floor.receiveShadow = true; scene.add(floor);
-  let light = null; if (!o.noLight){ light = new THREE.PointLight(o.light || 0xffd8a0, 0.9, Math.max(w, d)*1.3, 1.5); light.position.set(cx, top - 0.7, cz); scene.add(light); }
+  let light = null; if (!o.noLight){ light = new THREE.PointLight(o.light || 0xffd8a0, 0.9, Math.max(w, d)*1.3, 1.5); light.position.set(cx, top - 0.7, cz); roomPool294(); }   // v294: the room keeps its light's settings (code may still dim or flicker it); a shared pool does the lighting
   mapRects.push({x0: cx - w/2, z0: cz - d/2, x1: cx + w/2, z1: cz + d/2, color: STYLES[style].base, kind:'bld'});
   buildings.push({cx, cz, w, d, top: top + 0.35, hollow: true});
   const room = {name, minX: cx - w/2 + T, maxX: cx + w/2 - T, minZ: cz - d/2 + T, maxZ: cz + d/2 - T, top, door: doorInfo, light};
   rooms.push(room);
   return room;
 }
+
+// v294: room lights from one pool of five (a constant light count, so no shader recompiles): every quarter second they
+// move to the five nearest lit rooms within 40 m and take those rooms' settings; the rest go dark. On the moon the
+// hotel's rig (world/moon/hotel/walls.js) borrows the same five.
+let ROOMPOOL294 = null;
+function roomPool294(){ if (ROOMPOOL294) return ROOMPOOL294; const L = []; for (let k = 0; k < 5; k++){ const l = new THREE.PointLight(0xffd8a0, 0, 10, 1.5); l.position.set(0, -500, 0); scene.add(l); L.push(l); }
+  ROOMPOOL294 = {L, t: 0}; return ROOMPOOL294; }   // (updated from the frame loop: core/loop.js)
+function updateRoomPool294(dt){ const R = ROOMPOOL294; if (!R || (typeof onMoon151 === 'function' && onMoon151())) return; R.t -= dt; if (R.t > 0) return; R.t = 0.25;
+  const P = player.pos, near = []; for (const r of rooms){ if (!r.light) continue; const lp = r.light.position, d = (lp.x - P.x)**2 + (lp.z - P.z)**2; if (d < 1600) near.push([d, r]); } near.sort((a, b) => a[0] - b[0]);
+  R.L.forEach((l, i) => { const e = near[i]; if (!e){ l.intensity = 0; return; } const s = e[1].light; l.position.copy(s.position); l.color.copy(s.color); l.distance = s.distance; l.decay = s.decay; l.intensity = s.intensity; }); }
 
 function roomAt(p){ for (const r of rooms) if (p.x > r.minX && p.x < r.maxX && p.z > r.minZ && p.z < r.maxZ && p.y < r.top && p.y >= (r.y0 ?? -1)) return r; return null; }
 
@@ -20791,7 +20815,7 @@ function updateDistricts(dt, time){
 /* ---------- base: render/release-polish ---------- */
 // From 100-release-polish-tidy-strays-cull-small-fa. The bs_* steps are run by boot/base.js, in load order.
 // set by the steps below
-let ALLH, farHidden, humanSet, _fcb, _fcs, NEWCH;
+let ALLH, farHidden, humanSet, _fcb, _fcs, NEWCH, _v293;
 
 /* ---------- release polish: tidy strays, cull small far props, simpler faces far away ---------- */
 // some movable things only get placed when Pidge is near their home, so until then they'd sit at
@@ -20802,6 +20826,7 @@ let propCells = null, propCellT = 0;
 
 const bs_renderReleasePolish_1 = () => {
 ALLH = window.__allhPre || [];
+_v293 = new THREE.Vector3();
 farHidden = []; humanSet = new Set(); _fcb = new THREE.Box3(); _fcs = new THREE.Vector3();
 };
 
@@ -20873,7 +20898,8 @@ function updateV23(dt){
   if (lodT <= 0){
     lodT = 0.35; const cp = camera.position;
     // faces by distance (v271): the eyes stay on to 40 m, the small parts (nose, mouth, brows, cheeks) to 18 m
-    for (const H of ALLH){ if (!H.det) continue; const d = H.g.parent === scene ? Math.hypot(H.g.position.x - cp.x, H.g.position.z - cp.z) : 0, far = d > 40 ? 2 : d > 18 ? 1 : 0; if (far !== H.farLod){ H.farLod = far; H.det.forEach((m, i) => { m.visible = far === 0 || (far === 1 && i < 2); }); } }
+    for (const H of ALLH){ if (!H.det) continue; let d; if (H.g.parent === scene) d = Math.hypot(H.g.position.x - cp.x, H.g.position.z - cp.z); else { H.g.getWorldPosition(_v293); d = Math.hypot(_v293.x - cp.x, _v293.z - cp.z); } const far = d > 40 ? 2 : d > 18 ? 1 : 0; if (far !== H.farLod){ H.farLod = far; H.det.forEach((m, i) => { m.visible = far === 0 || (far === 1 && i < 2); }); } }   // v293: world distance for every rig (Tokyoo's drones live in groups)
+    for (const P of (window.__pLOD293 || [])){ P.g.getWorldPosition(_v293); const far = Math.hypot(_v293.x - cp.x, _v293.z - cp.z) > 20 ? 1 : 0; if (far !== P.far){ P.far = far; for (const m of P.det) m.visible = !far; } }   // v293: flock pigeons' beak, eyes and legs
   }
 }
 
@@ -22247,7 +22273,7 @@ function updateV39a(dt, time){
   const P = player.pos, indoors = !!roomAt(P), rainy = wx.rain > 0.2 || wx.cloud > 0.6;
   // grade and glow
   BEAUTY.gold = lerp(BEAUTY.gold, goldAt(dayT)*(1 - wx.cloud*0.7)*(indoors ? 0.3 : 1)*0.42, damp(2, dt));
-  if (post.mat){ post.mat.uniforms.gold.value = BEAUTY.gold; post.mat.uniforms.glow.value = isLow() ? 0 : 0.45 + nightF*0.75; }
+  if (post.mat){ post.mat.uniforms.gold.value = BEAUTY.gold; post.mat.uniforms.glow.value = isLow() || (window.GOV295 && GOV295.lvl >= 2) ? 0 : 0.45 + nightF*0.75; }   /* v295: the governor's last step drops it */
   // the sun
   { _a39.copy(sunOff).normalize(); const elevK = clamp(_a39.y*2.5, 0, 1); SUNSPRITE.position.copy(camera.position).addScaledVector(_a39, 200); const op = (1 - nightF*1.4)*(1 - wx.cloud*0.9); SUNSPRITE.material.opacity = clamp(op, 0, 1)*0.9; SUNSPRITE.visible = op > 0.02 && !indoors; SUNSPRITE.scale.setScalar(60 + BEAUTY.gold*90); SUNSPRITE.material.color.setRGB(1, 0.95 - BEAUTY.gold*0.3, 0.85 - BEAUTY.gold*0.55); }
   // lamplight pools
@@ -24916,12 +24942,12 @@ function updateBangLife48(dt, time){
     else if (N.mode === 'sit'){ animatePigeon(N.P, 'idle', N.anim, dt); N.P.g.position.y = N.pos.y + Math.sin(N.ph*0.8)*0.02; }
     else { N.t -= dt; if (N.t <= 0){ N.t = rr(2, 5); N.tgt = V48(MON48.yard.x + rr(-16, 16), 0.15, MON48.yard.z + rr(-20, 20)); } if (N.tgt){ const dx = N.tgt.x - N.P.g.position.x, dz = N.tgt.z - N.P.g.position.z, dl = Math.hypot(dx, dz); if (dl > 0.3){ N.P.g.position.x += dx/dl*dt*0.8; N.P.g.position.z += dz/dl*dt*0.8; N.P.g.rotation.y = Math.atan2(dx, dz); animatePigeon(N.P, 'walk', N.anim, dt); } else { if (rand() < dt*0.6) N.anim.peckT = 0.4; animatePigeon(N.P, 'idle', N.anim, dt); } } } }
   // street chickens wander a little around their corner
-  for (const C of STREETCHICK48){ const g = C.P.g; if (!g.parent.visible) continue; g.visible = (g.position.x - P.x)**2 + (g.position.z - P.z)**2 < 65*65; if (!g.visible) continue; C.anim.t += dt; C.t -= dt;
+  for (const C of STREETCHICK48){ const g = C.P.g; if (!g.parent.visible) continue; g.visible = (g.position.x - P.x)**2 + (g.position.z - P.z)**2 < 45*45; if (!g.visible) continue; C.anim.t += dt; C.t -= dt;   /* v293: 45 m (was 65) */
     if (C.t <= 0){ C.t = rr(2, 6); C.tgt = rand() < 0.6 ? V48(C.home.x + rr(-6, 6), 0.15, C.home.z + rr(-2, 2)) : null; }
     const near = (g.position.x - P.x)**2 + (g.position.z - P.z)**2 < 4 && playing; if (near){ C.tgt = V48(g.position.x + (g.position.x - P.x)*2, 0.15, g.position.z + (g.position.z - P.z)*2); }
     if (C.tgt){ const dx = C.tgt.x - g.position.x, dz = C.tgt.z - g.position.z, dl = Math.hypot(dx, dz); if (dl > 0.2){ const sp = near ? 3 : 0.8; g.position.x += dx/dl*dt*sp; g.position.z += dz/dl*dt*sp; g.rotation.y = Math.atan2(dx, dz); animatePigeon(C.P, 'walk', C.anim, dt); } else { C.tgt = null; } } else { if (rand() < dt*0.8) C.anim.peckT = 0.4; animatePigeon(C.P, 'idle', C.anim, dt); } }
   // walkers
-  for (const W of WALK48){ const g = W.H.g; if (!g.parent.visible) continue; if ((g.position.x - P.x)**2 + (g.position.z - P.z)**2 > 70*70){ g.visible = false; continue; } g.visible = true;
+  for (const W of WALK48){ const g = W.H.g; if (!g.parent.visible) continue; const wd2 = (g.position.x - P.x)**2 + (g.position.z - P.z)**2; if (wd2 > 48*48){ g.visible = false; continue; } g.visible = true; { const sh = wd2 < 30*30; if (sh !== W.sh293){ W.sh293 = sh; W.H.torso.castShadow = W.H.head.castShadow = sh; } }   /* v293: drawn to 48 m (was 70), shadows only within 30 m */
     if (W.wait > 0){ W.wait -= dt; for (const l of W.H.legs) l.rotation.x *= 0.85; continue; }
     W.u += W.dir*W.sp*dt; if (W.u > W.hi || W.u < W.lo){ W.dir *= -1; W.u = clamp(W.u, W.lo, W.hi); } if (rand() < dt*0.05) W.wait = rr(1, 4);
     const E = W.E, dx = (E.b[0] - E.a[0])/E.L, dz = (E.b[1] - E.a[1])/E.L, x = E.a[0] + dx*W.u + E.nx*E.side*6.6, z = E.a[1] + dz*W.u + E.nz*E.side*6.6; g.position.set(x, 0.15, z); g.rotation.y = Math.atan2(dx*W.dir, dz*W.dir);
@@ -25831,7 +25857,7 @@ let mask49 = null;
 
 function updateMask49(dt){ if (BK49.mask > 0){ BK49.mask -= dt; if (rand() < dt*0.6) emit('spark', _c49.copy(player.pos).setY(player.pos.y + 0.6), 1, 0.2, 0.4); if (BK49.mask <= 0 && mask49){ mask49.visible = false; floatText(player.pos, 'glowing', '#ffd8ec', 1.4); } } }
 
-function updateCabaret49(dt, time){ const night = nightF > 0.4; for (const G of CAB49.girls){ G.P.g.visible = night; if (!night) continue; G.ph += dt; G.anim.t += dt; animatePigeon(G.P, 'idle', G.anim, dt); for (const w of G.P.wings) w.outer.rotation.z = 0.4 + Math.sin(G.ph*2)*0.3; G.P.g.rotation.y = CAB49.face + Math.sin(G.ph*0.7)*0.4; } CAB49.sg.material.color.setScalar(night ? 1.2 : 0.7); }
+function updateCabaret49(dt, time){ const G0 = CAB49.girls[0], P = player.pos, near = !G0 || (G0.P.g.position.x - P.x)**2 + (G0.P.g.position.z - P.z)**2 < 90*90, night = nightF > 0.4 && near; for (const G of CAB49.girls){ G.P.g.visible = night; if (!night) continue;   /* v293: only near the cabaret */ G.ph += dt; G.anim.t += dt; animatePigeon(G.P, 'idle', G.anim, dt); for (const w of G.P.wings) w.outer.rotation.z = 0.4 + Math.sin(G.ph*2)*0.3; G.P.g.rotation.y = CAB49.face + Math.sin(G.ph*0.7)*0.4; } CAB49.sg.material.color.setScalar(night ? 1.2 : 0.7); }
 
 /* ---------- Red Bawk Racing: a demo run around Sanam Loong ---------- */
 function makeF1_49(){
@@ -28313,7 +28339,8 @@ CITYC58 = {ny: [0, 0], pb: [PB.x, PB.z], bk: [BK.x + 60, BK.z], vil: null};
 CL58 = (() => { const out = [], geo = new THREE.IcosahedronGeometry(1, 1), TILE = 480;
   for (let k = 0; k < 44; k++){ const g = new THREE.Group(), top = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, fog: false, depthWrite: false}), bot = new THREE.MeshBasicMaterial({color: 0xdde8f0, transparent: true, fog: false, depthWrite: false}), n = ri(7, 12), w = rr(14, 32);
     const tp = [], bp = []; for (let q = 0; q < n; q++){ const u = (q/(n - 1) - 0.5)*w, r = rr(4.5, 8.5)*(1 - Math.abs(u)/w*0.9); tp.push([geo, u + rr(-1.5, 1.5), rr(0.5, 2.5) + r*0.25, rr(-3, 3), r, r*0.75, r]); }
-    for (let q = 0; q < Math.ceil(n/2); q++) bp.push([geo, rr(-w/2, w/2)*0.8, -0.6, rr(-2.5, 2.5), rr(4, 6.5), 1.6, rr(3.5, 5.5)]); g.add(new THREE.Mesh(merge58(tp), top), new THREE.Mesh(merge58(bp), bot));
+    for (let q = 0; q < Math.ceil(n/2); q++) bp.push([geo, rr(-w/2, w/2)*0.8, -0.6, rr(-2.5, 2.5), rr(4, 6.5), 1.6, rr(3.5, 5.5)]); { const a = merge58(tp), b = merge58(bp), geo2 = new THREE.BufferGeometry(), cat = k => { const x = a.attributes[k].array, y = b.attributes[k].array, o = new Float32Array(x.length + y.length); o.set(x); o.set(y, x.length); return o; }, nA = a.attributes.position.count, nB = b.attributes.position.count, col = new Float32Array((nA + nB)*3);   // v293: top and underside in one mesh, one draw per cloud (the underside a cooler tint)
+      for (let i = 0; i < nA + nB; i++){ const u = i < nA ? [1, 1, 1] : [0.82, 0.88, 0.96]; col.set(u, i*3); } geo2.setAttribute('position', new THREE.BufferAttribute(cat('position'), 3)); geo2.setAttribute('normal', new THREE.BufferAttribute(cat('normal'), 3)); geo2.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo2.computeBoundingSphere(); top.vertexColors = true; g.add(new THREE.Mesh(geo2, top)); }
     g.renderOrder = -0.4; g.frustumCulled = false; scene.add(g); out.push({g, top, bot, ox: rr(0, TILE), oz: rr(0, TILE), y: rr(62, 96), a: 0, sp: rr(0.8, 1.6), heavy: k >= 24}); }
   return {list: out, TILE, drift: 0}; })();
 for (const c of clouds) c.visible = false;
@@ -28337,7 +28364,7 @@ function updateClouds58(dt){ const C = CL58, cam = camera.position, T = C.TILE, 
   _c58.copy(WHITE).lerp(sun.color, 0.28).multiplyScalar(1 - cover*0.32 - nightF*0.55); _d58.copy(skyHor).lerp(skyTop, 0.35).lerp(WHITE, 0.25).multiplyScalar(1 - cover*0.45 - nightF*0.5);
   for (const c of C.list){ const wrap = v => ((v % T) + T) % T - T/2; const x = cam.x + wrap(c.ox + C.drift*c.sp*1.4 - cam.x), z = cam.z + wrap(c.oz + C.drift*c.sp*0.5 - cam.z);
     c.g.position.set(x, c.y, z); const d = Math.hypot(x - cam.x, c.y - cam.y, z - cam.z), want = (!c.heavy || cover > 0.25 + (c.oz % 1)*0.5 ? 1 : 0)*(1 - smoothstep58(150, 230, d)); c.a += (want - c.a)*Math.min(1, dt*0.8);
-    c.g.visible = c.a > 0.02; c.top.opacity = c.bot.opacity = c.a*0.95; c.top.depthWrite = c.bot.depthWrite = c.a > 0.9; c.top.color.copy(_c58); c.bot.color.copy(_d58); }
+    c.g.visible = c.a > 0.02; c.top.opacity = c.a*0.95; c.top.depthWrite = c.a > 0.9; c.top.color.copy(_c58); }
 }
 
 const smoothstep58 = (a, b, x) => { const t = clamp((x - a)/(b - a), 0, 1); return t*t*(3 - 2*t); };
@@ -29135,7 +29162,7 @@ function makeBot67(o = {}){ const g = new THREE.Group(), white = mat(o.col || 0x
 function animBot67(B, dt, bow){ B.ph += dt; B.torso.rotation.x = bow ? Math.max(0, Math.sin(B.ph*1.3))*0.7 : Math.sin(B.ph*1.1)*0.04; B.head.rotation.y = bow ? 0 : Math.sin(B.ph*0.7)*0.3; B.arms[0].rotation.x = B.arms[1].rotation.x = bow ? -0.2 : Math.sin(B.ph*2)*0.1; }
 
 // a human with a little antenna headset: someone else is doing the walking
-function makeDrone67(o, parent, x, z, ry){ const H = makeHuman(Object.assign({shirt: 0x2a2a30, pants: 0x2a2a30}, o)); H.snack.visible = false; scene.remove(H.g); parent.add(H.g); H.g.position.set(x, 0.15, z); H.g.rotation.y = ry || 0; const plate = new THREE.Mesh(ckOnce(CK.geo, 'headset67', () => ckMerge([{geo: new THREE.TorusGeometry(0.245, 0.025, 6, 20, PI), m: ckM(0, 0, 0)}].concat([-1, 1].map(s => ({geo: new THREE.CylinderGeometry(0.075, 0.075, 0.05, 14), m: ckM(s*0.245, 0, 0, 0, 0, PI/2)}))))), ckMat(0xd8dce4)); plate.position.set(0, 1.86, 0); const ant = mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 6), ckMat(0xd8dce4), 0.2, 2.12, 0); /* v271: a curved headset */ H.g.add(plate); H.g.add(ant); const led = mesh(SPHERE, new THREE.MeshBasicMaterial({color: 0xff3a5a}), 0.2, 2.24, 0); led.scale.setScalar(0.03); H.g.add(led); H.led = led; H.headset = [plate, ant, led]; DRONES67.push(H); return H; }
+function makeDrone67(o, parent, x, z, ry){ const H = makeHuman(Object.assign({shirt: 0x2a2a30, pants: 0x2a2a30}, o)); H.snack.visible = false; scene.remove(H.g); parent.add(H.g); H.g.position.set(x, 0.15, z); H.g.rotation.y = ry || 0; const plate = new THREE.Mesh(ckOnce(CK.geo, 'headset67', () => ckMerge([{geo: new THREE.TorusGeometry(0.245, 0.025, 6, 20, PI), m: ckM(0, 0, 0)}].concat([-1, 1].map(s => ({geo: new THREE.CylinderGeometry(0.075, 0.075, 0.05, 14), m: ckM(s*0.245, 0, 0, 0, 0, PI/2)}))))), ckMat(0xd8dce4)); plate.position.set(0, 1.86, 0); const ant = mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 6), ckMat(0xd8dce4), 0.2, 2.12, 0); /* v271: a curved headset */ H.g.add(plate); H.g.add(ant); const led = mesh(SPHERE, new THREE.MeshBasicMaterial({color: 0xff3a5a}), 0.2, 2.24, 0); led.scale.setScalar(0.03); H.g.add(led); H.led = led; H.headset = [plate, ant, led]; if (H.det) H.det.push(plate, ant);   /* v293: the headset joins the face detail (it drops out with distance) */ DRONES67.push(H); return H; }
 
 // fly back and forth (after the first time)
 function hop67(dest){ return callHooked('hop67', hop67Base, [dest]); }
@@ -29511,7 +29538,7 @@ function updateStreet68(dt, time){ FUJI67.g.position.y = camera.position.y - 8;
   for (const o of WALK68){ const g = (o.H || o.B).g;
     if (!inGrid){ g.visible = false; o.life = 0; continue; }
     o.life -= dt; if (o.life <= 0 || Math.hypot(o.x - P.x, o.z - P.z) > 90){ g.visible = placeWalker68(o, P); if (!g.visible) continue; }
-    const d = Math.hypot(o.x - P.x, o.z - P.z); o.cd -= dt;
+    const d = Math.hypot(o.x - P.x, o.z - P.z); o.cd -= dt; g.visible = d < 60; if (o.H){ const sh = d < 30; if (sh !== o.sh294){ o.sh294 = sh; o.H.torso.castShadow = o.H.head.castShadow = sh; } }   // v294: drawn to 60 m, shadows within 30 m
     if (d < 2.4 && o.cd <= 0 && state === 'play' && !dlg){ o.cd = 9; o.bowT = 1.6; if (rand() < 0.5) floatText(_c68.set(o.x, 2.3, o.z), o.B ? pick(BOTLINE68) : pick(SORRY68), o.B ? '#5ad8ff' : '#fff6dc', 1.6); }
     if (o.bowT > 0){ o.bowT -= dt; if (o.H){ o.H.g.rotation.x = -0.45*Math.sin(Math.min(1, (1.6 - o.bowT)/0.4)*PI/2); o.H.legs[0].rotation.x = o.H.legs[1].rotation.x = 0; } else animBot67(o.B, dt, true); g.rotation.y = Math.atan2(P.x - o.x, P.z - o.z); }
     else { o.x += o.dx*o.sp*dt; o.z += o.dz*o.sp*dt; g.rotation.y = Math.atan2(o.dx, o.dz); if (o.H){ o.H.g.rotation.x = 0; const w = Math.sin(time*7*o.sp + o.t)*0.45; o.H.legs[0].rotation.x = w; o.H.legs[1].rotation.x = -w; o.H.led.visible = Math.floor(time*2 + o.t) % 2 === 0; } else animBot67(o.B, dt, false); }
@@ -31956,7 +31983,7 @@ AR93 = new Map(); area93 = (x, z) => { const k = Math.floor(x/128) + ',' + Math.
   buildAreasIn53(AR93, bangG); }
 // water hyacinth drifting down the river and the klongs; and the river itself, brown and moving
 HYA93 = (() => { const out = [], water = BKP93.filter(o => o.kind === 'water').map(o => ({x0: Math.min(...o.p.map(q => q[0])), x1: Math.max(...o.p.map(q => q[0])), z0: Math.min(...o.p.map(q => q[1])), z1: Math.max(...o.p.map(q => q[1]))})).filter(r => Math.abs(r.x1 - r.x0 - RIVW48*2) > 1 && Math.max(r.x1 - r.x0, r.z1 - r.z0) > 20 && Math.min(r.x1 - r.x0, r.z1 - r.z0) < 30); const m = mat(0x3a8a3a), f = new THREE.MeshBasicMaterial({color: 0xc8a8ff});
-  for (let k = 0; k < 90; k++){ const river = k < 50 || !water.length, r = river ? null : water[k % water.length], g = new THREE.Group(), n = river ? 3 + Math.floor(RNG93()*8) : 5; for (let q = 0; q < n; q++){ const l = mesh(SPHERE, m, rr93(-0.5, 0.5)*(river ? n/4 : 1), 0.05, rr93(-0.5, 0.5)*(river ? n/4 : 1)); l.scale.set(0.35, 0.08, 0.3); g.add(l); } if (RNG93() < 0.5) g.add(boxMesh(0.12, 0.25, 0.12, f, 0, 0.18, 0)); bangG.add(g); out.push({g, r, river, along: r && (r.x1 - r.x0) > (r.z1 - r.z0), u: RNG93(), v: RNG93(), sp: river ? rr93(0.0015, 0.003) : rr93(0.004, 0.012)}); } return out; })();
+  for (let k = 0; k < 90; k++){ const river = k < 50 || !water.length, r = river ? null : water[k % water.length], g = new THREE.Group(), n = river ? 3 + Math.floor(RNG93()*8) : 5; for (let q = 0; q < n; q++){ const l = mesh(SPHERE, m, rr93(-0.5, 0.5)*(river ? n/4 : 1), 0.05, rr93(-0.5, 0.5)*(river ? n/4 : 1)); l.scale.set(0.35, 0.08, 0.3); g.add(l); } if (RNG93() < 0.5) g.add(boxMesh(0.12, 0.25, 0.12, f, 0, 0.18, 0)); ckMergeKids(g); bangG.add(g);   /* v294: one mesh per clump (was up to 11) */ out.push({g, r, river, along: r && (r.x1 - r.x0) > (r.z1 - r.z0), u: RNG93(), v: RNG93(), sp: river ? rr93(0.0015, 0.003) : rr93(0.004, 0.012)}); } return out; })();
 if (BK.river){ const p = BK.river.geometry.attributes.position, uv = []; for (let i = 0; i < p.count; i++) uv.push(p.getX(i)/10, p.getZ(i)/10); BK.river.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); const t = RIPPLE90.clone(); t.needsUpdate = true; BK.river.material = BK.river.material.clone(); BK.river.material.map = t; BK.river.material.color.setHex(0x6a7a5a); BK.river.material.needsUpdate = true; }
 if (typeof SYS52 !== 'undefined') SYS52.push(['bk93', updateBK93]);
 };
@@ -31974,8 +32001,8 @@ let BKWAT93 = null;
 
 function updateBK93(dt, time){ if (cityOf58() !== 'bk') return; WIND90.value = time; if (!BKWAT93) BKWAT93 = waterScan91(bangG); for (const w of BKWAT93){ w.t.offset.x = (time*0.012*w.sp + w.k) % 1; w.t.offset.y = (time*0.007*w.sp + w.k) % 1; }
   if (BK.river && BK.river.material.map){ const o = BK.river.material.map.offset; o.y = (time*0.05) % 1; o.x = Math.sin(time*0.2)*0.03; }
-  for (const h of HYA93){ h.u = (h.u + dt*h.sp) % 1; if (h.river){ const lz = BK.z0 - 60 + (BK.z1 - BK.z0 + 120)*(1 - h.u); h.g.position.set(BK.x + riverX48(lz) + (h.v - 0.5)*RIVW48*1.6, 0.08 + Math.sin(time + h.u*40)*0.02, BK.z + lz); h.g.rotation.y += dt*0.05; continue; }
-    const r = h.r; h.g.position.set(h.along ? r.x0 + (r.x1 - r.x0)*h.u : r.x0 + (r.x1 - r.x0)*(0.2 + h.v*0.6), 0.08 + Math.sin(time + h.u*40)*0.02, h.along ? r.z0 + (r.z1 - r.z0)*(0.2 + h.v*0.6) : r.z0 + (r.z1 - r.z0)*h.u); h.g.rotation.y += dt*0.1; } }
+  for (const h of HYA93){ h.u = (h.u + dt*h.sp) % 1; if (h.river){ const lz = BK.z0 - 60 + (BK.z1 - BK.z0 + 120)*(1 - h.u); h.g.position.set(BK.x + riverX48(lz) + (h.v - 0.5)*RIVW48*1.6, 0.08 + Math.sin(time + h.u*40)*0.02, BK.z + lz); h.g.rotation.y += dt*0.05; h.g.visible = (h.g.position.x - player.pos.x)**2 + (h.g.position.z - player.pos.z)**2 < 14400; continue; }
+    const r = h.r; h.g.position.set(h.along ? r.x0 + (r.x1 - r.x0)*h.u : r.x0 + (r.x1 - r.x0)*(0.2 + h.v*0.6), 0.08 + Math.sin(time + h.u*40)*0.02, h.along ? r.z0 + (r.z1 - r.z0)*(0.2 + h.v*0.6) : r.z0 + (r.z1 - r.z0)*h.u); h.g.rotation.y += dt*0.1; h.g.visible = (h.g.position.x - player.pos.x)**2 + (h.g.position.z - player.pos.z)**2 < 14400; } }   /* v294: drawn within 120 m */
 /* ---------- world: gameplay/loot-spiral ---------- */
 // From v94. The ld_* steps are run by boot/world.js, in load order.
 // set by the steps below
@@ -47154,6 +47181,35 @@ WHATS_NEW.unshift(['291 · Roses Round the Door', 'Little Pecking’s cottages h
 GAME_VER.n = 292;
 GAME_VER.name = 'Alpenglow';
 WHATS_NEW.unshift(['292 · Alpenglow', 'Bavaria in a kinder light: a warm late-afternoon tint, a soft olive valley instead of lawn green, warm rock on the mountainsides instead of a dark storm wall, haystacks that look like straw stacked on their poles, and the yellow castle by the lake with rows of windows, a gate and red tower roofs.']);
+/* =====================================================================
+   v293 · TUNE-UP: a frame-rate pass. The extra-long view only on High,
+   smaller static batches, a cheaper afternoon glow, one draw per cloud,
+   far faces, headsets and flock details dropped, tighter Bangcluck crowds,
+   and New Yolk's street life paused while Pidge is in another city
+   ===================================================================== */
+// v293
+GAME_VER.n = 293;
+GAME_VER.name = 'Tune-Up';
+WHATS_NEW.unshift(['293 · Tune-Up', 'Faster everywhere: the extra-long view distance is now part of High quality (Paree runs noticeably smoother without it), the soft afternoon glow costs a quarter of what it did, each cloud draws in one go, far-off faces, drone headsets and flock pigeons’ beaks and legs drop out with distance, Bangcluck’s crowds and chickens draw a little less far, and New Yolk’s dogs, cars and sparrows rest while you are in another city.']);
+/* =====================================================================
+   v294 · LONG HAUL: frame rate that holds up over a long session. Props
+   that pop in and out with distance rejoin their batches, the room lights
+   come from a pool of five, tree crowns draw as one, and Tokyoo's walkers
+   draw a little less far
+   ===================================================================== */
+// v294
+GAME_VER.n = 294;
+GAME_VER.name = 'Long Haul';
+WHATS_NEW.unshift(['294 · Long Haul', 'Smoother the longer you play: things that fade out with distance and come back now rejoin the batched scenery instead of drawing alone for the rest of the session, the shops and rooms share five lights instead of twelve, New Yolk’s park trees draw their crowns in one piece, and Tokyoo’s walkers draw to 60 m with shadows close up.']);
+/* =====================================================================
+   v295 · STEADY: a frame-time governor on Auto quality (render scale
+   steps down when frames run long, and back up), and particles drawn as
+   one instanced mesh per kind instead of a mesh each
+   ===================================================================== */
+// v295
+GAME_VER.n = 295;
+GAME_VER.name = 'Steady';
+WHATS_NEW.unshift(['295 · Steady', 'On Auto quality the game now watches its own frame rate: when frames run long for a few seconds it draws at a slightly lower resolution (and drops the soft glow if it has to), and steps back up once things are smooth again. Steam, sparks, leaves, dust and feathers are drawn together by kind instead of one by one.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -48373,7 +48429,7 @@ $('newBtn').addEventListener('click', () => { try { localStorage.removeItem(SAVE
 function resize(){
   const w = innerWidth, h = innerHeight;
   const dpr = window.devicePixelRatio || 1;
-  { const k = settings.pixel*dpr, kk = Math.abs(k - Math.round(k)) < 0.26 || k >= 2.5 ? Math.max(1, Math.round(k)) : k; renderer.setPixelRatio(settings.pixel > 1 ? dpr/kk : settings.pixel === 0 || settings.quality === 'high' ? Math.min(dpr, 2) : Math.min(dpr, 1)); }   /* v283: 'Sharp' draws one pixel per CSS pixel (a 1.5x laptop screen drew 2.25x the pixels); 'Native' or High quality use the screen's own */
+  { const k = settings.pixel*dpr, kk = Math.abs(k - Math.round(k)) < 0.26 || k >= 2.5 ? Math.max(1, Math.round(k)) : k; renderer.setPixelRatio((settings.pixel > 1 ? dpr/kk : settings.pixel === 0 || settings.quality === 'high' ? Math.min(dpr, 2) : Math.min(dpr, 1)) * (window.GOV295 ? GOV295.scale : 1)); }   /* v283: 'Sharp' draws one pixel per CSS pixel (a 1.5x laptop screen drew 2.25x the pixels); 'Native' or High quality use the screen's own */
   renderer.setSize(w, h, false);
   post.resize();
   camera.aspect = w/h; camera.updateProjectionMatrix();
@@ -48383,13 +48439,27 @@ addEventListener('resize', resize); resize();
 let last = performance.now(), time = 0, saveT = 0, mapT = 0, frameN = 0;
 const FRAMEERR47 = new Set();
 function frame(now){ requestAnimationFrame(frame); try { frameBody47(now); } catch(e){ const k = String(e && e.message); if (!FRAMEERR47.has(k)){ FRAMEERR47.add(k); console.error('frame', e); } } }
+// v295: the frame-time governor (quality Auto only). A smoothed frame time; over 25 ms for 3 s it steps down (render
+// scale 0.85, then 0.72 with the soft glow off), under 17 ms for 8 s it steps back up. Dialogue, cut-scenes and menus
+// leave it where it is; the test harness (window.__snap) and other quality settings keep it at full.
+function gov295(now){ const G = window.GOV295 || (window.GOV295 = {lvl: 0, scale: 1, avg: 16, bad: 0, good: 0, last: now}); const ft = now - G.last; G.last = now;
+  const set = l => { if (l === G.lvl) return; G.lvl = l; G.scale = [1, 0.85, 0.72][l]; G.bad = G.good = 0; try { resize(); } catch (e){} };
+  if (settings.quality !== 'auto' || typeof window.__snap === 'function'){ set(0); return; }
+  if (ft <= 0 || ft > 250 || state !== 'play') return;   // tab switches and hitches don't count
+  G.avg += (ft - G.avg)*0.05;
+  if (G.avg > 25){ G.bad += ft/1000; G.good = 0; if (G.bad > 3 && G.lvl < 2) set(G.lvl + 1); }
+  else if (G.avg < 17){ G.good += ft/1000; G.bad = 0; if (G.good > 8 && G.lvl > 0) set(G.lvl - 1); }
+  else G.bad = G.good = 0; }
 function frameBody47(now){
+  gov295(now);
   updateRegions();   // regions build the first frame they are needed (core/regions.js)
   const dt = Math.min(0.05, (now - last)/1000); last = now; time += dt;
   if (state === 'play'){ updatePlayer(dt); S.time += dt; saveT += dt; if (saveT > 10){ saveT = 0; save(); } }
   else if (state === 'title'){ player.anim.t += dt; animatePigeon(player.P, 'idle', player.anim, dt); player.P.g.position.copy(player.pos); player.P.g.rotation.y = player.heading; }
-  updateHumans(dt); updateSitters(dt); updateDogs(dt); updateCars(dt); updateGull(dt); updateSal(dt); updateFood(dt, time);
-  updateFlock(dt); updateGus(dt); updateVents(dt); updateSparrows(dt, time); updateButterflies(dt, time); updateLeaves(dt); updateCharm(dt, time); updateWorld2(dt, time); updatePolish(dt, time); updateExtras(dt, time); updateTransit(dt, time); updateHighrise(dt, time); updateDistricts(dt, time); updateUnderground(dt, time); updateCoast(dt, time); updateLife14(dt, time); updateZoo(dt, time); updatePebble(dt); updateFamily(dt, time); updateRail(dt, time); updateStreets(dt, time); updateEvents(dt, time); updateLife18(dt, time); updatePark(dt, time); updateTraffic2(dt, time); updatePlay20(dt, time); updateV21(dt, time); updateV22(dt, time); updateV25(dt, time); updateV27b(dt, time); updateV27(dt, time); updateV28(dt, time); updateV29(dt, time); updateV29c(dt, time); updateV30(dt, time); updateV30b(dt, time); updateVan(dt); updateV30d(dt, time); updateV31(dt, time); updateV32(dt, time); updateV33(dt, time); updateV34(dt, time); updateV35(dt, time); updateV37a(dt, time); updateV37b(dt, time); updateBlink37(dt); updateV38a(dt, time); updateV38b(dt, time); updateV39a(dt, time); updateV39b(dt, time); updateV39c(dt, time); updateV40(dt, time); updateV41(dt, time); updateV42(dt, time); updateV43(dt, time); updateV44(dt, time); updateV45(dt, time); updateV47(dt, time); updateV48(dt, time); updateV49(dt, time); updateV50(dt, time); updateV51(dt, time); updateV52(dt, time); try { updateTracks49(dt); } catch(e){} updateV23(dt); updateParticles(dt); updateAudio(dt); ckTick(dt);
+  const ny294 = cityOf58() === 'ny';   // v294: New Yolk's own street life only runs while Pidge is in (or near) New Yolk
+  updateHumans(dt); if (ny294){ updateSitters(dt); updateDogs(dt); updateCars(dt); } updateGull(dt); updateSal(dt); updateFood(dt, time);
+  if (ROOMPOOL294) updateRoomPool294(dt);   // v294: the pooled room lights
+  updateFlock(dt); updateGus(dt); if (ny294){ updateVents(dt); updateSparrows(dt, time); updateButterflies(dt, time); updateLeaves(dt); } updateCharm(dt, time); updateWorld2(dt, time); updatePolish(dt, time); updateExtras(dt, time); updateTransit(dt, time); updateHighrise(dt, time); updateDistricts(dt, time); updateUnderground(dt, time); updateCoast(dt, time); updateLife14(dt, time); updateZoo(dt, time); updatePebble(dt); updateFamily(dt, time); updateRail(dt, time); updateStreets(dt, time); updateEvents(dt, time); updateLife18(dt, time); updatePark(dt, time); updateTraffic2(dt, time); updatePlay20(dt, time); updateV21(dt, time); updateV22(dt, time); updateV25(dt, time); updateV27b(dt, time); updateV27(dt, time); updateV28(dt, time); updateV29(dt, time); updateV29c(dt, time); updateV30(dt, time); updateV30b(dt, time); updateVan(dt); updateV30d(dt, time); updateV31(dt, time); updateV32(dt, time); updateV33(dt, time); updateV34(dt, time); updateV35(dt, time); updateV37a(dt, time); updateV37b(dt, time); updateBlink37(dt); updateV38a(dt, time); updateV38b(dt, time); updateV39a(dt, time); updateV39b(dt, time); updateV39c(dt, time); updateV40(dt, time); updateV41(dt, time); updateV42(dt, time); updateV43(dt, time); updateV44(dt, time); updateV45(dt, time); updateV47(dt, time); updateV48(dt, time); updateV49(dt, time); updateV50(dt, time); updateV51(dt, time); updateV52(dt, time); try { updateTracks49(dt); } catch(e){} updateV23(dt); updateParticles(dt); updateAudio(dt); ckTick(dt);
   for (const c of clouds){ c.position.x += dt*1.2; if (c.position.x > 420) c.position.x = -420; }
   const tg = state === 'title' ? null : questTarget();
   beacon.visible = !!tg && !dlg && !SHOT && !VAN.on;
