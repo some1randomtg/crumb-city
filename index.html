@@ -28546,7 +28546,7 @@ NY58 = {};
     sign49('ECTO-COO', 1.2, 0.3, x + 1.06, 1.0, z - 1.0, PI/2, LM52, {bg: '#f4f0e6', fg: '#d4302a', size: 32, pw: 256, ph: 56});
     K.box(0.12, 3.6, 0.12, x + 2.2, 1.8, z + 4, 0x2a2a30); sign49('GHOSTBIRDERS\nEst. 1984 · No ghost too small', 2.4, 1.0, x + 2.29, 3.8, z + 4, PI/2, LM52, {bg: '#f4f0e6', fg: '#d4302a', size: 24, pw: 320, ph: 128}); sign49('GHOSTBIRDERS\nEst. 1984 · No ghost too small', 2.4, 1.0, x + 2.11, 3.8, z + 4, -PI/2, LM52, {bg: '#f4f0e6', fg: '#d4302a', size: 24, pw: 320, ph: 128});
     NY58.gb = []; for (const [dx, dz] of [[2.2, 1.6], [2.4, 2.8]]){ const P = makePigeon({scale: 1.2}); scene.remove(P.g); LM52.add(P.g); P.g.position.set(x + dx, 0.17, z + dz); P.g.rotation.y = PI/2; P.bp.add(boxMesh(0.3, 0.35, 0.18, mat(0x5a5a62), 0, 0.12, -0.3)); P.bp.add(boxMesh(0.04, 0.04, 0.5, mat(0x3a3a42), 0.18, 0.05, 0.1)); NY58.gb.push({P, anim: newAnim()}); }
-    const sl = new THREE.Group(); LM52.add(sl); const body = mesh(SPHERE, new THREE.MeshBasicMaterial({color: 0x8ae84a, transparent: true, opacity: 0.75}), 0, 0, 0); body.scale.set(0.5, 0.45, 0.45); sl.add(body); for (const s of [-1, 1]) sl.add(boxMesh(0.08, 0.1, 0.05, mat(0x1a3a10), s*0.15, 0.12, 0.38)); sl.add(boxMesh(0.25, 0.08, 0.05, mat(0x6a2a2a), 0, -0.1, 0.42)); NY58.slimer = {g: sl, cx: x + 4, cz: z};
+    const sl = new THREE.Group(); LM52.add(sl); const body = mesh(SPHERE, new THREE.MeshBasicMaterial({color: 0x8ae84a, transparent: true, opacity: 0.75}), 0, 0, 0); body.scale.set(0.5, 0.45, 0.45); sl.add(body); for (const s of [-1, 1]) sl.add(boxMesh(0.08, 0.1, 0.05, mat(0x1a3a10), s*0.15, 0.12, 0.38)); sl.add(boxMesh(0.25, 0.08, 0.05, mat(0x6a2a2a), 0, -0.1, 0.42)); NY58.slimer = {g: sl, cx: x + 4, cz: z}; sl.position.set(x + 4, 2.4, z);
     NY58.gbPos = V48(x + 3.4, 0.9, z + 2.2); }
   // Pizza Rat: one rat, one slice, one subway entrance, fifty million views
   { const x = -117.6, z0 = -198, z1 = -182, A = area(x, z1), K = A.K;
@@ -28555,14 +28555,18 @@ NY58 = {};
     sign49('SUBWAY\nUPTOWN & THE BRONX', 1.4, 0.45, x, 1.45, z1 + 0.06, PI, LM52, {bg: '#14141a', fg: '#f4f0e6', size: 22, pw: 256, ph: 80});
     const R = new THREE.Group(); LM52.add(R); const fur = mat(0x6a625a); R.add(boxMesh(0.22, 0.16, 0.42, fur, 0, 0.1, 0)); R.add(boxMesh(0.15, 0.13, 0.18, fur, 0, 0.12, 0.27)); for (const s of [-1, 1]){ const e = mesh(SPHERE, mat(0xd8a8a8), s*0.07, 0.21, 0.24); e.scale.setScalar(0.04); R.add(e); } const tail = boxMesh(0.03, 0.03, 0.5, mat(0xd8a8a8), 0, 0.08, -0.45); R.add(tail);
     const slice = new THREE.Group(); slice.position.set(0, 0.07, 0.48); R.add(slice); slice.add(boxMesh(0.36, 0.03, 0.45, mat(0xf0c060), 0, 0, 0.12)); slice.add(boxMesh(0.32, 0.02, 0.38, mat(0xd4482a), 0, 0.025, 0.14)); for (let k = 0; k < 3; k++) slice.add(boxMesh(0.06, 0.02, 0.06, mat(0xa82a1a), rr(-0.1, 0.1), 0.04, rr(0, 0.25)));
-    NY58.rat = {R, x, z0, z1, t: 0}; }
+    NY58.rat = {R, x, z0, z1, t: 0}; R.position.set(x, 0.17, z0); }
   // a parade balloon up the avenue: Big Birb, with six handlers who did not train for this
   { const B = new THREE.Group(); LM52.add(B); const yel = mat(0xffd23a), org = mat(0xf08a2a); const b = mesh(SPHERE, yel, 0, 0, 0); b.scale.set(2.6, 3.2, 2.4); B.add(b); const h = mesh(SPHERE, yel, 0, 4.2, 0.6); h.scale.setScalar(1.8); B.add(h); const bk = boxMesh(0.8, 0.5, 1.6, org, 0, 4.0, 2.4); bk.rotation.x = 0.2; B.add(bk);
     for (const s of [-1, 1]){ const e = mesh(SPHERE, mat(0xf4f0e6), s*0.7, 4.8, 2.0); e.scale.setScalar(0.42); B.add(e); B.add(boxMesh(0.25, 0.25, 0.1, mat(0x14141a), s*0.7, 4.8, 2.4)); const w = boxMesh(0.4, 3.0, 1.6, yel, s*2.7, 0.2, 0); w.rotation.z = s*0.4; B.add(w); for (let k = 0; k < 2; k++) B.add(boxMesh(0.3, 1.6, 0.3, org, s*0.8, -4.2 - k*0.1, 0)); }
     for (let k = 0; k < 6; k++){ const f = boxMesh(0.4, 0.4, 0.4, yel, rr(-0.6, 0.6), 6.2 + rr(0, 0.5), rr(0, 0.6)); f.rotation.set(rr(0, 1), rr(0, 1), 0); B.add(f); }
     const hs = []; for (let k = 0; k < 6; k++){ const H = makeHuman({shirt: k % 2 ? 0xd4302a : 0xf4f0e6}); H.snack.visible = false; scene.remove(H.g); LM52.add(H.g); H.arms[0].rotation.x = H.arms[1].rotation.x = -2.6; hs.push({H, ox: (k % 2 ? 1 : -1)*rr(2.5, 4), oz: (Math.floor(k/2) - 1)*3}); }
     const ropes = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(new Array(6*6).fill(0), 3)), new THREE.LineBasicMaterial({color: 0x2a2a30})); ropes.frustumCulled = false; LM52.add(ropes);
-    NY58.parade = {B, hs, ropes, x: -304, z0: -232, z1: -60, t: 0, dir: 1, z: -232}; }
+    NY58.parade = {B, hs, ropes, x: -304, z0: -232, z1: -60, t: 0, dir: 1, z: -232};
+    // v303.1: in place from the start. They were built at the world's origin and only moved once Pidge came near their
+    // streets, so until then Big Birb, its six handlers and the ropes (and the slime and Pizza Rat) stood in the middle
+    // of the park by Gus's bench: giant yellow, red and white shapes over the square
+    B.position.set(-304, 15, -232); const rp = ropes.geometry.attributes.position; hs.forEach((h, i) => { const hx = -304 + h.ox, hz = -232 + h.oz; h.H.g.position.set(hx, 0.15, hz); rp.setXYZ(i*2, hx, 2.2, hz); rp.setXYZ(i*2 + 1, -304 + h.ox*0.4, 12, -232 + h.oz*0.5); }); rp.needsUpdate = true; }
   // two wet bandits on a brownstone stoop, and a paint can on a rope
   { const x = -544 + 11.4, z = -160, H1 = makeHuman({shirt: 0x6a4a2a, pants: 0x2a2a30, hat: 0x3a3a42}), H2 = makeHuman({shirt: 0x3a5a3a, pants: 0x4a4a52, hair: 0x2a1a10});
     for (const [H, dz] of [[H1, -0.8], [H2, 0.8]]){ H.snack.visible = false; scene.remove(H.g); LM52.add(H.g); H.g.position.set(x + 1.6, 0.15, z + dz); H.g.rotation.y = -PI/2; } H2.g.scale.setScalar(1.12);
