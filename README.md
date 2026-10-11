@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v303.1 (Tokyoo built when the story gets there; v303.1 fixes giant shapes over Gus's square).
+Current version: v304 (a faster first load and smoother frames in New Yolk).

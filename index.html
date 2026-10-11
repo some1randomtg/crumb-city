@@ -732,6 +732,18 @@ const isTouch = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in wi
 //   moves points by writing geometry.attributes.position keeps working.
 // - Light units: see post.render (render/pipeline.js), which scales the lights by PI while it renders.
 
+// - v304: bounding spheres of plain position arrays straight from the array (the same box centre and largest distance
+//   three works out through a Vector3 per vertex, which was most of a second of the first load)
+{ const P = THREE.BufferGeometry.prototype, orig = P.computeBoundingSphere;
+  P.computeBoundingSphere = function(){ const pos = this.attributes.position, mp = this.morphAttributes.position;
+    if (!pos || pos.isGLBufferAttribute || pos.isInterleavedBufferAttribute || pos.normalized || pos.itemSize !== 3 || (mp && mp.length) || !pos.count) return orig.call(this);
+    if (this.boundingSphere === null) this.boundingSphere = new THREE.Sphere();
+    const a = pos.array, n = pos.count*3; let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+    for (let i = 0; i < n; i += 3){ const x = a[i], y = a[i + 1], z = a[i + 2]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (z < z0) z0 = z; if (z > z1) z1 = z; }
+    const c = this.boundingSphere.center.set((x0 + x1)*0.5, (y0 + y1)*0.5, (z0 + z1)*0.5); let m = 0;
+    for (let i = 0; i < n; i += 3){ const dx = a[i] - c.x, dy = a[i + 1] - c.y, dz = a[i + 2] - c.z, d = dx*dx + dy*dy + dz*dz; if (d > m) m = d; }
+    this.boundingSphere.radius = Math.sqrt(m); }; }
+
 let POINTS_VIEW = null;   // CSS pixels of the canvas (set by resize; WebGPU only)
 if (window.__GPU){
 POINTS_VIEW = THREE.TSL.uniform(new THREE.Vector2(1, 1));
@@ -1988,7 +2000,7 @@ function sbBuild(key){
   if (b.mesh){ const par = b.mesh.parent; if (par){ par.remove(b.mesh); if (par.isBundleGroup) sbBundleChanged(par); } b.mesh.geometry.dispose(); b.mesh = null; }
   if (!b.members.size){ (b.proxy ? B.proxies : B.buckets).delete(key); if (b.mat) b.mat.dispose(); return; }
   if (b.mats){ for (const [m, mi] of b.mats) if (!mi.members.size) b.mats.delete(m); if (!b.mats.has(b.rep)) b.rep = b.mats.keys().next().value; }
-  b.root.updateMatrixWorld(); const inv = new THREE.Matrix4().copy(b.root.matrixWorld).invert(), M = new THREE.Matrix4(), N = new THREE.Matrix3(), p = new THREE.Vector3();
+  b.root.updateWorldMatrix(true, false);   /* v304: the root's own chain only (its members' matrices are this frame's, from sbMatrices): updateMatrixWorld walked the whole scene for every batch built */ const inv = new THREE.Matrix4().copy(b.root.matrixWorld).invert(), M = new THREE.Matrix4(), N = new THREE.Matrix3(), p = new THREE.Vector3();
   const list = b.proxy ? [...b.members].map(o => [o, [{start: 0, count: Infinity}]]) : [...b.members];
   // sizes: each member's vertices once, then its index ranges (one per group in this bucket)
   let nv = 0, ni = 0; const spans = [];
@@ -2505,26 +2517,35 @@ function ckRodGeo(a, b, r, seg = 5){ const A = new THREE.Vector3(...a), B = new 
 const ckBlobGeo = () => ckOnce(CK.geo, 'blob282', () => { const g = new THREE.IcosahedronGeometry(1, 0).toNonIndexed(), P = g.attributes.position, N = g.attributes.normal; for (let i = 0; i < P.count; i++) N.setXYZ(i, P.getX(i), P.getY(i), P.getZ(i)); return g; });
 const CK_NI = new WeakMap();   // de-indexed copies of shared geometries (v282: thousands of merged parts reuse a few shapes)
 function ckMerge(parts, withColor = false){
-  const P = [], N = [], U = [], C = [], c = new THREE.Color(), v = new THREE.Vector3(), nm = new THREE.Matrix3();
-  for (const p of parts){
-    const g = p.geo.index ? (CK_NI.get(p.geo) || (CK_NI.set(p.geo, p.geo.toNonIndexed()), CK_NI.get(p.geo))) : p.geo, pos = g.attributes.position, nor = g.attributes.normal, uv = g.attributes.uv;
-    if (p.m) nm.getNormalMatrix(p.m);
+  // v304: counted first and written straight into typed arrays with the matrix maths inlined (the same numbers as
+  // Vector3.applyMatrix4/applyMatrix3 + normalize); pushing into plain arrays through Vector3s was a second of the load
+  const c = new THREE.Color(), v = new THREE.Vector3(), nm = new THREE.Matrix3(), G = [];
+  let n = 0; for (const p of parts){ const g = p.geo.index ? (CK_NI.get(p.geo) || (CK_NI.set(p.geo, p.geo.toNonIndexed()), CK_NI.get(p.geo))) : p.geo; G.push(g); n += g.attributes.position.count; }
+  const P = new Float32Array(n*3), N = new Float32Array(n*3), U = new Float32Array(n*2), C = withColor ? new Float32Array(n*3) : null;
+  let o = 0;
+  parts.forEach((p, pi) => {
+    const g = G[pi], pos = g.attributes.position, nor = g.attributes.normal, uv = g.attributes.uv, plain = a => a && !a.isInterleavedBufferAttribute && !a.normalized;
+    const pa = plain(pos) && pos.itemSize === 3 ? pos.array : null, na = plain(nor) && nor.itemSize === 3 ? nor.array : null, ua = plain(uv) && uv.itemSize === 2 ? uv.array : null;
+    const e = p.m ? p.m.elements : null; if (p.m) nm.getNormalMatrix(p.m); const m3 = nm.elements;
     const ca = withColor && p.col === undefined && !p.vc ? g.attributes.color : null;   // keep a part's own vertex colours
     if (withColor) c.setHex(p.col ?? 0xffffff);
-    for (let i = 0; i < pos.count; i++){
-      v.fromBufferAttribute(pos, i);
-      if (p.vc) c.setHex(p.vc(v.x, v.y, v.z)); else if (ca) c.fromBufferAttribute(ca, i);   // vc: colour from the part's own (untransformed) coordinates
-      if (p.m) v.applyMatrix4(p.m); P.push(v.x, v.y, v.z);
-      if (nor){ v.fromBufferAttribute(nor, i); if (p.m) v.applyMatrix3(nm).normalize(); N.push(v.x, v.y, v.z); } else N.push(0, 1, 0);
-      if (p.uv){ const q = p.uv(P, P.length/3 - 1); U.push(q[0], q[1]); } else if (uv) U.push(uv.getX(i), uv.getY(i)); else U.push(0, 0);
-      if (withColor) C.push(c.r, c.g, c.b);
+    for (let i = 0; i < pos.count; i++, o++){
+      let x, y, z; if (pa){ x = pa[i*3]; y = pa[i*3 + 1]; z = pa[i*3 + 2]; } else { v.fromBufferAttribute(pos, i); x = v.x; y = v.y; z = v.z; }
+      if (p.vc) c.setHex(p.vc(x, y, z)); else if (ca) c.fromBufferAttribute(ca, i);   // vc: colour from the part's own (untransformed) coordinates
+      if (e){ const w = 1/(e[3]*x + e[7]*y + e[11]*z + e[15]); const X = (e[0]*x + e[4]*y + e[8]*z + e[12])*w, Y = (e[1]*x + e[5]*y + e[9]*z + e[13])*w, Z = (e[2]*x + e[6]*y + e[10]*z + e[14])*w; x = X; y = Y; z = Z; }
+      P[o*3] = x; P[o*3 + 1] = y; P[o*3 + 2] = z;
+      if (nor){ let a, b, d; if (na){ a = na[i*3]; b = na[i*3 + 1]; d = na[i*3 + 2]; } else { v.fromBufferAttribute(nor, i); a = v.x; b = v.y; d = v.z; }
+        if (e){ const A = m3[0]*a + m3[3]*b + m3[6]*d, B = m3[1]*a + m3[4]*b + m3[7]*d, D = m3[2]*a + m3[5]*b + m3[8]*d, l = 1/(Math.sqrt(A*A + B*B + D*D) || 1); a = A*l; b = B*l; d = D*l; }
+        N[o*3] = a; N[o*3 + 1] = b; N[o*3 + 2] = d; } else N[o*3 + 1] = 1;
+      if (p.uv){ const q = p.uv(P, o); U[o*2] = q[0]; U[o*2 + 1] = q[1]; } else if (ua){ U[o*2] = ua[i*2]; U[o*2 + 1] = ua[i*2 + 1]; } else if (uv){ U[o*2] = uv.getX(i); U[o*2 + 1] = uv.getY(i); }
+      if (C){ C[o*3] = c.r; C[o*3 + 1] = c.g; C[o*3 + 2] = c.b; }
     }
-  }
+  });
   const out = new THREE.BufferGeometry();
-  out.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-  out.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
-  out.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
-  if (withColor) out.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+  out.setAttribute('position', new THREE.BufferAttribute(P, 3));
+  out.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+  out.setAttribute('uv', new THREE.BufferAttribute(U, 2));
+  if (C) out.setAttribute('color', new THREE.BufferAttribute(C, 3));
   out.computeBoundingSphere();
   return out;
 }
@@ -5155,15 +5176,16 @@ let music, mrand;
 let actx = null, master = null, musicBus = null, sfxBus = null, musicFilter = null, muted = false;
 
 function ac(){
+  if (!actx && performance.now() < (ac.failT || 0)) return null;   /* v304: a failed AudioContext isn't retried on every sound */
   if (!actx){
     try {
       actx = new (window.AudioContext || window.webkitAudioContext)();
       master = actx.createGain(); master.gain.value = muted ? 0 : 1; { const comp = actx.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.25; master.connect(comp); comp.connect(actx.destination); }
       musicBus = actx.createGain(); musicBus.gain.value = settings.music*0.55; musicFilter = actx.createBiquadFilter(); musicFilter.type = 'lowpass'; musicFilter.frequency.value = 18000; musicBus.connect(musicFilter); musicFilter.connect(master);
       sfxBus = actx.createGain(); sfxBus.gain.value = settings.sfx; sfxBus.connect(master);
-    } catch(e) { actx = null; }
+    } catch(e) { actx = null; ac.failT = performance.now() + 3000; }
   }
-  if (actx && actx.state === 'suspended' && !document.hidden) actx.resume().catch(()=>{});
+  if (actx && actx.state === 'suspended' && !document.hidden){ const t = performance.now(); if (!(t < (ac.next || 0))){ ac.next = t + 500; actx.resume().catch(()=>{}); } }   /* v304: not on every sound before the first click (hundreds of pending resumes at load) */
   return actx;
 }
 
@@ -8157,25 +8179,28 @@ addShiny('cufflink', 38.6, fy(6) + 0.82, 0.8);
 
 const floorY = f => HR.base + f*HR.fh;
 
+let MBOX304 = null;
 function mergeBoxes(items, mats){
   if (!VCOL_MAT_) VCOL_MAT_ = new THREE.MeshToonMaterial({color: 0xffffff, gradientMap: TOON, vertexColors: true});
   const VCOL_MAT = VCOL_MAT_;
-  const buckets = mats.map(() => []), pos = [], nor = [], uv = [];
+  // v304: straight into typed arrays from one unit box (a BoxGeometry per box, rotated, moved and spread into plain
+  // arrays, was a second and more of the first load); the same vertices, normals, uvs and faces as before
+  const T = MBOX304 || (MBOX304 = (() => { const g = new THREE.BoxGeometry(1, 1, 1), o = {p: g.attributes.position.array.slice(), n: g.attributes.normal.array.slice(), u: g.attributes.uv.array.slice(), i: g.index.array.slice()}; g.dispose(); return o; })());
+  const buckets = mats.map(() => []), N = items.length, pos = new Float32Array(N*72), nor = new Float32Array(N*72), uv = new Float32Array(N*48);
   let vb = 0;
   for (const it of items){
-    const g = new THREE.BoxGeometry(it.w, it.h, it.d);
-    if (it.uv) uvScale(g, it.uv);
-    if (it.ry) g.rotateY(it.ry);
-    g.translate(it.x, it.y, it.z);
-    pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); uv.push(...g.attributes.uv.array);
-    const idx = g.index.array;
-    for (let f = 0; f < 6; f++){ const mi = it.faces ? it.faces[f] : 0; for (let k = 0; k < 6; k++) buckets[mi].push(idx[f*6 + k] + vb); }
-    vb += g.attributes.position.count; g.dispose();
+    const c = it.ry ? Math.cos(it.ry) : 1, sn = it.ry ? Math.sin(it.ry) : 0, w = it.w, h = it.h, d = it.d, o3 = vb*3, o2 = vb*2;
+    for (let v = 0; v < 24; v++){ const x = T.p[v*3]*w, y = T.p[v*3 + 1]*h, z = T.p[v*3 + 2]*d, nx = T.n[v*3], nz = T.n[v*3 + 2], k = o3 + v*3;
+      pos[k] = c*x + sn*z + it.x; pos[k + 1] = y + it.y; pos[k + 2] = -sn*x + c*z + it.z;
+      nor[k] = c*nx + sn*nz; nor[k + 1] = T.n[v*3 + 1]; nor[k + 2] = -sn*nx + c*nz; }
+    for (let f = 0; f < 6; f++){ const [su, sv] = it.uv ? it.uv(f) : [1, 1]; for (let q = 0; q < 4; q++){ const v = f*4 + q; uv[o2 + v*2] = T.u[v*2]*su; uv[o2 + v*2 + 1] = T.u[v*2 + 1]*sv; } }
+    for (let f = 0; f < 6; f++){ const mi = it.faces ? it.faces[f] : 0; for (let k = 0; k < 6; k++) buckets[mi].push(T.i[f*6 + k] + vb); }
+    vb += 24;
   }
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   // plain-coloured materials share one vertex-coloured material: same look, far fewer draw calls
   const plain = mats.map((m, mi) => buckets[mi].length && m && m.isMeshToonMaterial && !m.map && !m.emissiveMap && !m.transparent && m.side === THREE.FrontSide && m.emissive.getHex() === 0 && m.opacity === 1 && !m.vertexColors);
   let useMats = mats;
@@ -8191,6 +8216,7 @@ function mergeBoxes(items, mats){
   buckets.forEach((b, mi) => { if (!b.length) return; geo.addGroup(start, b.length, mi); for (const i of b) index.push(i); start += b.length; });
   geo.setIndex(index);
   const m = new THREE.Mesh(geo, useMats); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+  m.userData.boxes304 = items;   // v304: the boxes it is made of, for cheap ray tests (core/camera-collision.js)
   return m;
 }
 
@@ -11278,6 +11304,18 @@ fadeRay = new THREE.Raycaster();
 
 const occBoxes = [], _occSeg = new THREE.Box3(), _occNear = [];
 
+// v304: a ray against the boxes a merged building mesh is made of (mergeBoxes keeps them), instead of its triangles:
+// the nearest entry in front of the start, as the triangle test found it (a start inside a box sees no front face)
+function rayBoxes304(B, o, d, best){
+  for (const it of B){ const c = it.ry ? Math.cos(it.ry) : 1, s = it.ry ? Math.sin(it.ry) : 0, X = o.x - it.x, Z = o.z - it.z;
+    const lx = c*X - s*Z, lz = s*X + c*Z, ly = o.y - it.y, dx = c*d.x - s*d.z, dz = s*d.x + c*d.z, dy = d.y, hw = it.w/2, hh = it.h/2, hd = it.d/2;
+    let t0 = -Infinity, t1 = Infinity;
+    if (Math.abs(dx) < 1e-12){ if (lx < -hw || lx > hw) continue; } else { let a = (-hw - lx)/dx, b = (hw - lx)/dx; if (a > b){ const q = a; a = b; b = q; } if (a > t0) t0 = a; if (b < t1) t1 = b; }
+    if (Math.abs(dy) < 1e-12){ if (ly < -hh || ly > hh) continue; } else { let a = (-hh - ly)/dy, b = (hh - ly)/dy; if (a > b){ const q = a; a = b; b = q; } if (a > t0) t0 = a; if (b < t1) t1 = b; }
+    if (Math.abs(dz) < 1e-12){ if (lz < -hd || lz > hd) continue; } else { let a = (-hd - lz)/dz, b = (hd - lz)/dz; if (a > b){ const q = a; a = b; b = q; } if (a > t0) t0 = a; if (b < t1) t1 = b; }
+    if (t1 >= t0 && t0 > 0 && t0 < best) best = t0; }
+  return best;
+}
 function camClearance(from, dir, dist){
   _ccr.crossVectors(dir, V_UP).normalize(); _ccu.crossVectors(_ccr, dir).normalize();
   let best = dist;
@@ -11288,8 +11326,9 @@ function camClearance(from, dir, dist){
   for (const [a, b] of _occNear.length ? [[0, 0], [0.3, 0.05], [-0.3, 0.05]] : []){
     _cco.copy(from).addScaledVector(_ccr, a).addScaledVector(_ccu, b);
     ray.set(_cco, dir); ray.far = best;
-    const hit = ray.intersectObjects(_occNear, false)[0];
-    if (hit && hit.distance < best) best = hit.distance;
+    for (const o of _occNear){ const B = o.userData.boxes304;
+      if (B && o.parent === scene && o.position.lengthSq() === 0 && o.quaternion.w === 1 && o.scale.x === 1 && o.scale.y === 1 && o.scale.z === 1){ const d = rayBoxes304(B, _cco, dir, best); if (d < best) best = d; continue; }
+      const hit = ray.intersectObject(o, false)[0]; if (hit && hit.distance < best) best = hit.distance; }
   }
   // tree canopies are spheres, cheaply
   const ex = from.x + dir.x*dist, ez = from.z + dir.z*dist;
@@ -11350,9 +11389,22 @@ function hideNearCam(c){
 }
 
 // never let the camera's lens sit inside a wall, even beside the view ray
+// v304: the camera's own grid of the solids (32 m cells), so it looks at the few dozen near it, not all 35,000 of them,
+// twice, every frame. Rebuilt once a second or when solids are added or taken out; looked up with 8 m to spare, so things
+// that move (boats, buses, lifts) are still found between rebuilds. Very big solids are always looked at.
+const CAMG304 = {t: 0, n: -1, cells: new Map(), big: [], out: [], q: 0};
+function camSolids304(x0, x1, z0, z1){
+  const G = CAMG304, now = performance.now();
+  if (now > G.t || solids.length !== G.n){ G.t = now + 1000; G.n = solids.length; G.cells.clear(); G.big.length = 0;
+    for (const b of solids){ if (!(b.maxX - b.minX <= 256 && b.maxZ - b.minZ <= 256)){ G.big.push(b); continue; }   /* (NaN or infinite bounds land here too) */
+      for (let gx = Math.floor(b.minX/32); gx <= Math.floor(b.maxX/32); gx++) for (let gz = Math.floor(b.minZ/32); gz <= Math.floor(b.maxZ/32); gz++){ const k = gx*65536 + gz; let L = G.cells.get(k); if (!L) G.cells.set(k, L = []); L.push(b); } } }
+  const out = G.out, q = ++G.q; out.length = 0; for (const b of G.big) out.push(b);
+  for (let gx = Math.floor((x0 - 8)/32); gx <= Math.floor((x1 + 8)/32); gx++) for (let gz = Math.floor((z0 - 8)/32); gz <= Math.floor((z1 + 8)/32); gz++){ const L = G.cells.get(gx*65536 + gz); if (L) for (const b of L) if (b.__cq !== q){ b.__cq = q; out.push(b); } }
+  return out;
+}
 function camPush(c, t){
-  const R0 = 0.34;
-  for (let it = 0; it < 2; it++) for (const b of solids){
+  const R0 = 0.34, near = camSolids304(c.x - 1, c.x + 1, c.z - 1, c.z + 1).slice();
+  for (let it = 0; it < 2; it++) for (const b of near){
     if (c.x < b.minX - R0 || c.x > b.maxX + R0 || c.z < b.minZ - R0 || c.z > b.maxZ + R0 || c.y < b.minY - R0 || c.y > b.maxY + R0) continue;
     if (b.maxY - b.minY < 0.05 || b.tag === 'coaster' || b.tag === 'gondola' || b.tag === 'parked') continue;
     const tdx = Math.max(b.minX - t.x, 0, t.x - b.maxX), tdy = Math.max(b.minY - t.y, 0, t.y - b.maxY), tdz = Math.max(b.minZ - t.z, 0, t.z - b.maxZ), td = Math.hypot(tdx, tdy, tdz);
@@ -11408,7 +11460,7 @@ function solidClear(from, dir, maxT){
   const ex = from.x + dir.x*maxT, ey = from.y + dir.y*maxT, ez = from.z + dir.z*maxT;
   const x0 = Math.min(from.x, ex) - 0.3, x1 = Math.max(from.x, ex) + 0.3, y0 = Math.min(from.y, ey) - 0.3, y1 = Math.max(from.y, ey) + 0.3, z0 = Math.min(from.z, ez) - 0.3, z1 = Math.max(from.z, ez) + 0.3;
   const ix = 1/(dir.x || 1e-9), iy = 1/(dir.y || 1e-9), iz = 1/(dir.z || 1e-9);
-  for (const b of solids){
+  for (const b of camSolids304(x0, x1, z0, z1)){
     if (b.maxX < x0 || b.minX > x1 || b.maxZ < z0 || b.minZ > z1 || b.maxY < y0 || b.minY > y1) continue;
     if (b.maxY - b.minY < 0.05 || b.tag === 'coaster' || b.tag === 'gondola' || ((b.maxX - b.minX) < 0.7 && (b.maxZ - b.minZ) < 0.7)) continue;
     if (from.x > b.minX && from.x < b.maxX && from.y > b.minY && from.y < b.maxY && from.z > b.minZ && from.z < b.maxZ) continue;
@@ -47474,6 +47526,14 @@ WHATS_NEW.unshift(['302 · Tidy Menu', 'The menu is now four tabs that fit the s
 GAME_VER.n = 303;
 GAME_VER.name = 'Later, Tokyoo';
 WHATS_NEW.unshift(['303 · Later, Tokyoo', 'The first load is about a fifth shorter: Tokyoo is no longer built until the story gets there. Boarding Flight 9000 (or coming back to a save in Tokyoo) shows a short “Building Tokyoo” card instead, and Tokyoo looks exactly as before.']);
+/* =====================================================================
+   v304 · QUICK START: the first load about a quarter shorter again, and
+   smoother frames in the city
+   ===================================================================== */
+// v304
+GAME_VER.n = 304;
+GAME_VER.name = 'Quick Start';
+WHATS_NEW.unshift(['304 · Quick Start', 'The first load is about a quarter shorter again (the city’s merged buildings and characters are put together much faster), and frames in the middle of New Yolk are smoother: the camera only checks the walls near it, and batching no longer walks the whole city each time it rebuilds a batch.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
