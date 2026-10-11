@@ -219,9 +219,11 @@
   #help.m302 .mfoot .ver31{margin:0!important}
   @media (max-width:520px){ #help.m302 .modal{padding:12px} #help.m302 .mgrid{grid-template-columns:1fr 1fr} #help.m302 .mact{font-size:14px;padding:8px 10px} }
   /* v301: the load bar on the title screen; the buttons wait for it */
-  .bootbar{position:relative;height:22px;margin:10px 0 4px;max-width:360px;border-radius:11px;background:rgba(40,28,18,.55);overflow:hidden;box-shadow:inset 0 0 0 2px rgba(255,236,200,.35)}
+  .bootbar{position:relative;height:24px;margin:10px 0 4px;max-width:380px;border-radius:12px;background:#fff6dc;overflow:hidden;box-shadow:inset 0 0 0 2px var(--wood-dark)}
   .bootfill{position:absolute;top:0;bottom:0;left:0;width:0;background:linear-gradient(90deg,#f0b84a,#ffd98a);transition:width .25s ease-out}
-  #bootTxt{position:relative;display:block;padding:0 12px;line-height:22px;font-size:13px;color:#fff6e4;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+  .bootbar span{position:relative;display:block;padding:0 12px;line-height:24px;font-size:13px;font-weight:600;color:var(--ink);text-shadow:0 1px 0 rgba(255,246,220,.7)}
+  #regionCard303{z-index:70;background:rgba(43,26,16,.45)}
+  #regionCard303 .modal{min-width:min(360px,calc(100vw - 32px))}
   #title.ready .bootbar{display:none}
   #title:not(.ready) .row .btn{pointer-events:none;opacity:.55}
   .overlay{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:flex-start;padding:24px 16px calc(env(safe-area-inset-bottom,0px) + 24px);background:linear-gradient(180deg,rgba(43,26,16,0) 25%,rgba(43,26,16,.78) 88%);overflow:auto}
@@ -665,13 +667,15 @@ window.__THREE_READY = (async () => {
 })();
 </script>
 <script type="module">
+/* v303: the game script is async since v301; an error in it is a rejected promise, which the page's error handlers don't see */
+addEventListener('unhandledrejection', e => { const r = e.reason; (window.__errs || (window.__errs = [])).push('rejected: ' + (r && (r.stack || r.message) || r)); console.error('game', r); });
 await window.__THREE_READY;
 (async () => {
 'use strict';
 // v301: the load yields to the browser every ~200 ms (the build puts `await bootYield(name)` after every load step), so
 // the title screen can show how far it has got instead of freezing for ten seconds and more. Timers that load steps set
 // were written for a load in one go (they ran once everything was built): they are held until the load is done.
-const BOOT = {on: true, t: performance.now(), held: [], total: 509};
+const BOOT = {on: true, t: performance.now(), held: [], total: 513};
 { const st = window.setTimeout.bind(window), ct = window.clearTimeout.bind(window);
   window.setTimeout = function(fn, ms, ...a){ if (BOOT.on && typeof fn === 'function'){ BOOT.held.push([fn, ms, a]); return -BOOT.held.length; } return st(fn, ms, ...a); };
   window.clearTimeout = function(id){ if (typeof id === 'number' && id < 0){ const h = BOOT.held[-id - 1]; if (h) h[0] = null; return; } return ct(id); };
@@ -815,24 +819,45 @@ function region(name, when, steps, needs = []){
   REGIONS[name] = R;
   return R;
 }
-function buildRegion(R){
-  if (R.built) return;
-  R.built = true;
-  for (const n of R.needs) buildRegion(REGIONS[n]);
-  tagNew(Infinity);   // whatever was added while playing stays after everything that loads
-  const keep = RAND, t0 = performance.now();
-  for (const st of R.steps){
+// v303: a load step that waits for a region defined earlier (region(name, when, [])), placed where the step stands in
+// the load order (its key) though the region's other steps are elsewhere: later('tokyoo', fn, seed)
+function later(name, fn, seed){ REGIONS[name].steps.push({fn, seed, key: ++loadPos}); }
+// one step of a region at a time (its needs first): a region can be built over several frames behind a load card
+function regionStep(R){
+  if (R.built) return true;
+  if (!R.started){ R.started = true; R.i = 0; R.ms = 0; for (const n of R.needs) buildRegion(REGIONS[n]); }
+  const st = R.steps[R.i++];
+  if (st){ tagNew(Infinity);   // whatever was added while playing stays after everything that loads
+    const keep = RAND, t0 = performance.now();
     RAND = st.seed; if (window.__onStep) window.__onStep(st.key); st.fn();
     for (const [L, e] of tagNew(st.key)){
       L.splice(L.indexOf(e), 1);
       let i = L.findIndex(x => (LOADKEY.get(x) ?? Infinity) > st.key); if (i < 0) i = L.length;
       L.splice(i, 0, e);
     }
-  }
-  RAND = keep;
-  R.ms = performance.now() - t0;
+    RAND = keep; R.ms += performance.now() - t0; }
+  if (R.i >= R.steps.length){ R.built = true; if (R.onBuilt) R.onBuilt(); }
+  return R.built;
 }
-function updateRegions(){ for (const k in REGIONS){ const R = REGIONS[k]; if (!R.built && R.when()) buildRegion(R); } }
+function buildRegion(R){ while (!R.built) regionStep(R); }
+// v303: a region with a label (a whole city) is built over several frames: the game waits behind a card ("Building
+// Tokyoo… 40%"; on the title screen the title's load bar), a few steps a frame, instead of freezing for seconds
+function regionCard303(R, f){
+  if (state === 'title'){ const t = $('title'); if (t) t.classList.remove('ready'); const el = $('bootFill'), tx = $('bootTxt'); if (el) el.style.width = (f*100).toFixed(1) + '%'; if (tx) tx.textContent = 'Building ' + R.label + '… ' + Math.round(f*100) + '%'; return; }
+  let c = $('regionCard303');
+  if (!c){ c = document.createElement('div'); c.id = 'regionCard303'; c.className = 'overlay'; c.innerHTML = '<div class="panel"><div class="modal wood"><h3 id="rcTitle303"></h3><div class="bootbar"><div class="bootfill" id="rcFill303"></div><span id="rcTxt303"></span></div></div></div>'; document.body.appendChild(c); }
+  c.hidden = false; $('rcTitle303').textContent = (typeof R.trip === 'function' ? R.trip() : R.trip) || ('On the way to ' + R.label); $('rcFill303').style.width = (f*100).toFixed(1) + '%'; $('rcTxt303').textContent = 'Building ' + R.label + '… ' + Math.round(f*100) + '%';
+}
+function regionCardDone303(){ const c = $('regionCard303'); if (c) c.hidden = true; const t = $('title'); if (t && !BOOT.on) t.classList.add('ready'); }
+function updateRegions(){
+  for (const k in REGIONS){ const R = REGIONS[k]; if (R.built || !(R.busy || R.when())) continue;
+    if (!R.label){ buildRegion(R); continue; }
+    R.busy = true; const t0 = performance.now();
+    do regionStep(R); while (!R.built && performance.now() - t0 < 60);
+    if (!R.built){ regionCard303(R, R.i/Math.max(1, R.steps.length)); return 'busy'; }
+    R.busy = false; regionCardDone303(); }
+  return null;
+}
 function buildAllRegions(){ for (const k in REGIONS) buildRegion(REGIONS[k]); }
 /* ---------- data: bangcluck ---------- */
 // Text tables for bangcluck: lines, names, signs and the like, with nothing but data in them. Each notes the
@@ -29287,7 +29312,9 @@ const TMR68 = [];
  // map rectangles (world coords)
 const tmr = (x0, z0, x1, z1, color, kind) => TMR68.push({x0: TX(x0), z0: TZ(z0), x1: TX(x1), z1: TZ(z1), color, kind});
 
-const ld_tokyooCity_1 = () => {
+// v303: the sign atlases and the ground and wall textures are shared (Bangcluck's walls use WALL90): they are made at load;
+// the rest of Tokyoo is built with Tokyoo, carrying on from the same RNG90, so it lands exactly as before
+const ld_tokyooCity_0 = () => {
 /* ---------- sign atlases: vertical signs and shop fronts ---------- */
 JPV68 = (() => { const W = ['ラーメン', 'カラオケ', '寿司', '居酒屋', 'パチンコ', '焼き鳥', '薬', 'ゲーム', '本屋', '牛丼', 'ホテル', 'カフェ', '鳩', 'ロボット', '占い', '酒', 'うどん', 'たこ焼き', 'コーヒー', 'ネコ', 'アニメ', '電気', '歯科', '餃子', '天ぷら', '温泉', 'マンガ', '銀行', 'すし', 'パン', 'そば', 'おでん'];
   const N = 16, NR = 2, CW = 64, CH = 256, c = document.createElement('canvas'); c.width = N*CW; c.height = NR*CH; const g = c.getContext('2d'), bgs = ['#c8202a', '#1a1e26', '#f4f0e6', '#ffd23a', '#2a4a9a', '#f08a2a', '#2a8a4a', '#ff6ad5'], fgs = ['#f4f0e6', '#ffd23a', '#c8202a', '#1a1e26', '#f4f0e6', '#1a1e26', '#f4f0e6', '#1a1e26'];
@@ -29322,6 +29349,8 @@ WALLTEX90 = canTex90(512, 256, (g) => { const C = (i, f) => { const x = (i % 4)*
   C(6, g => { for (let x = 0; x < 128; x += 6){ g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(x, 0, 1, 128); g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(x + 2, 0, 2, 128); } });
   C(7, g => { const gr = g.createLinearGradient(0, 128, 0, 30); gr.addColorStop(0, 'rgba(50,45,40,.35)'); gr.addColorStop(1, 'rgba(50,45,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); g.fillStyle = 'rgba(20,20,20,.3)'; for (let k = 0; k < 3; k++) g.fillRect(10 + k*40, 30 + RNG90()*40, 1, 40 + RNG90()*40); }); });
 WALL90 = {mat: new THREE.MeshBasicMaterial({map: WALLTEX90, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2}), cell: i => { const u0 = (i % 4)/4, v1 = 1 - Math.floor(i/4)/2; return [u0, v1 - 0.5, u0 + 0.25, v1]; }};
+};
+const ld_tokyooCity_1 = () => {
 AR68 = new Map(); area68 = (x, z) => { const k = Math.floor(x/128) + ',' + Math.floor(z/128); if (!AR68.has(k)){ const A = newArea53(Math.floor(x/128)*128 + 64, Math.floor(z/128)*128 + 64); A.J = decals52(JPV68); A.H = decals52(JPH68); AR68.set(k, A); } return AR68.get(k); };
  // later versions mark their lots built before the grid is laid
 
@@ -31716,6 +31745,15 @@ function makeBackdrop88(layers, parent){ const g = new THREE.Group(); g.frustumC
   out.update = (camY) => { g.position.set(camera.position.x, camY, camera.position.z); const dh = Math.max(4, camera.position.y + 6); sk.scale.y = dh; sk.position.y = -dh/2 - 0.3; sk.material.color.copy(scene.fog.color); for (const L_ of out.layers){ L_.m.material.color.copy(L_.base).lerp(skyHor, L_.haze*(1 - nightF) + L_.nightHaze*nightF).multiplyScalar(1 - nightF*0.35); if (L_.win) L_.win.material.opacity = Math.max(0, nightF*1.2 - 0.2); } };
   return out; }
 
+// v303: the soft world edge is every city's (New Yolk's map border too): it is set up at load; the rest of this file
+// (Tokyoo's horizon) is built with Tokyoo (boot/world.js)
+const ld_tokyooBeyondTheEdge_0 = () => {
+/* ---------- the soft edge: go past the boundary and you are asked to turn back; stay, and you are brought back ---------- */
+EDGE88 = (() => { const el = document.createElement('div'); el.style.cssText = 'position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:40;pointer-events:none;text-align:center;font:700 15px "Pixelify Sans",monospace;color:#fff6dc;text-shadow:0 2px 0 #3d1f0e,0 0 12px rgba(0,0,0,.6);opacity:0;transition:opacity .4s'; el.innerHTML = '<div style="font-size:26px;letter-spacing:2px">TURN BACK</div><div class="m"></div><div class="c" style="font-size:20px;margin-top:4px"></div>'; document.body.appendChild(el);
+  const vg = document.createElement('div'); vg.style.cssText = 'position:fixed;inset:0;z-index:39;pointer-events:none;opacity:0;transition:opacity .4s;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(30,10,0,.55) 100%)'; document.body.appendChild(vg);
+  return {el, vg, t: 0, on: false}; })();
+if (typeof SYS52 !== 'undefined') SYS52.push(['edge88', updateEdge88]);
+};
 const ld_tokyooBeyondTheEdge_1 = () => {
 // Tokyoo's horizon
 BD88 = makeBackdrop88([
@@ -31762,10 +31800,6 @@ SEA88 = (() => { const out = {ships: []}; { const A = area88(TX(200), TZ(640)), 
   return out; })();
 buildTk68(AR88, tkG);
 TLAB68.push(['Rainbow Bridge-coo', TX(600), TZ(-260)], ['Odaiba-coo', TX(770), TZ(-230)]);
-/* ---------- the soft edge: go past the boundary and you are asked to turn back; stay, and you are brought back ---------- */
-EDGE88 = (() => { const el = document.createElement('div'); el.style.cssText = 'position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:40;pointer-events:none;text-align:center;font:700 15px "Pixelify Sans",monospace;color:#fff6dc;text-shadow:0 2px 0 #3d1f0e,0 0 12px rgba(0,0,0,.6);opacity:0;transition:opacity .4s'; el.innerHTML = '<div style="font-size:26px;letter-spacing:2px">TURN BACK</div><div class="m"></div><div class="c" style="font-size:20px;margin-top:4px"></div>'; document.body.appendChild(el);
-  const vg = document.createElement('div'); vg.style.cssText = 'position:fixed;inset:0;z-index:39;pointer-events:none;opacity:0;transition:opacity .4s;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(30,10,0,.55) 100%)'; document.body.appendChild(vg);
-  return {el, vg, t: 0, on: false}; })();
 aroundHook('clampWorld', function(next, P, pz0){ if (!inTokyo67(P.pos)) return next(P, pz0);
   const r = {x0: TK.x + TK.x0, x1: TK.x + TK.x1, z0: TK.z + TK.z0, z1: TK.z + TK.z1}; EDGE88.back = () => V48(clamp(player.pos.x, r.x0 + 12, r.x1 - 12), 0, clamp(player.pos.z, r.z0 + 12, r.z1 - 12)); softEdge88(P, r, 60, pick(TKEDGE88)); });
 if (typeof SYS52 !== 'undefined') SYS52.push(['beyond88', updateBeyond88]);
@@ -31785,7 +31819,7 @@ function updateEdge88Base(dt){ const E = EDGE88; E.el.style.opacity = E.vg.style
 const TKEDGE88 = ['Sumimasen! The map of Tokyoo ends here. Thank you for your understanding.', 'HAIKU-9000 used to keep this part. It is not finished. Please turn back. *bows*', 'Beyond here: more Tokyoo, but nobody has drawn it yet. Sorry!'];
 
 /* ---------- per frame ---------- */
-function updateBeyond88(dt, time){ updateEdge88(dt); if (!inTokyo67()){ BD88.g.visible = false; return; } BD88.g.visible = !roomAt(player.pos) && camera.position.y > -2; BD88.update(camera.position.y - 1.2);
+function updateBeyond88(dt, time){ if (!inTokyo67()){ BD88.g.visible = false; return; } BD88.g.visible = !roomAt(player.pos) && camera.position.y > -2; BD88.update(camera.position.y - 1.2);
   SEA88.wheel.rotation.z += dt*0.03; for (const s of SEA88.ships){ s.a += dt*s.sp; s.g.position.set(s.cx + Math.cos(s.a)*s.r, Math.sin(time*0.8 + s.a*9)*0.15, s.cz + Math.sin(s.a)*s.r); s.g.rotation.y = -s.a; s.g.rotation.z = Math.sin(time*0.9 + s.a)*0.02; } }
 /* ---------- world: sky/wide-world ---------- */
 // From v89. The ld_* steps are run by boot/world.js, in load order.
@@ -31890,9 +31924,22 @@ const WIND90 = window.__GPU ? THREE.TSL.uniform(0) : {value: 0}, PLAYERU90 = win
 /* ---------- grass tufts and flowers: instanced crossed quads that sway ---------- */
 function tuftGeo90(w, h){ const g = new THREE.BufferGeometry(), pos = [], uv = [], idx = []; for (let k = 0; k < 2; k++){ const a = k*PI/2 + 0.4, c = Math.cos(a)*w/2, s = Math.sin(a)*w/2, b = pos.length/3; pos.push(-c, 0, -s, c, 0, s, c, h, s, -c, h, -s); uv.push(0, 0, 1, 0, 1, 1, 0, 1); idx.push(b, b + 1, b + 2, b, b + 2, b + 3); } g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g; }
 
-const ld_tokyooTexture_1 = () => {
+// v303: the grass tuft, flower and ripple textures are every city's (New Yolk's and Bangcluck's grass, Paree's water): they
+// are drawn at load with their own generator; the rest of this step (Tokyoo's grass, pots and ponds) is built with Tokyoo,
+// which uses up as many draws as the textures took, so everything there lands where it always did
+const TEXN90 = {tuft: 0, flow: 0, ripple: 0};
+const ld_tokyooTexture_0 = () => {
+const keep = RNG90; let n = 0, sd = 900091; RNG90 = () => { n++; return (sd = (sd*16807) % 2147483647)/2147483647; };
 TUFTTEX90 = canTex90(64, 64, (g) => { g.clearRect(0, 0, 64, 64); for (let k = 0; k < 26; k++){ const x = 4 + RNG90()*56, h = 30 + RNG90()*32, lean = (RNG90() - 0.5)*14; g.strokeStyle = ['#4f8a3a', '#6aa84a', '#3f7a32', '#8ac060'][k % 4]; g.lineWidth = 2 + RNG90()*1.5; g.beginPath(); g.moveTo(x, 64); g.quadraticCurveTo(x + lean*0.4, 64 - h*0.6, x + lean, 64 - h); g.stroke(); } });
+TEXN90.tuft = n; n = 0;
 FLOWTEX90 = canTex90(64, 64, (g) => { g.clearRect(0, 0, 64, 64); g.strokeStyle = '#4f8a3a'; g.lineWidth = 2; for (const x of [16, 34, 50]){ g.beginPath(); g.moveTo(x, 64); g.lineTo(x + 2, 30); g.stroke(); } for (const [x, y] of [[18, 28], [36, 22], [52, 30]]){ g.fillStyle = '#ffffff'; for (let p = 0; p < 6; p++){ g.beginPath(); g.arc(x + Math.cos(p)*5, y + Math.sin(p)*5, 4, 0, PI*2); g.fill(); } g.fillStyle = '#ffd23a'; g.beginPath(); g.arc(x, y, 3, 0, PI*2); g.fill(); } });
+TEXN90.flow = n; n = 0;
+RIPPLE90 = canTex90(128, 128, (g) => { g.fillStyle = '#e8eef4'; g.fillRect(0, 0, 128, 128); for (let k = 0; k < 140; k++){ const x = RNG90()*128, y = RNG90()*128, w = 6 + RNG90()*18; g.strokeStyle = RNG90() < 0.5 ? 'rgba(255,255,255,.9)' : 'rgba(160,190,210,.6)'; g.lineWidth = 1 + RNG90()*1.5; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + w/2, y - 2.5, x + w, y); g.stroke(); } });
+TEXN90.ripple = n;
+RNG90 = keep;
+};
+const ld_tokyooTexture_1 = () => {
+for (let k = TEXN90.tuft + TEXN90.flow; k > 0; k--) RNG90();   // v303: (the tuft and flower textures are drawn at load, ld_tokyooTexture_0: their draws are used up)
 GRASS90G = (() => { const spots = [], flowers = [], P = (lx, lz) => spots.push([lx, lz]);
   const inRect = (x, z, r) => x > r[0] && x < r[1] && z > r[2] && z < r[3];
   const busy = (x, z) => (Math.abs(z + 100) < 5 && x < -44 && x > -200) || (x > -215 && x < -185 && z > -272 && z < 62) || Math.hypot(x - 120, z - 10) < 19 || Math.hypot(x - 205, z - 95) < 13 || Math.hypot(x + 392, z - 154) < 31 || (Math.abs(x + 290) < 14 && Math.abs(z - 40) < 8) || (x > -340 && x < -60 && Math.abs(z - 400) < 24) || Math.hypot(x + 110, z - 500) < 43 || (Math.abs(x + 480) < 44 && Math.abs(z + 490) < 44);
@@ -31916,7 +31963,7 @@ AR90 = new Map(); area90 = (x, z) => { const k = Math.floor(x/128) + ',' + Math.
     } } }
 buildTk68(AR90, tkG);
 /* ---------- water that moves ---------- */
-RIPPLE90 = canTex90(128, 128, (g) => { g.fillStyle = '#e8eef4'; g.fillRect(0, 0, 128, 128); for (let k = 0; k < 140; k++){ const x = RNG90()*128, y = RNG90()*128, w = 6 + RNG90()*18; g.strokeStyle = RNG90() < 0.5 ? 'rgba(255,255,255,.9)' : 'rgba(160,190,210,.6)'; g.lineWidth = 1 + RNG90()*1.5; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + w/2, y - 2.5, x + w, y); g.stroke(); } });
+for (let k = TEXN90.ripple; k > 0; k--) RNG90();   // v303: (RIPPLE90 is drawn at load: its draws are used up here, so what follows lands as before)
 // glints on the sea, koi in the ponds, petals floating, ducks
 LIFE90 = (() => { const out = {glints: [], koi: [], petals: [], ducks: []}; const gm = new THREE.SpriteMaterial({map: glintTex, color: 0xffffff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false});
   for (let k = 0; k < 50; k++){ const s = new THREE.Sprite(gm.clone()); s.scale.setScalar(0.8); tkG.add(s); out.glints.push({s, t: rand()*4, x: 0, z: 0}); }
@@ -32140,6 +32187,11 @@ aroundHook('rollLoot', function(next, boost, base){ const it = next(boost, base)
 hook('dropLoot29', function(it, pos){ const d = DROPS29[DROPS29.length - 1]; if (!d || d.it !== it) return; const a = Math.random()*PI*2, sp = rr(1.2, 3.2); d.fly = {vx: Math.cos(a)*sp, vy: rr(5.5, 7.5), vz: Math.sin(a)*sp, b: 0}; d.g.position.y += 0.5; d.beam.visible = false; });
 // nothing can be picked up while it is still in the air, or for a moment after it lands: you get to see it
 aroundHook('updateDrops29', function(next, dt, time){ const held = DROPS29.filter(d => d.fly || (d.hold = (d.hold || 0) - dt) > 0); if (!held.length) return next(dt, time); for (const d of held) DROPS29.splice(DROPS29.indexOf(d), 1); next(dt, time); DROPS29.push(...held); });
+if (typeof SYS52 !== 'undefined') SYS52.push(['loot94', updateLoot94]);
+};
+
+// v303: Tokyoo's part (the rooftop lucky bags, the gacha machine, the tanuki) is built with Tokyoo (boot/world.js)
+const ld_gameplayLootSpiral_2 = () => {
 /* ---------- fukubukuro: lucky bags on the rooftops of Tokyoo, in with the other stashes ---------- */
 TKROOF94 = solids.filter(s => s.minX > TK.x - 520 && s.maxX < TK.x + 520 && s.minZ > TK.z - 520 && s.maxZ < TK.z + 520 && s.minY < 0.5 && s.maxY > 5 && s.maxY < 32 && s.maxX - s.minX > 6 && s.maxZ - s.minZ > 6);
 aroundHook('placeStash', function(next, s){ if (!s.tk94) return next(s);
@@ -32172,7 +32224,6 @@ addNamedTalker(() => { const Q = Q94(); return `Loot Gacha Deluxe · Rare in ${1
     {label: 'Walk away (you won\'t)', fn: () => toast('You walk away. You turn around. The machine is still glowing.', '', 2400)}])]);
 }, 2.2, () => inTokyo67() && roomAt(player.pos) === GACHA70.room);
 TAN94 = (() => { const T = makeTanuki94(); T.g.visible = false; tkG.add(T.g); return Object.assign(T, {on: false, next: 75, life: 0, hp: 4, hitCd: 0, dizzy: 0, dir: 0, sp: T.sp, taunt: 0, esc: 0}); })();
-if (typeof SYS52 !== 'undefined') SYS52.push(['loot94', updateLoot94]);
 };
 
 let LFT94 = 0;
@@ -32266,7 +32317,7 @@ function updateTan94(dt, time){ const T = TAN94, P = player.pos; if (!inTokyo67(
   T.legs.forEach((l, i) => l.rotation.x = speed ? Math.sin(time*18 + i*PI)*0.7 : 0); T.tail.rotation.y = Math.sin(time*10)*0.5; T.sp.material.rotation = time; T.sp.scale.setScalar(0.8 + Math.sin(time*5)*0.2);
   if (dp < 60 && rand() < dt*0.6) emit('spark', g.position, 2, 0.3, 1); }
 
-function updateLoot94(dt, time){ updateFly94(dt, time); if (inTokyo67()){ updateGacha94(dt); updateTan94(dt, time); } else updateTan94(dt, time); }
+function updateLoot94(dt, time){ updateFly94(dt, time); if (!TAN94) return;   /* v303: Tokyoo not built yet */ if (inTokyo67()){ updateGacha94(dt); updateTan94(dt, time); } else updateTan94(dt, time); }
 /* ---------- world: gameplay/career-ladder ---------- */
 // From v95. The ld_* steps are run by boot/world.js, in load order.
 
@@ -40544,42 +40595,50 @@ step(ld_lookGoldenHour_1, 706973018); await bootYield("ld_lookGoldenHour_1");   
 step(ld_storyWordOnTheStreet_1, -1354297886); await bootYield("ld_storyWordOnTheStreet_1"); // SPIDER65, system v65, hooks humanity59
 step(ld_skyBlimps_2, -1354297886); await bootYield("ld_skyBlimps_2");            // { const T = HANG59.tiger
 step(ld_tokyooFlight9000_1, -1354297886); await bootYield("ld_tokyooFlight9000_1");     // VOICES['Security officer'], VOICES['Captain Overcoo'], VOICES.Roger, VOICES.Gloria, VOICES['Dr. Rumacoo'], VOICES['Samuel L. Peckson'], ...
-step(ld_tokyooArrival_1, -1377026786); await bootYield("ld_tokyooArrival_1");        // tkG, scene.add, tkG.visible, WORLDNAME49.tk, CITYC58.tk, BANNERS58.tk, ...
-step(ld_tokyooCity_1, -1128838298); await bootYield("ld_tokyooCity_1");           // JPV68, JPH68, RNG90, PAVE90, PAVEM90, ASPH90, ...
-step(ld_tokyooStreetLife_1, -1949166762); await bootYield("ld_tokyooStreetLife_1");     // FUJI67.g.traverse, WALK68, CARS68, system street68, hooks openMap, setTimeout, ...
-step(ld_tokyooKyotoo_1, -1099447804); await bootYield("ld_tokyooKyotoo_1");         // AR69, RNG69, { const A = area69(TX(-9, { const A = area69(TX(GI, OKIMI69, VOICES['Okimi-san'], ...
-step(ld_tokyooAkihabirda_1, -283364843); await bootYield("ld_tokyooAkihabirda_1");     // AR70, CAFE70, VOICES.Daifuku, talker "Talk to Daifuku, the luc", talker "Pet a cat", GACHA70, ...
-step(ld_tokyooShinjukoo_1, -321246343); await bootYield("ld_tokyooShinjukoo_1");      // AR71, FACE71, HQ71, { const K = area71(HQ71., paintFeed71, VOICES['Reception robot'], ...
-step(ld_tokyooOsakaaNaraa_1, 111189436); await bootYield("ld_tokyooOsakaaNaraa_1");    // AR72, RNG72, { const D = DOTO72, A0 =, RUNNER72, CRAB72, BIG72, ...
-step(ld_tokyooShinkansen_1, 727872506); await bootYield("ld_tokyooShinkansen_1");     // AR73, LOOP73, { const P = LOOP73.pts, , STN73, CREW73, TRAIN73, ...
-step(ld_tokyooSumo_1, 1735779058); await bootYield("ld_tokyooSumo_1");           // AR74, KOKU74, YOKO74, VOICES['Yokozuna Mochiyama'], addNamedTalker, CAPS74, ...
-step(ld_tokyooKaraoke_1, 674838406); await bootYield("ld_tokyooKaraoke_1");        // AR75, KARA75, paintLyrics75, VOICES['Mama-san Reiko'], talker "Sing karaoke", talker "Talk to Mama-san Reiko", ...
-step(ld_tokyooTsukiji_1, -1115515110); await bootYield("ld_tokyooTsukiji_1");        // AR76, MKT76, VOICES['Auctioneer'], talker "Look at the open crate", talker "Join the tuna auction", SUSHI76, ...
-step(ld_tokyooGojirra_1, 693321803); await bootYield("ld_tokyooGojirra_1");        // AR77, HIMEJI77, PIER77, BARGE77, GLOW77, GOJI77, ...
-step(ld_tokyooHimeji_1, 1893051946); await bootYield("ld_tokyooHimeji_1");         // AR78, CASTLE78, GATE78, VOICES['Samurai robot'], addNamedTalker, GATESOLID78, ...
-step(ld_tokyooOnsen_1, -1081879113); await bootYield("ld_tokyooOnsen_1");          // AR79, ONSEN79, MONKEYS79, RES79, VOICES['Saru-sensei'], addNamedTalker, ...
-step(ld_tokyooStationery_1, -285194255); await bootYield("ld_tokyooStationery_1");     // AR80, ITOYA80, VOICES['Pen sommelier'], talker "Talk to the pen sommelie", talker "Write your Terms of Serv", DAISO80, ...
-step(ld_tokyooPecketmon_1, 255725815); await bootYield("ld_tokyooPecketmon_1");      // PMON81, BALL81, PMON81.forEach, POOL81, system whimsy81, OAK81, ...
-step(ld_tokyooBroadcast_1, 1703644446); await bootYield("ld_tokyooBroadcast_1");      // DECK82, PA82, CREW82, VOICES['Mama-san Reiko'], addNamedTalker, CREW82.plugs.forEach, ...
-step(ld_tokyooStormTheTower_1, -255803761); await bootYield("ld_tokyooStormTheTower_1");  // PYL83, ALLY83, PYL83.forEach, Object.assign, system storm83, hooks updateGoji77, ...
-step(ld_tokyooServerTemple_1, 184208318); await bootYield("ld_tokyooServerTemple_1");   // AR84, TEMPLE84, VAC84, VOICES['Boris Kempinski'], talker "Take the elevator down", talker "Take the elevator up", ...
-step(ld_tokyooHaikuCore_1, -2020097580); await bootYield("ld_tokyooHaikuCore_1");      // CORE85, VOICES['HAIKU-9000'], addNamedTalker, Object.assign, system core85
-step(ld_tokyooMatsuri_1, 379362706); await bootYield("ld_tokyooMatsuri_1");        // AR86, FEST86, tkG.add, FEST86.visible, FG86, YX86, ...
-step(ld_tokyooSayonara_1, 676339791); await bootYield("ld_tokyooSayonara_1");       // VOICES['Boris Kempinski'], hooks hop67, Object.assign, system repair87
-step(ld_tokyooBeyondTheEdge_1, 676339791); await bootYield("ld_tokyooBeyondTheEdge_1");  // BD88, { const land = mesh(new , { for (const [w, d, x, z, AR88, RNG88, { for (let lz = -560; lz, ...
+// v303: Tokyoo is built when the story gets there (boarding Flight 9000, stage 24) or Pidge is in it (a save, a
+// warp), over several frames behind a load card, not at the first load. Its steps stay where they were in the load
+// order (later(), core/regions.js); the steps around them that every city needs still run at load.
+region('tokyoo', () => WARST48() >= 24 || inTokyo67() || (state === 'title' && saved && (saved.war48 || 0) >= 24), []); REGIONS.tokyoo.label = 'Tokyoo'; REGIONS.tokyoo.trip = () => inTokyo67() ? 'Back to Tokyoo' : WARST48() >= 24 && WARST48() < 26 ? 'Flight 9000 to Tokyoo' : 'Tokyoo';
+step(ld_tokyooArrival_1, -1377026786); await bootYield("ld_tokyooArrival_1");   // (at load: the airport and tkG, which the world edge needs)        // tkG, scene.add, tkG.visible, WORLDNAME49.tk, CITYC58.tk, BANNERS58.tk, ...
+step(ld_tokyooCity_0, -1128838298); await bootYield("ld_tokyooCity_0");   // v303: Tokyoo's shared sign atlases and ground/wall textures
+later('tokyoo', ld_tokyooCity_1, -1128838298);           // JPV68, JPH68, RNG90, PAVE90, PAVEM90, ASPH90, ...
+later('tokyoo', ld_tokyooStreetLife_1, -1949166762);     // FUJI67.g.traverse, WALK68, CARS68, system street68, hooks openMap, setTimeout, ...
+later('tokyoo', ld_tokyooKyotoo_1, -1099447804);         // AR69, RNG69, { const A = area69(TX(-9, { const A = area69(TX(GI, OKIMI69, VOICES['Okimi-san'], ...
+later('tokyoo', ld_tokyooAkihabirda_1, -283364843);     // AR70, CAFE70, VOICES.Daifuku, talker "Talk to Daifuku, the luc", talker "Pet a cat", GACHA70, ...
+later('tokyoo', ld_tokyooShinjukoo_1, -321246343);      // AR71, FACE71, HQ71, { const K = area71(HQ71., paintFeed71, VOICES['Reception robot'], ...
+later('tokyoo', ld_tokyooOsakaaNaraa_1, 111189436);    // AR72, RNG72, { const D = DOTO72, A0 =, RUNNER72, CRAB72, BIG72, ...
+later('tokyoo', ld_tokyooShinkansen_1, 727872506);     // AR73, LOOP73, { const P = LOOP73.pts, , STN73, CREW73, TRAIN73, ...
+later('tokyoo', ld_tokyooSumo_1, 1735779058);           // AR74, KOKU74, YOKO74, VOICES['Yokozuna Mochiyama'], addNamedTalker, CAPS74, ...
+later('tokyoo', ld_tokyooKaraoke_1, 674838406);        // AR75, KARA75, paintLyrics75, VOICES['Mama-san Reiko'], talker "Sing karaoke", talker "Talk to Mama-san Reiko", ...
+later('tokyoo', ld_tokyooTsukiji_1, -1115515110);        // AR76, MKT76, VOICES['Auctioneer'], talker "Look at the open crate", talker "Join the tuna auction", SUSHI76, ...
+later('tokyoo', ld_tokyooGojirra_1, 693321803);        // AR77, HIMEJI77, PIER77, BARGE77, GLOW77, GOJI77, ...
+later('tokyoo', ld_tokyooHimeji_1, 1893051946);         // AR78, CASTLE78, GATE78, VOICES['Samurai robot'], addNamedTalker, GATESOLID78, ...
+later('tokyoo', ld_tokyooOnsen_1, -1081879113);          // AR79, ONSEN79, MONKEYS79, RES79, VOICES['Saru-sensei'], addNamedTalker, ...
+later('tokyoo', ld_tokyooStationery_1, -285194255);     // AR80, ITOYA80, VOICES['Pen sommelier'], talker "Talk to the pen sommelie", talker "Write your Terms of Serv", DAISO80, ...
+later('tokyoo', ld_tokyooPecketmon_1, 255725815);      // PMON81, BALL81, PMON81.forEach, POOL81, system whimsy81, OAK81, ...
+later('tokyoo', ld_tokyooBroadcast_1, 1703644446);      // DECK82, PA82, CREW82, VOICES['Mama-san Reiko'], addNamedTalker, CREW82.plugs.forEach, ...
+later('tokyoo', ld_tokyooStormTheTower_1, -255803761);  // PYL83, ALLY83, PYL83.forEach, Object.assign, system storm83, hooks updateGoji77, ...
+later('tokyoo', ld_tokyooServerTemple_1, 184208318);   // AR84, TEMPLE84, VAC84, VOICES['Boris Kempinski'], talker "Take the elevator down", talker "Take the elevator up", ...
+later('tokyoo', ld_tokyooHaikuCore_1, -2020097580);      // CORE85, VOICES['HAIKU-9000'], addNamedTalker, Object.assign, system core85
+later('tokyoo', ld_tokyooMatsuri_1, 379362706);        // AR86, FEST86, tkG.add, FEST86.visible, FG86, YX86, ...
+later('tokyoo', ld_tokyooSayonara_1, 676339791);       // VOICES['Boris Kempinski'], hooks hop67, Object.assign, system repair87
+step(ld_tokyooBeyondTheEdge_0, 676339791); await bootYield("ld_tokyooBeyondTheEdge_0");   // v303: the soft world edge, every city's
+later('tokyoo', ld_tokyooBeyondTheEdge_1, 676339791);  // BD88, { const land = mesh(new , { for (const [w, d, x, z, AR88, RNG88, { for (let lz = -560; lz, ...
 step(ld_skyWideWorld_1, -1837679701); await bootYield("ld_skyWideWorld_1");         // RNG89, AR89, NYG89, scene.add, BDNY89, { const A = (x, z) => ar, ...
-step(ld_tokyooTexture_1, -1939243746); await bootYield("ld_tokyooTexture_1");        // TUFTTEX90, FLOWTEX90, GRASS90G, AR90, { const r = () => RNG90(, buildTk68, ...
+step(ld_tokyooTexture_0, -1939243746); await bootYield("ld_tokyooTexture_0");   // v303: the shared grass, flower and ripple textures
+later('tokyoo', ld_tokyooTexture_1, -1939243746);        // TUFTTEX90, FLOWTEX90, GRASS90G, AR90, { const r = () => RNG90(, buildTk68, ...
 step(ld_newYolkTexture_1, 422335040); await bootYield("ld_newYolkTexture_1");       // RNG91, NYPARK91, NYG91, scene.add, NYGREEN91, NYPITS91, ...
 step(ld_petersbirdTexture_1, 294452646); await bootYield("ld_petersbirdTexture_1");    // RNG92, COBBLE92, GRANITE92, GRAVEL92, PBR92, PBGREEN92, ...
 step(ld_bangcluckTexture_1, 1806312474); await bootYield("ld_bangcluckTexture_1");     // RNG93, BKR93, BKP93, BKGREEN93, { const W = decals52(WAL, AR93, ...
-step(ld_gameplayLootSpiral_1, -976794994); await bootYield("ld_gameplayLootSpiral_1");   // LBASE.push, hooks lootIcon, SETS.salary, hooks rollLoot, { const css = document.c, hooks dropLoot29, ...
+step(ld_gameplayLootSpiral_1, -976794994); await bootYield("ld_gameplayLootSpiral_1");
+later('tokyoo', ld_gameplayLootSpiral_2, -976794994);   // v303: the loot spiral's Tokyoo part (gameplay/loot-spiral.js)   // LBASE.push, hooks lootIcon, SETS.salary, hooks rollLoot, { const css = document.c, hooks dropLoot29, ...
 step(ld_gameplayCareerLadder_1, -495570618); await bootYield("ld_gameplayCareerLadder_1"); // { const css = document.c, hooks levelUp40, hooks addXP, hooks giveTreasure, hooks treePoints40, hooks updateHUD, ...
-step(ld_tokyooTheOffice_1, -879217800); await bootYield("ld_tokyooTheOffice_1");      // AR96, DM96, buildTk68, TLAB68.push, ['Michael Scoot', 'Dwigh, addNamedTalker, ...
-step(ld_tokyooMiddleOut_1, -1262864982); await bootYield("ld_tokyooMiddleOut_1");      // AR97, PP97, buildTk68, TLAB68.push, ['Richard Hendricoos', ', addNamedTalker, ...
-step(ld_tokyooHooli_1, -886794100); await bootYield("ld_tokyooHooli_1");          // AR98, HL98, buildTk68, TLAB68.push, ['Gavin Belson-coo', 'Sp, talker "Talk to Gavin Belson-coo", ...
-step(ld_tokyooStreetKarts_1, -1398323676); await bootYield("ld_tokyooStreetKarts_1");    // ROUTE99, for (let i = 0; i < ROUT, KART99, RIV99, SHOP99, { const a = ROUTE99[0], , ...
-step(ld_tokyooMechaGojirra_1, 745371822); await bootYield("ld_tokyooMechaGojirra_1");   // ARENA100, MECHA100, NOTIF100, { const css = document.c, addNamedTalker, system mecha100, ...
-step(ld_tokyooCozyHome_1, 745371822); await bootYield("ld_tokyooCozyHome_1");       // hooks gearStat, HOME101, TLAB68.push, talker "Look at your trophies", talker "Nap on the futon", talker "Sit at the kotatsu", ...
+later('tokyoo', ld_tokyooTheOffice_1, -879217800);      // AR96, DM96, buildTk68, TLAB68.push, ['Michael Scoot', 'Dwigh, addNamedTalker, ...
+later('tokyoo', ld_tokyooMiddleOut_1, -1262864982);      // AR97, PP97, buildTk68, TLAB68.push, ['Richard Hendricoos', ', addNamedTalker, ...
+later('tokyoo', ld_tokyooHooli_1, -886794100);          // AR98, HL98, buildTk68, TLAB68.push, ['Gavin Belson-coo', 'Sp, talker "Talk to Gavin Belson-coo", ...
+later('tokyoo', ld_tokyooStreetKarts_1, -1398323676);    // ROUTE99, for (let i = 0; i < ROUT, KART99, RIV99, SHOP99, { const a = ROUTE99[0], , ...
+later('tokyoo', ld_tokyooMechaGojirra_1, 745371822);   // ARENA100, MECHA100, NOTIF100, { const css = document.c, addNamedTalker, system mecha100, ...
+later('tokyoo', ld_tokyooCozyHome_1, 745371822);       // hooks gearStat, HOME101, TLAB68.push, talker "Look at your trophies", talker "Nap on the futon", talker "Sit at the kotatsu", ...
 step(ld_castLod_1, 1817219571); await bootYield("ld_castLod_1");              // LOD102, system lod102, addEventListener
 step(ld_uiLeanHud_1, 1817219571); await bootYield("ld_uiLeanHud_1");            // { const css = document.c, H103, { const q = document.get, hooks toggleHelp, system hud103
 step(ld_uiToasts_1, 1817219571); await bootYield("ld_uiToasts_1");             // { const css = document.c, hooks toast, system toast104
@@ -40588,7 +40647,7 @@ step(ld_audioSoundscapes_1, 1817219571); await bootYield("ld_audioSoundscapes_1"
 step(ld_audioScore_1, 1817219571); await bootYield("ld_audioScore_1");           // Object.assign, hooks pickTrack, system duck107
 step(ld_skyLight_1, 1817219571); await bootYield("ld_skyLight_1");             // GRADE64.tk, hooks applyDay, system light108
 step(ld_castAlive_1, 1817219571); await bootYield("ld_castAlive_1");            // system alive109
-step(ld_tokyooStreets_1, 1817219571); await bootYield("ld_tokyooStreets_1");        // RNG110, AR110, VEND110, LANT110, system streets110
+later('tokyoo', ld_tokyooStreets_1, 1817219571);        // RNG110, AR110, VEND110, LANT110, system streets110
 step(ld_lookFacades_1, 1817219571); await bootYield("ld_lookFacades_1");          // RNG111, W111.vil, W111.pb, W111.ny, W111.bk
 step(ld_castOverheard_1, 1817219571); await bootYield("ld_castOverheard_1");        // B112, system bark112
 step(ld_castSmallTalk_1, 1817219571); await bootYield("ld_castSmallTalk_1");        // system news113
@@ -40599,7 +40658,7 @@ step(ld_uiDeeds_1, 1817219571); await bootYield("ld_uiDeeds_1");              //
 step(ld_bangcluckCluck19_1, 1817219571); await bootYield("ld_bangcluckCluck19_1");     // CL118, VOICES['Dr. Pim'], VOICES['Uncle Somsak'], VOICES['Khun Krystal'], VOICES['Kevin'], addNamedTalker, ...
 step(ld_uiSideJobs_1, 1440233983); await bootYield("ld_uiSideJobs_1");           // hooks deedRows117, { const b = [...document
 step(ld_gameplayFeel_1, 1440233983); await bootYield("ld_gameplayFeel_1");         // hooks updateCamera, hooks land44, if (typeof camPost30 ===, hooks tone, hooks noise, for (const k of ['hop', 
-step(ld_tokyooNightLights_1, 1440233983); await bootYield("ld_tokyooNightLights_1");    // RNG121, TORO121, CHO121, system night121
+later('tokyoo', ld_tokyooNightLights_1, 1440233983);    // RNG121, TORO121, CHO121, system night121
 step(ld_uiThoughts_1, 1440233983); await bootYield("ld_uiThoughts_1");           // system think122
 step(ld_storyGone_1, 1440233983); await bootYield("ld_storyGone_1");            // paG, scene.add, paG.visible, WORLDNAME49.pa, CITYC58.pa, BANNERS58.pa, ...
 // Paree and Bavaria (v125-v190) are a region: built when the story reaches "To Paree" (stage 50), or when
@@ -40674,7 +40733,7 @@ region('paree', () => WARST48() >= 50 || inParis124() || inBav146(), [
  [ld_pareeTourists_1, 1638063114],        // TOUR189, talker "Sign the petition", talker "Talk to the wedding phot", system tour189
  [ld_storyGone_4, 1694428011],            // CULL153
  [ld_history, 1694428011, 'load'],        // GAME_VER.n, GAME_VER.name, WHATS_NEW.unshift, { const d = document.que, WHATS_NEW[0][1] += ' Als, WHATS_NEW[0][1] += ' At , ...
-]);
+], ['tokyoo']);
 /* ---------- moon: gate ---------- */
 // From v191. The mo_* steps are run by boot/moon.js, in load order.
 // set by the steps below
@@ -47403,6 +47462,14 @@ WHATS_NEW.unshift(['301 · Loading', 'The first load no longer freezes the page:
 GAME_VER.n = 302;
 GAME_VER.name = 'Tidy Menu';
 WHATS_NEW.unshift(['302 · Tidy Menu', 'The menu is now four tabs that fit the screen: Play (map, journal, bag, the Feather Tree, errands, side jobs, photo mode, save), Travel (fly-to places by city, with a search), Settings (in groups; the doubled text-speed setting is one now) and Controls (keys and short tips). The long version history is gone from it. Tall pop-ups and long conversation choices can be scrolled all the way to the top.']);
+/* =====================================================================
+   v303 · LATER, TOKYOO: Tokyoo is built when the story gets there,
+   behind a travel card, not at the first load (about 20% faster)
+   ===================================================================== */
+// v303
+GAME_VER.n = 303;
+GAME_VER.name = 'Later, Tokyoo';
+WHATS_NEW.unshift(['303 · Later, Tokyoo', 'The first load is about a fifth shorter: Tokyoo is no longer built until the story gets there. Boarding Flight 9000 (or coming back to a save in Tokyoo) shows a short “Building Tokyoo” card instead, and Tokyoo looks exactly as before.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -47420,7 +47487,7 @@ region('bkDetail', () => inBang(), [
 ]);
 region('tkDetail', () => inTokyo67() && Math.abs(player.pos.x - TK.x) < 800 && Math.abs(player.pos.z - TK.z) < 800, [
   [ld_tokyooDetail_1, 265001],
-]);
+], ['tokyoo']);
 region('paDetail', () => inParis124(), [
   [ld_pareeDetail_1, 266001],
 ], ['paree']);
@@ -48735,7 +48802,7 @@ function gov295(now){ const G = window.GOV295 || (window.GOV295 = {lvl: 0, scale
   else G.bad = G.good = 0; }
 function frameBody47(now){
   gov295(now);
-  updateRegions();   // regions build the first frame they are needed (core/regions.js)
+  if (updateRegions() === 'busy'){ last = now; return; }   // regions build the first frame they are needed (core/regions.js); a city behind its load card (v303)
   const dt = Math.min(0.05, Math.max(0, (now - last)/1000)); last = Math.max(last, now); time += dt;   // v298.1: never a negative step (a stale first rAF stamp after a long boot gave dt = -30 s)
   if (state === 'play'){ updatePlayer(dt); S.time += dt; saveT += dt; if (saveT > 10){ saveT = 0; save(); } }
   else if (state === 'title'){ player.anim.t += dt; animatePigeon(player.P, 'idle', player.anim, dt); player.P.g.position.copy(player.pos); player.P.g.rotation.y = player.heading; }
