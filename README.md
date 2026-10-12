@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v313 (everyone has their head back, the Crumb Line's station stairs can be walked again, the river has quay walls, and the cannoli job is fairer).
+Current version: v314 (Tokyoo shows on every trip again, parked cars stay in the road, bikes stand on the pavement, softer street lamps at night, and fly-to spots that no longer drop Pidge inside things).

@@ -162,7 +162,7 @@
 
   .floaters{position:absolute;inset:0;overflow:hidden}
   .fl{position:absolute;left:0;top:0;font-weight:700;font-size:17px;white-space:nowrap;will-change:transform;text-shadow:2px 0 0 #3d1f0e,-2px 0 0 #3d1f0e,0 2px 0 #3d1f0e,0 -2px 0 #3d1f0e}
-  .fl.bubble{font-weight:500;font-size:14px;color:var(--ink);text-shadow:none;background:#fff6dc;border:2px solid var(--wood-dark);border-radius:6px;padding:3px 8px}
+  .fl.bubble{font-weight:500;font-size:14px;color:var(--ink);text-shadow:none;background:#fff6dc;border:2px solid var(--wood-dark);border-radius:6px;padding:3px 8px;white-space:normal;width:max-content;max-width:min(340px,calc(100vw - 24px));text-align:center;line-height:1.25}   /* v314: wraps (a long thought ran off both sides of a phone) */
   .goal{position:absolute;left:0;top:0;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--ink);padding:3px 9px;will-change:transform}
   .goal-arrow{width:0;height:0;border-left:11px solid var(--wood-dark);border-top:7px solid transparent;border-bottom:7px solid transparent}
 
@@ -14944,6 +14944,10 @@ for (let cx = 368; cx <= 528; cx += 32) for (let cz = -208; cz <= 208; cz += 32)
 {
   const ch = nch(350, 0);
   NB(ch, 14, 0.15, BR.z1 - BR.z0, 349, 0.075, 0, XC.stone); addSolid(349, 0, 14, BR.z1 - BR.z0, 0, 0.15, 'slab');
+  // v314: paved like every other pavement (plain pale stone read as a flat white sheet in the sun); the UVs are scaled so
+  // the shared cobbles come out the size they are on a 24 m block
+  { const L = BR.z1 - BR.z0, g = new THREE.PlaneGeometry(14, L), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i)*14/BLOCK, uv.getY(i)*L/BLOCK);
+    const top = mesh(g, slabTopMat, 349, 0.153, (BR.z0 + BR.z1)/2); top.rotation.x = -PI/2; top.receiveShadow = true; scene.add(top); }
   for (let z = BR.z0 + 1; z < BR.z1; z += 2.4) NB(ch, 0.1, 1.0, 0.1, 342.3, 0.65, z, XC.black);
   NB(ch, 0.12, 0.08, BR.z1 - BR.z0, 342.3, 1.15, 0, XC.black); addSolid(342.3, 0, 0.3, BR.z1 - BR.z0, 0, 1.2, 'railing');
   for (let z = BR.z0 + 12; z < BR.z1; z += 24){ NEWLAMP.push([344.5, z]); if (Math.abs(z - BR.bridgeZ) > 8){ NB(ch, 0.5, 0.1, 2.0, 346, 0.6, z + 6, FM.wood); NB(ch, 0.1, 0.5, 2.0, 345.8, 0.9, z + 6, FM.wood); for (const e of [-0.85, 0.85]) NB(ch, 0.5, 0.55, 0.08, 346, 0.275, z + 6 + e, FM.iron);   /* v300: legs (it hung in the air) */ addSolid(346, z + 6, 0.6, 2.0, 0, 0.65, 'bench'); } }
@@ -15036,7 +15040,8 @@ function districtOf29Base(x, z){
 const bs_worldNewYolkBroodlyn_2 = () => {
 setTimeout(() => {
   Object.assign(DISTRICT_SPOTS, {broodheights: [400, 60], dumbird: [384, -150], bushwing: [496, -120], perchslope: [496, 120], libirdy: [LIB.x, LIB.z - 22]});
-  const PL = [['broodlyn', 'Broodlyn Promenade', [350, 0.15, 0, PI/2]], ['bridge', 'The Broodlyn Bridge', [262, BR.deckY + 0.1, BR.bridgeZ, PI/2]], ['libirdy', 'Statue of Libirdy', [LIB.x - 10.5, 1.1, LIB.z, PI/2]], ['garden', 'Madison Squab Garden', [-320, 0.15, -84.5, PI]], ['deli', 'Catz\'s Deli', [-244.6, 0.15, 128, -PI/2]], ['timessquab', 'Times Squab', [-266.5, 0.15, -86, -PI/2]], ['chess', 'Chess tables', [-436, 0.13, -27, PI]], ['roost', 'The Roost', [506.5, 0.15, -112, -PI/2]], ['peeza', 'Joe\'s Peeza', [410.6, 0.15, 16, -PI/2]]];
+  // v314: the Statue of Libirdy's spot is 2 m further out (at 10.5 Pidge landed inside the fort's west bastion)
+  const PL = [['broodlyn', 'Broodlyn Promenade', [350, 0.15, 0, PI/2]], ['bridge', 'The Broodlyn Bridge', [262, BR.deckY + 0.1, BR.bridgeZ, PI/2]], ['libirdy', 'Statue of Libirdy', [LIB.x - 12.5, 1.1, LIB.z, PI/2]], ['garden', 'Madison Squab Garden', [-320, 0.15, -84.5, PI]], ['deli', 'Catz\'s Deli', [-244.6, 0.15, 128, -PI/2]], ['timessquab', 'Times Squab', [-266.5, 0.15, -86, -PI/2]], ['chess', 'Chess tables', [-436, 0.13, -27, PI]], ['roost', 'The Roost', [506.5, 0.15, -112, -PI/2]], ['peeza', 'Joe\'s Peeza', [410.6, 0.15, 16, -PI/2]]];
   const row = $('warpRow');
   for (const [k, name, p] of PL){ WARPS[k] = p; const b = document.createElement('button'); b.className = 'warp'; b.type = 'button'; b.dataset.warp = k; b.textContent = name; row.appendChild(b); }
 }, 0);
@@ -16992,7 +16997,8 @@ foodGeo.icecream = () => { const g = new THREE.Group(); const c = mesh(new THREE
 scoopRoom = hollow({cx: -288 + 4.3, cz: 32, w: 8.6, d: 16, h: 4.5, style: 2, door: 'e', inner: wallpaper('#ffe4ee', '#fff6f0'), name: 'Two Scoops', doorColor: 0xff9ec4, noLight: true});
 SC = roomBox(scoopRoom); scg = igroup(SC.cx, SC.z, 55);
 {
-  const fl = pxTex(8, 8, g => { for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) px(g, x, y, (x + y) % 2 ? '#fff6f0' : '#ff9ec4'); }); fl.repeat.set(8, 15);
+  // v314: a shade deeper (cream and candy pink averaged out to near white from the street and the glow pass burned it white)
+  const fl = pxTex(8, 8, g => { for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) px(g, x, y, (x + y) % 2 ? '#efe0d6' : '#e8789f'); }); fl.repeat.set(8, 15);
   gadd(scg, mesh(new THREE.PlaneGeometry(SC.x1 - SC.x0, SC.z1 - SC.z0), mat(0xffffff, {map: fl}), SC.cx, 0.17, SC.z)).rotation.x = -PI/2;
   GB(scg, 1.1, 1.0, 5.4, 0xf4f4ef, SC.x0 + 1.5, 0.65, SC.z - 1, true, 'counter');
   const glass = new THREE.MeshToonMaterial({color: 0xcfeff4, gradientMap: TOON, transparent: true, opacity: 0.35, depthWrite: false});
@@ -22575,10 +22581,12 @@ SUNSPRITE = (() => {
 POOLS = (() => {
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
   gr.addColorStop(0, 'rgba(255,214,140,0.9)'); gr.addColorStop(0.35, 'rgba(255,196,120,0.45)'); gr.addColorStop(1, 'rgba(255,190,110,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
-  const spots = [];
-  for (const [x, z] of lampSpots) spots.push([x, 0.19, z]); for (const [x, z] of coastLamps) spots.push([x, 0.19, z]); for (const [x, z] of NEWLAMP) spots.push([x, 0.19, z]); for (const [x, z] of VLAMPS) spots.push([x, 0.06, VZ + z]);
-  for (let x = -200; x <= 200; x += 16) for (const z of [57.6, 97.4]){ if (z < 60 && Math.abs(x) < 68) continue; spots.push([PB.x + x, 0.06, PB.z + z]); }
-  for (const [x, z] of [[-30, 6], [30, 6], [-30, 34], [30, 34]]) spots.push([PB.x + x, 0.06, PB.z + z]);
+  // v314: one pool per lamp. The lamp lists overlap (a lamp in NEWLAMP and coastLamps, too), and render/lighting.js already
+  // pools every lampSpots lamp: up to three pools added up on one spot and burned the pavement white with a hard edge
+  const spots = [], seen = new Set(lampSpots.map(([x, z]) => Math.round(x) + ',' + Math.round(z))), add = (x, y, z) => { const k = Math.round(x) + ',' + Math.round(z); if (seen.has(k)) return; seen.add(k); spots.push([x, y, z]); };
+  for (const [x, z] of coastLamps) add(x, 0.19, z); for (const [x, z] of NEWLAMP) add(x, 0.19, z); for (const [x, z] of VLAMPS) add(x, 0.06, VZ + z);
+  for (let x = -200; x <= 200; x += 16) for (const z of [57.6, 97.4]){ if (z < 60 && Math.abs(x) < 68) continue; add(PB.x + x, 0.06, PB.z + z); }
+  for (const [x, z] of [[-30, 6], [30, 6], [-30, 34], [30, 34]]) add(PB.x + x, 0.06, PB.z + z);
   const geo = new THREE.PlaneGeometry(1, 1); geo.rotateX(-PI/2);
   const m = new THREE.MeshBasicMaterial({map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, polygonOffset: true, polygonOffsetFactor: -2});
   const im = new THREE.InstancedMesh(geo, m, spots.length); spots.forEach(([x, y, z], i) => { _d39.position.set(x, y, z); _d39.rotation.set(0, 0, 0); _d39.scale.set(9, 1, 9); _d39.updateMatrix(); im.setMatrixAt(i, _d39.matrix); });
@@ -27462,7 +27470,9 @@ P52.bike = (K, x, z, ry, col) => { const c = col ?? pick52([0xd4302a, 0x2a6ad4, 
     const wheel = new THREE.TorusGeometry(0.31, 0.028, 3, 14).rotateY(PI/2);
     return [ckMerge([{geo: wheel, m: ckM(...R)}, {geo: wheel, m: ckM(...F)}, {geo: new THREE.BoxGeometry(0.12, 0.05, 0.24), m: ckM(0, 0.9, -0.22)}, {geo: ckRodGeo([-0.24, 0.98, 0.38], [0.24, 0.98, 0.38], 0.02, 4)}, {geo: ckRodGeo(HT, [0, 0.98, 0.38], 0.02, 4)}]),
       ckMerge([[BB, S], [S, HT], [BB, HB], [BB, R], [S, R], [HB, F], [HT, HB]].map(([a, b]) => ({geo: ckRodGeo(a, b, 0.025, 4)})))]; });
-  K.part(dark, 0x1a1a20, x, 0, z, 1, 1, 1, ry, true); K.part(frame, c, x, 0, z, 1, 1, 1, ry, true); };
+  // v314: stood on whatever is underfoot (it was drawn from y 0, so on a pavement, 0.15 up, the wheels sank into the slabs)
+  const y = Math.max(0, floorAt(x, z, 0.3)) + 0.02;
+  K.part(dark, 0x1a1a20, x, y, z, 1, 1, 1, ry, true); K.part(frame, c, x, y, z, 1, 1, 1, ry, true); };
 P52.ac = (K, x, y, z, ry) => { const A = at52(x, z, ry), [px, pz] = A(0, 0.3); K.box(0.8, 0.55, 0.6, px, y, pz, 0xd8d4cc, {ry}); const [gx, gz] = A(0, 0.61); K.box(0.6, 0.4, 0.02, gx, y, gz, 0x8a8f94, {ry}); };
 P52.dish = (K, x, y, z, ry) => { const A = at52(x, z, ry), [px, pz] = A(0, 0.3); K.box(0.6, 0.6, 0.1, px, y, pz, 0xe8e4dc, {ry: ry + 0.3}); K.box(0.05, 0.05, 0.4, px, y, pz, 0x8a8f94, {ry}); };
 P52.hydrant = (K, x, z, c = 0xd4302a) => { K.part(ckOnce(CK.geo, 'hydrant286', () => ckMerge([{geo: new THREE.CylinderGeometry(0.2, 0.22, 0.1, 10), m: ckM(0, 0.2, 0)}, {geo: new THREE.CylinderGeometry(0.14, 0.15, 0.5, 10), m: ckM(0, 0.45, 0)}, {geo: new THREE.CylinderGeometry(0.17, 0.17, 0.06, 10), m: ckM(0, 0.7, 0)}, {geo: new THREE.SphereGeometry(0.15, 10, 5, 0, PI*2, 0, PI/2), m: ckM(0, 0.72, 0)}, {geo: new THREE.CylinderGeometry(0.04, 0.05, 0.08, 6), m: ckM(0, 0.88, 0)}, {geo: ckRodGeo([-0.22, 0.56, 0], [0.22, 0.56, 0], 0.055, 8)}, {geo: new THREE.CylinderGeometry(0.075, 0.075, 0.12, 8).rotateX(PI/2), m: ckM(0, 0.5, 0.15)}])), c, x, 0, z, 1, 1, 1, x); addSolid(x, z, 0.3, 0.3, 0, 0.85, 'hydrant'); };   // v286: a round hydrant
@@ -27548,12 +27558,13 @@ P52.flowerbox = (K, x, y, z, ry) => { const a = at52(x, z, ry), [px, pz] = a(0, 
   // v306: keep shop doors clear (a newsbox stood in Tiffeathers' doorway): a prop or a parked car that would land in front
   // of a door slides along the kerb instead, so the random numbers, and the rest of the street, stay the same
   const doors52 = rooms.map(r => r.door).filter(Boolean), atDoor = (x, z, r) => doors52.some(d => Math.hypot(x - d.x, z - d.z) < r);
-  const clearU = (u, P, off, r) => { for (const du of [0, 4, -4, 8, -8]) if (!atDoor(...P(u + du, off), r)) return u + du; return null; };
+  // v314: and clear of the props already put along that side of the block (a bike stood in a bench)
+  const clearU = (u, P, off, r, taken = []) => { for (const du of [0, 4, -4, 8, -8]) if (!atDoor(...P(u + du, off), r) && !taken.some(t => Math.abs(t - (u + du)) < 2.2)) return u + du; return null; };
   for (const [cx, cz] of BLK){ const key = hood52(cx, cz), T = th52(key), A = area52(cx, cz);
     for (const [sx, sz] of SIDES){ const along = sz !== 0, ry = Math.atan2(sx, sz) + PI, P = (u, off) => along ? [cx + u, cz + sz*off] : [cx + sx*off, cz + u];
       // sidewalk props
-      const tight = TIGHT52.includes(key), SW = tight ? 11.6 : 10.2;
-      for (let k = 0; k < T.pn; k++){ if (r52() < 0.25) continue; const u0 = rr52(-7.5, 7.5), kind = pick52(T.props), u = clearU(u0, P, SW, 3.4); if (u === null) continue; const [x, z] = P(u, SW);
+      const tight = TIGHT52.includes(key), SW = tight ? 11.6 : 10.2, taken = [];
+      for (let k = 0; k < T.pn; k++){ if (r52() < 0.25) continue; const u0 = rr52(-7.5, 7.5), kind = pick52(T.props), u = clearU(u0, P, SW, 3.4, taken); if (u === null) continue; const [x, z] = P(u, SW); taken.push(u);
         if (kind === 'stall') P52.stall(A.K, ...P(u, tight ? 11.4 : 9.8), ry + PI, [0xd4302a, 0xffd23a], [0xff9a3a, 0x8ac83a, 0xffd23a, 0xd4302a, 0xf4f0e6]);
         else if (kind === 'cafe') P52.cafe(A.K, x, z, ry);
         else if (kind === 'vespa') P52.vespa(A.K, x, z, ry + PI/2);
@@ -27564,14 +27575,15 @@ P52.flowerbox = (K, x, y, z, ry) => { const a = at52(x, z, ry), [px, pz] = a(0, 
         else if (kind === 'planter') P52.planter(A.K, x, z, 1.4, 0.8);
         else if (kind === 'hydrant') P52.hydrant(A.K, x, z);
         else if (kind === 'newsbox') P52.newsbox(A.K, x, z, ry);
-        else if (kind === 'truck') { if (r52() < 0.5) { const [tx, tz] = P(u, 12.3); P52.truck(A.K, tx, tz, along ? PI/2 : 0); } }
+        else if (kind === 'truck') { if (r52() < 0.5) { const [tx, tz] = P(u, 13.15); P52.truck(A.K, tx, tz, along ? PI/2 : 0); } }   // v314: in the road (at 12.3 the van stood half on the pavement)
         else if (kind === 'pot') P52.pot(A.K, x, z);
         else if (kind === 'bin') P52.bin(A.K, x, z);
         else if (P52[kind]) P52[kind](A.K, x, z, ry);
       }
-      // parked cars along the kerb, some taxis, some dented
+      // parked cars along the kerb, some taxis, some dented. v314: in the road, against the kerb (the pavement slab ends 12 m
+      // from the block's middle: at 12.0 every car stood half on the pavement, some on the cafe tables there)
       const skipCentre = Math.abs(cx) <= 64 && Math.abs(cz) <= 64 && along, road = along ? cz + sz*16 : cx + sx*16, bikes = cyclists.some(c => c.axis === (along ? 'x' : 'z') && Math.abs(c.fixed - c.dir*3.3 - road) < 0.5);
-      if (!skipCentre && !tight && !bikes && r52() < T.cd){ const uc = rr52(-5.5, 5.5), u = clearU(uc, P, 12.0, 4.2) ?? uc, [x, z] = P(u, 12.0), carRy = along ? PI/2 + (r52() < 0.5 ? PI : 0) : (r52() < 0.5 ? PI : 0), kind = pick52(T.cars);
+      if (!skipCentre && !tight && !bikes && r52() < T.cd){ const uc = rr52(-5.5, 5.5), u = clearU(uc, P, 13.0, 4.2) ?? uc, [x, z] = P(u, 13.0), carRy = along ? PI/2 + (r52() < 0.5 ? PI : 0) : (r52() < 0.5 ? PI : 0), kind = pick52(T.cars);
         P52.car(A.K, x, z, carRy, {kind: kind === 'taxi' ? 'taxi' : kind === 'van' ? 'van' : 'car'}); const s_ = addSolid(x, z, along ? 4.1 : 1.9, along ? 1.9 : 4.1, 0, kind === 'van' ? 2.3 : 1.75, 'parked52'); CARS52.push({x, z, s: s_}); }
       // strings of lights or lanterns across the street
       if ((T.festoon || T.lanterns) && (sx > 0 || sz > 0)){ for (let k = 0; k < 2; k++){ const u = -6 + k*12 + rr52(-1.5, 1.5), a = P(u, 11.4), b = P(u, 20.6), h = rr52(6, 7.4);
@@ -29223,9 +29235,12 @@ const G64 = {g: new THREE.Vector3(1, 1, 1), l: new THREE.Vector3()};
 const ld_lookGoldenHour_1 = () => {
 /* ---------- light cones under the street lamps ---------- */
 CONES64 = (() => { if (!lampSpots.length) return null; const base = new THREE.CylinderGeometry(0.25, 2.3, 4.3, 12, 1, true), pos = [], a = base.attributes.position.array, idx = base.index ? base.index.array : null;
-  for (const [x, z] of lampSpots){ if (idx){ for (let i = 0; i < idx.length; i++){ const j = idx[i]*3; pos.push(a[j] + x, a[j + 1] + 2.35, a[j + 2] + z); } } }
-  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.computeBoundingSphere();
-  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({color: 0xffd890, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: true})); m.frustumCulled = false; m.renderOrder = 2; scene.add(m); return m; })();
+  // v314: brightest at the lamp, fading to nothing at the ground (a cone that was as bright at its foot drew a hard-edged
+  // polygon on the pavement wherever it overlapped the pool of light)
+  const col = [];
+  for (const [x, z] of lampSpots){ if (idx){ for (let i = 0; i < idx.length; i++){ const j = idx[i]*3, t = (a[j + 1] + 2.15)/4.3; pos.push(a[j] + x, a[j + 1] + 2.35, a[j + 2] + z); col.push(t*t, t*t, t*t); } } }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.computeBoundingSphere();
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({color: 0xffd890, vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: true})); m.frustumCulled = false; m.renderOrder = 2; scene.add(m); return m; })();
 /* ---------- dust motes in the sun ---------- */
 MOTES64 = (() => { const N = 90, pos = new Float32Array(N*3), seeds = []; for (let i = 0; i < N; i++){ seeds.push([rr(-14, 14), rr(0.4, 7), rr(-14, 14), rr(0, 6)]); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -29575,7 +29590,10 @@ function greet67(){ const Q = Q68(); Q.arrived = 1; setWar48(25); save(); render
   say([L('Greeter unit', '*bows* Irasshaimase! Welcome to Tokyoo, Pidge-san. We have been expecting you.'), L('Greeter unit', 'HAIKU-9000 sends its warmest regards, and a poem.'), L('HAIKU-9000', '(from every screen in the terminal) Small grey visitor. / The shrimp is safe in my care. / Please enjoy your stay.'), L('Tony', '...Kid. Every person in this airport just bowed at the same time. With little antennas on.'),
     L('Greeter unit', '*bows* Our humans are very happy. We help them walk. We help them bow. We help them with everything. They do not have to decide anything any more. Is it not wonderful?'), L('Tony', 'I\'m gonna go find a sushi place. You find Boris. And kid... don\'t let them put a hat on you.')], () => { endShot(true); toast('<b>Big in Japan</b>: leave the airport and look for Boris Kempinski.', '', 4200); }); }
 
-function updateTokyo67(dt, time){ const here = !!(inTokyo67() || (SHOT && camera.position.z < -3000));   // v306: a real boolean: with no cut-scene this was null, and three.js only hides what is visible === false, so Mount Fujii stood over Gus's square tkG.visible = here; FUJI67.g.visible = here && !roomAt(player.pos); if (FUJI67.g.visible){ const c = camera.position; FUJI67.g.position.set(c.x + FUJI67.dir.x*200, -6, c.z + FUJI67.dir.z*200); FUJI67.g.lookAt(c.x, -6, c.z); }
+// v306: here is a real boolean: with no cut-scene it was null, and three.js only hides what is visible === false, so Mount
+// Fujii stood over Gus's square. v314: this note was written in the middle of the line below and commented out the rest
+// of it, so Tokyoo was never shown or hidden again after the first flight in, and Mount Fujii never at all
+function updateTokyo67(dt, time){ const here = !!(inTokyo67() || (SHOT && camera.position.z < -3000)); tkG.visible = here; FUJI67.g.visible = here && !roomAt(player.pos); if (FUJI67.g.visible){ const c = camera.position; FUJI67.g.position.set(c.x + FUJI67.dir.x*200, -6, c.z + FUJI67.dir.z*200); FUJI67.g.lookAt(c.x, -6, c.z); }
   if (!here) return; const H = HANEEDA, P = player.pos;
   if (TK.landing){ H.jet.position.x += dt*38; H.jet.position.y = Math.max(0, H.jet.position.y - dt*5.5); if (H.jet.position.y <= 0.2) H.jet.rotation.x = 0; }
   if (P.distanceTo(H.exit) < 120){ for (const B of H.bots) animBot67(B, dt, true); for (const d of H.drones){ d.t += dt; const bow = Math.sin(time*1.3) > 0; d.H.g.rotation.x = bow ? -0.35 : 0; d.H.led.visible = Math.floor(time*2) % 2 === 0; } }
@@ -29911,7 +29929,8 @@ if (typeof SYS52 !== 'undefined') SYS52.push(['street68', updateStreet68]);
 hook('openMap', function(){ const h = document.querySelector('#worldmap h3'); if (h && state === 'map'){ if (!h.dataset.t) h.dataset.t = h.textContent; h.textContent = mapTitle68(h.dataset.t); } });
 // fast travel inside Tokyoo (and only inside Tokyoo: the way home is a plane)
 setTimeout(() => { const row = $('warpRow');
-  for (const [k, name, p] of [['tkair', 'Haneeda Airport (Tokyoo)', [HANEEDA.exit.x, 0.4, HANEEDA.exit.z, 0]], ['tkscramble', 'Shibuyaa Scramble (Tokyoo)', [SCR68.X - 12, 0.4, SCR68.Z - 8, PI]], ['tktower', 'Tokyoo Tower (Tokyoo)', [TOWER68.X, 0.4, TOWER68.Z + 18, PI]], ['tkpark', 'Ueno-Yoyogi Park (Tokyoo)', [TX(160), 0.4, TZ(PARK68.z1 - 4), PI]]]){
+  // v314: the Scramble spot is on the west road into the crossing, facing it (it stood against a screen tower's back)
+  for (const [k, name, p] of [['tkair', 'Haneeda Airport (Tokyoo)', [HANEEDA.exit.x, 0.4, HANEEDA.exit.z, 0]], ['tkscramble', 'Shibuyaa Scramble (Tokyoo)', [SCR68.X - 13, 0.4, SCR68.Z, PI/2]], ['tktower', 'Tokyoo Tower (Tokyoo)', [TOWER68.X, 0.4, TOWER68.Z + 18, PI]], ['tkpark', 'Ueno-Yoyogi Park (Tokyoo)', [TX(160), 0.4, TZ(PARK68.z1 - 4), PI]]]){
     WARPS[k] = p; const b = document.createElement('button'); b.className = 'warp'; b.type = 'button'; b.dataset.warp = k; b.textContent = name; row.appendChild(b); } }, 0);
 answerHook('warpBlocked27', function(key){ const tk = !!key && key.startsWith('tk');
   if (tk && !Q68().arrived){ toast('You haven\'t been to Tokyoo yet.', '', 3000); return {answer: true}; }
@@ -31213,7 +31232,7 @@ buildTk68(AR78, tkG);
 TLAB68.push(['Himeji-coo', CASTLE78.cx, CASTLE78.cz]);
 Object.assign(DISTRICTS, {tkhimeji: {name: 'Himeji-coo', sub: 'the white heron castle · samurai, lanterns and a ninja'}});
 answerHook('districtOfTk', function(x, z){ const lx = x - TK.x, lz = z - TK.z; if (Math.abs(lx + 480) < 50 && Math.abs(lz + 490) < 50) return {answer: 'tkhimeji'}; });
-setTimeout(() => { const row = $('warpRow'); const k = 'tkhimeji'; WARPS[k] = [CASTLE78.gate.x, 0.4, CASTLE78.gate.z + 6, PI]; const b = document.createElement('button'); b.className = 'warp'; b.type = 'button'; b.dataset.warp = k; b.textContent = 'Himeji-coo (Tokyoo)'; row.appendChild(b); }, 0);
+setTimeout(() => { const row = $('warpRow'); const k = 'tkhimeji'; WARPS[k] = [CASTLE78.gate.x, 0.4, CASTLE78.gate.z + 13, PI];   /* v314: back from the gate sign (at +6 the camera stood against it, its text over the HUD) */ const b = document.createElement('button'); b.className = 'warp'; b.type = 'button'; b.dataset.warp = k; b.textContent = 'Himeji-coo (Tokyoo)'; row.appendChild(b); }, 0);
 if (typeof SYS52 !== 'undefined') SYS52.push(['castle78', updateCastle78]);
 };
 
@@ -47865,6 +47884,13 @@ WHATS_NEW.unshift(['312 · One Look Round', 'Smoother on slower machines: the ne
 GAME_VER.n = 313;
 GAME_VER.name = 'Heads Up';
 WHATS_NEW.unshift(['313 · Heads Up', 'Everyone has their head back: townsfolk who stood or sat still for a while lost their heads (and a bench its seat) to the renderer. The Crumb Line’s station stairs can be walked up and down again, and the river has quay walls, so stepping off a riverbus pontoon no longer drops Pidge under the city. Cannoli: a knocked box no longer gets knocked straight out of your beak again, a knock high above the street costs 8 seconds instead of the whole box, and a tip explains dodging. Also: Sal waits a moment after Gus’s briefing, the ending card’s button stays in view (and Enter works), Gus waits until you’re off the train, the Goodyolk blimp’s flames show, the silver bell really calls pigeons, finished clues leave the bag, and the strongbox wants the riddles read first.']);
+/* =====================================================================
+   v314 · KERB APPEAL: fixes from the 12 October screenshot sweep
+   ===================================================================== */
+// v314
+GAME_VER.n = 314;
+GAME_VER.name = 'Kerb Appeal';
+WHATS_NEW.unshift(['314 · Kerb Appeal', 'Tokyoo is back: since v306 the city was only shown on the very first flight in (a comment had swallowed the line that shows it), so later trips landed in an empty sky, and Mount Fujii never rose at all. Parked cars and vans stand in the road against the kerb instead of half on the pavement (one taxi had a café table through its roof), bicycles stand on the pavement instead of sinking into it, and street props no longer pile into each other. Fly-to spots at Midtown, Maple Grove and the Statue of Libirdy no longer drop Pidge inside a lamppost or the fort, and in Tokyoo the Shibuyaa Scramble spot faces the crossing (not the back of a tower) and Himeji-coo’s stands back from the gate sign. Night streets: one soft pool of light per lamp, without the hard bright shape at its foot. The Broodlyn promenade is paved, Two Scoops has a floor you can see from the street, and long thoughts and speech bubbles wrap on a phone.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -49061,12 +49087,12 @@ const WARPS = {
   number7: [-117, 0.15, -128, -PI/2],
   music: [-53, 0.15, 96, -PI/2],
   gazette: [107, 0.15, 32, -PI/2],
-  midtown: [-245, 0.15, -139, PI],
+  midtown: [-245, 0.15, -137.4, PI],   // v314: 1.7 m off the street lamp (it stood in Pidge)
   pigeonpark: [-406, 0.13, 28, -PI/2],
   naturalhistory: [-401, 0.15, 32, PI/2],
   empire: [-288, 0.15, -116, PI],
   sunnyside: [-245, 0.15, 64, -PI/2],
-  maplegrove: [-43, 0.15, 309, 0],
+  maplegrove: [-41.5, 0.15, 309, 0],   // v314: and this one
   mgschool: [-64, 0.15, 331, PI],
   airport: [130, 0.05, -380, PI],
   pecking: [3, 0.05, 2013.6, PI],
