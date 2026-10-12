@@ -304,6 +304,11 @@
   }
 
   /* phones and tablets: compact HUD, floating stick, thumb-arc buttons */
+  /* v306: narrow screens: toasts below the compass, the HUD cards above the world markers, 'saved' above the hint */
+  @media (min-width:561px) and (max-width:760px){.toasts{top:calc(env(safe-area-inset-top,0px) + 62px);z-index:4}}
+  @media (max-width:760px){.stack{z-index:4}#saved43{bottom:calc(env(safe-area-inset-bottom,0px) + 46px)!important}}
+  .warp.locked306{opacity:.45}
+  body:has(#ending:not([hidden])) .hud{visibility:hidden}   /* v306: the chapter card stands alone */
   .touchui .hint{display:none}
   .touchui .stack{left:calc(env(safe-area-inset-left,0px) + 10px);top:calc(env(safe-area-inset-top,0px) + 10px);width:min(214px,calc(100vw - 150px));gap:6px}
   .touchui .mapwrap{right:calc(env(safe-area-inset-right,0px) + 10px);top:calc(env(safe-area-inset-top,0px) + 10px);gap:6px}
@@ -731,6 +736,10 @@ const isTouch = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in wi
 //   attenuation). The quads read the game's own position (and colour) attributes, flagged per instance, so code that
 //   moves points by writing geometry.attributes.position keeps working.
 // - Light units: see post.render (render/pipeline.js), which scales the lights by PI while it renders.
+// v306: visible is always a true boolean. three.js only skips an object whose visible === false, so a line such as
+// `g.visible = here && ...` that came out null or undefined drew the object anyway (Mount Fujii stood over Gus's
+// square, 70 m wide, whenever no cut-scene was running). Set on the prototype before anything is made.
+Object.defineProperty(THREE.Object3D.prototype, 'visible', {get(){ return this._visible306 !== false; }, set(v){ this._visible306 = !!v; }, configurable: true});
 
 // - v304: bounding spheres of plain position arrays straight from the array (the same box centre and largest distance
 //   three works out through a Vector3 per vertex, which was most of a second of the first load)
@@ -1485,7 +1494,7 @@ const GENERIC65 = {ny: ['Is that pigeon following me?', 'Hey, nice feathers, bud
 // (from story/progression.js)
 const QUESTS = [
   {id:'meet', title:'Meet Old Gus', text:'Gus is perched on the park bench beside the statue. Walk up to him and press E.', goal:1, xp:0},
-  {id:'eat', title:'Breakfast of Champions', text:'Eat 5 bits of food off the pavement. Walk over a crumb, fry or crust to peck it up.', goal:5, xp:30},
+  {id:'eat', title:'Breakfast of Champions', text:'Eat 5 bits of food: on the pavement, on a bench, up on a roof. Walk over a crumb, fry or crust to peck it up.', goal:5, xp:30},
   {id:'coo', title:'Charm Offensive', text:'People with a gold marker are holding snacks. Get close and coo (Q) to win 3 handouts.', goal:3, xp:50},
   {id:'statue', title:'Statue Duty', text:'Perch on the head of Mayor Featherstone. Hold Space to climb, hold S to slow down, and land on the ring.', goal:1, xp:50},
   {id:'tower', title:'High Ground', text:'Land on the roof of New Yolk Tower, the glass tower north-west of the park. Rest on lower rooftops to refill your wings.', goal:1, xp:80},
@@ -5017,8 +5026,12 @@ function removeFood(f){
   if (f.spot) f.spot.used = false;
 }
 
+// v306: a spot that something was built on top of (an air-con box, a water tank, a parked car) is skipped; it's checked
+// again whenever more solids appear, as regions are built
+function foodSpotOK306(s){ if (s.okN !== solids.length){ s.okN = solids.length; s.ok = !solidsAt48(s.x, s.z).some(o => s.x > o.minX && s.x < o.maxX && s.z > o.minZ && s.z < o.maxZ && s.y >= o.minY - 0.05 && s.y < o.maxY - 0.05); } return s.ok; }
+
 function spawnRandomFood(){
-  const free = foodSpots.filter(s => { if (s.used) return false; const d = (s.x - player.pos.x)**2 + (s.z - player.pos.z)**2; return d > 36 && d < 8100; });
+  const free = foodSpots.filter(s => { if (s.used || !foodSpotOK306(s)) return false; const d = (s.x - player.pos.x)**2 + (s.z - player.pos.z)**2; return d > 36 && d < 8100; });
   if (!free.length) return;
   const s = free[Math.floor(Math.random()*free.length)];
   const r = Math.random();
@@ -6816,6 +6829,7 @@ function updateWorld2(dt, time){
     if (c.u > (c.axis === 'x' ? 172 : 245)) c.u = -245; if (c.u < -245) c.u = c.axis === 'x' ? 172 : 245;
     if (c.axis === 'x'){ c.C.g.position.set(c.u, 0, c.fixed); c.C.g.rotation.y = c.dir > 0 ? PI/2 : -PI/2; }
     else { c.C.g.position.set(c.fixed, 0, c.u); c.C.g.rotation.y = c.dir > 0 ? 0 : PI; }
+    if (c.C.g.visible){ const p = c.C.g.position; p.y = floorAt(p.x, p.z, 0.6); }   // v306: ride on kerbs, lawns and ramps, not through them
     c.ph += dt*c.speed*2.2;
     c.C.H.legs[0].rotation.x = -1.2 + Math.sin(c.ph)*0.55; c.C.H.legs[1].rotation.x = -1.2 - Math.sin(c.ph)*0.55;
     c.C.H.knees[0].rotation.x = 1.1 + Math.cos(c.ph)*0.45; c.C.H.knees[1].rotation.x = 1.1 - Math.cos(c.ph)*0.45;
@@ -7287,7 +7301,7 @@ const bs_worldNewYolkTrashCans_1 = () => {
     for (let k = 0; k < 2; k++){
       const t = rand()*4, side = Math.floor(t), s = ((t % 1)*2 - 1)*8, a = 11.4;
       const [x, z] = side === 0 ? [b.cx + s, b.cz - a] : side === 1 ? [b.cx + a, b.cz + s] : side === 2 ? [b.cx + s, b.cz + a] : [b.cx - a, b.cz + s];
-      if (Math.hypot(x - CART.x, z - CART.z) < 4 || doorPts.some(d => Math.hypot(x - d.x, z - d.z) < 3.2)) continue;
+      if (Math.hypot(x - CART.x, z - CART.z) < 4 || doorPts.some(d => Math.hypot(x - d.x, z - d.z) < 3.6)) continue;
       cans.push({x, z, cd: 0, lidT: 0});
       addSolid(x, z, 0.62, 0.62, 0, 1.02, 'bin');
     }
@@ -7438,7 +7452,7 @@ const GREY_TOP = new THREE.Color(0x8a96a3), GREY_HOR = new THREE.Color(0xb6bec6)
 const DROPS = 700;
 
 const bs_worldSkyWeather_1 = () => {
-rainIM = new THREE.InstancedMesh(new THREE.BoxGeometry(0.05, 0.85, 0.05), new THREE.MeshBasicMaterial({color:0xe8f2fa, transparent:true, opacity:0.7, depthWrite:false}), DROPS);
+rainIM = new THREE.InstancedMesh(new THREE.BoxGeometry(0.05, 0.85, 0.05), new THREE.MeshBasicMaterial({color:0xe8f2fa, transparent:true, opacity:0.7, depthWrite:false, fog:false}), DROPS);
 rainIM.frustumCulled = false;
 rainIM.count = 0;
 scene.add(rainIM);
@@ -7505,6 +7519,8 @@ function updateWeather(dt){
       const d = drops[i];
       d[1] -= d[3]*dt; d[0] += dt*(1 + WIND.vx*0.5); d[2] += dt*WIND.vz*0.5;
       if (d[1] < -cy - 0.3 || d[1] < -9){ d[0] = rr(-15, 15); d[1] = rr(5, 10); d[2] = rr(-15, 15); }
+      // v306: no drop right in front of the lens, where one 5 cm streak filled the screen like a grey pole
+      { const h = Math.hypot(d[0], d[2]); if (h < 2.5){ const k = h > 0.01 ? 2.5/h : 0; d[0] = k ? d[0]*k : 2.5; d[2] *= k; } }
       _fd.position.set(cx + d[0], cy + d[1], cz + d[2]); _fd.rotation.set(WIND.vz*0.03, 0, -0.06 - WIND.vx*0.03); _fd.scale.set(1, 1, 1); _fd.updateMatrix(); rainIM.setMatrixAt(i, _fd.matrix);
     }
     rainIM.instanceMatrix.needsUpdate = true;
@@ -7906,7 +7922,7 @@ let clockT = 0;
 function updateClock(dt){
   clockT -= dt; if (clockT > 0) return; clockT = 0.5;
   const hrs = (5 + dayT*21) % 24, hh = Math.floor(hrs), mm = Math.floor((hrs - hh)*60/10)*10;
-  const w = wx.rain > 0.4 ? ' · rain' : wx.cloud > 0.45 ? ' · cloudy' : nightF > 0.6 ? ' · night' : '';
+  const w = wx.rain > 0.08 ? ' · rain' : wx.cloud > 0.45 ? ' · cloudy' : nightF > 0.6 ? ' · night' : '';   // v306: 'rain' as soon as drops fall
   setText('clock', `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}${isTouch ? '' : w}${windTag()} · ${placeLabel()}`);
 }
 
@@ -10490,7 +10506,7 @@ zG = igroup(ZC.x, ZC.z, 85);
   { const [wx, wz] = zw(4.6, 24.6); const b = gadd(zG, mesh(new THREE.PlaneGeometry(2.2, 1.5), mat(0xffffff, {map: pxTex(22, 15, g => { px(g, 0, 0, '#6cbf4a', 22, 15); px(g, 10, 0, '#e8d4a8', 2, 15); px(g, 0, 7, '#e8d4a8', 22, 1); px(g, 2, 2, '#5f9fc8', 5, 4); px(g, 15, 2, '#e0b040', 5, 4); px(g, 2, 9, '#c8a060', 5, 4); px(g, 15, 9, '#ff8fa3', 5, 4); px(g, 0, 0, '#5c2f16', 22, 1); px(g, 0, 14, '#5c2f16', 22, 1); })}), wx, 1.6, wz)); ZB(0.1, 1.7, 0.1, 0x5c3a1c, 3.6, 0.85, 24.62); ZB(0.1, 1.7, 0.1, 0x5c3a1c, 5.6, 0.85, 24.62); }
   for (const [x, z, h] of [[-3.4, 19, false], [3.4, 19, false], [-12, 3.4, true], [12, -3.4, true], [-3.4, -10, false]]){ const w = h ? 2.4 : 0.6, d = h ? 0.6 : 2.4; ZB(w, 0.1, d, woodMat, x, 0.7, z, 'bench'); for (const e of [-0.95, 0.95]) ZB(h ? 0.08 : 0.55, 0.65, h ? 0.55 : 0.08, 0x2a2a30, x + (h ? e : 0), 0.325, z + (h ? 0 : e));   /* v300: legs (it hung in the air) */ ZB(h ? 2.4 : 0.08, 0.4, h ? 0.08 : 2.4, woodMat, x + (h ? 0 : x < 0 ? -0.28 : 0.28), 1.0, z + (h ? (z < 0 ? -0.28 : 0.28) : 0)); }
   ZB(1.6, 1.0, 0.9, 0xf4ead2, -3.6, 0.65, 14, 'cart'); ZM(new THREE.CylinderGeometry(0.06, 0.06, 1.6, 5), ironMat, -3.6, 1.95, 14); const ub = ZM(new THREE.ConeGeometry(1.1, 0.4, 8, 1, true), mat(0xff8fa3, {side: THREE.DoubleSide}), -3.6, 2.8, 14);
-  for (const s of [-1, 1]){ const w = ZM(new THREE.CylinderGeometry(0.28, 0.28, 0.08, 10), 0x2a2a2a, -3.6 + s*0.6, 0.3, 14.5); w.rotation.x = PI/2; }
+  for (const s of [-1, 1]){ const w = ZM(new THREE.CylinderGeometry(0.28, 0.28, 0.08, 10), 0x2a2a2a, -3.6 + s*0.6, 0.43, 14.5); w.rotation.x = PI/2; }   // v306: on the path (0.15 up), not sunk into it
   ZB(3.2, 2.6, 2.6, 0xffd166, 9, 1.45, 5, 'cafe'); ZB(3.6, 0.2, 3.0, 0x8a5fc7, 9, 2.85, 5, 'roof', 2.75); ZB(3.0, 0.8, 0.06, mat(0x2a2622), 9, 1.8, 3.68);
   { const [wx, wz] = zw(9, 3.62); const s = gadd(zG, mesh(new THREE.PlaneGeometry(3, 0.42), mat(0xffffff, {map: textTex('THE HUNGRY HIPPO', 192, 26, 13)}), wx, 2.45, wz)); s.rotation.y = PI; }
   for (const [x, z] of [[5, 10], [9.4, 10]]){ ZB(1.8, 0.08, 0.8, woodMat, x, 0.85, z, 'table'); for (const s of [-1, 1]) ZB(1.8, 0.06, 0.3, woodMat, x, 0.5, z + s*0.65, 'bench'); for (const e of [-0.72, 0.72]){ for (const q of [-0.28, 0.28]) ZB(0.09, 0.81, 0.09, woodMat, x + e, 0.405, z + q); for (const s of [-1, 1]) ZB(0.09, 0.47, 0.09, woodMat, x + e, 0.235, z + s*0.65); ZB(0.08, 0.08, 1.6, woodMat, x + e, 0.3, z); } }   /* v300: legs (it hung in the air) */
@@ -12334,6 +12350,7 @@ EVENT_DEFS.push(
     if (e.near(60)) tip('herd', 'Herd the dog: it runs <b>away</b> from you. Get behind it and push it towards its owner.');
   }, update(e, dt, time){
     const v = e.vars, g = v.D.g, P = player; if (v.home) return;
+    v.own.H.arms[1].rotation.x = -2.4 + Math.sin(time*6)*0.45; v.own.H.arms[1].rotation.z = Math.sin(time*6 + 1)*0.25;   // v306: waving and calling, not frozen with an arm out
     const dx = g.position.x - P.pos.x, dz = g.position.z - P.pos.z, d = Math.hypot(dx, dz);
     let vx = 0, vz = 0, sp = 0;
     if (d < 4.5 && P.pos.y < 3){ vx = dx/d; vz = dz/d; sp = 4.2; if (Math.random() < dt*1.5) floatText(g.position, 'woof!', '#fff6dc', 0.7, {yoff: 0.9}); }
@@ -13391,7 +13408,9 @@ function updateWind(dt, time){
   WIND.s = clamp(WIND.base + WIND.gust, 0, 2.4);
   const sp = WIND.s*6; WIND.vx = Math.sin(WIND.a)*sp; WIND.vz = Math.cos(WIND.a)*sp;
   // the wind nudges Pidge in the air
-  if (state === 'play' && !P.grounded && !roomAt(P.pos)){ P.push.x += WIND.vx*dt*0.4; P.push.z += WIND.vz*dt*0.4; }
+  // v306: gentler while Pidge flaps or hovers close over something to land on (it blew Pidge off statues and rooftops)
+  if (state === 'play' && !P.grounded && !roomAt(P.pos)){ const low = P.pos.y - floorAt(P.pos.x, P.pos.z, P.pos.y) < 4, k = (keys.flap ? 0.2 : 0.4)*(low ? 0.5 : 1);
+    P.push.x += WIND.vx*dt*k; P.push.z += WIND.vz*dt*k; }
   // hats in flight
   for (let i = flyingHats.length - 1; i >= 0; i--){
     const f = flyingHats[i], h = f.hat; f.t += dt;
@@ -13504,7 +13523,7 @@ function makeLoot(id, x, y, z, o = {}){
 }
 
 function lootPlace(L){
-  const s = pick(foodSpots); L.x = s.x + rr(-0.5, 0.5); L.z = s.z + rr(-0.5, 0.5); L.y = s.y; L.id = Math.random() < 0.03 ? 'goldfeather' : pick(LOOT_TABLE);
+  const s = pick(foodSpots.filter(foodSpotOK306)) || pick(foodSpots); L.x = s.x + rr(-0.5, 0.5); L.z = s.z + rr(-0.5, 0.5); L.y = s.y; L.id = Math.random() < 0.03 ? 'goldfeather' : pick(LOOT_TABLE);
   L.sp.material.map = lootTexOf(L.id); L.sp.material.needsUpdate = true; L.live = true;
 }
 
@@ -14532,6 +14551,9 @@ let empireLobby, nhmRoom;
 const PARK = {x0: -528, x1: -400, z0: -48, z1: 112, cx: -464, cz: 32};
 
 const inPigeonPark = (x, z) => x > PARK.x0 && x < PARK.x1 && z > PARK.z0 && z < PARK.z1;
+// v306: the lawn stops at the kerb. PARK's edges run down the middle of the ring road, and the lawn went 3 m past them,
+// so traffic drove on the grass (and sank into it)
+const LAWN = {x0: -524, x1: -404, z0: -44, z1: 108}; LAWN.cx = (LAWN.x0 + LAWN.x1)/2; LAWN.cz = (LAWN.z0 + LAWN.z1)/2;
 
 const UPTOWN_SPECIAL = {'-12,1': 'museum', '-9,-4': 'empire', '-8,2': 'diner', '-9,3': 'bodega', '-13,-3': 'apartment', '-10,4': 'pica', '-9,-2': 'jewel', '-10,2': 'club', '-9,1': 'scoops', '-10,-3': 'garden', '-8,4': 'deli'};
 
@@ -14582,9 +14604,9 @@ nhmRoom = hollow({cx: MUSEUM.x, cz: MUSEUM.z, w: 22, d: 22, h: 12, style: 4, doo
 }
 {
   const lawn = grassTex.clone(); lawn.needsUpdate = true; lawn.repeat.set(36, 45);
-  const g = mesh(new THREE.PlaneGeometry(PARK.x1 - PARK.x0 + 6, PARK.z1 - PARK.z0 + 6), mat(0xffffff, {map: lawn}), PARK.cx, 0.12, PARK.cz); g.rotation.x = -PI/2; g.receiveShadow = true; scene.add(g);
-  addSolid(PARK.cx, PARK.cz, PARK.x1 - PARK.x0 + 6, PARK.z1 - PARK.z0 + 6, 0, 0.12, 'lawn');
-  mapRects.push({x0: PARK.x0 - 3, z0: PARK.z0 - 3, x1: PARK.x1 + 3, z1: PARK.z1 + 3, color: '#6cbf4a', kind: 'park'});
+  const g = mesh(new THREE.PlaneGeometry(LAWN.x1 - LAWN.x0, LAWN.z1 - LAWN.z0), mat(0xffffff, {map: lawn}), LAWN.cx, 0.12, LAWN.cz); g.rotation.x = -PI/2; g.receiveShadow = true; scene.add(g);
+  addSolid(LAWN.cx, LAWN.cz, LAWN.x1 - LAWN.x0, LAWN.z1 - LAWN.z0, 0, 0.12, 'lawn');
+  mapRects.push({x0: LAWN.x0, z0: LAWN.z0, x1: LAWN.x1, z1: LAWN.z1, color: '#6cbf4a', kind: 'park'});
   const water = mesh(new THREE.CircleGeometry(1, 32), mat(0x5fa8d0, {map: harbourTex}), PPOND.x, 0.14, PPOND.z); water.scale.set(PPOND.rx, PPOND.rz, 1); water.rotation.x = -PI/2; scene.add(water);
   WATERS.push({fn: (x, z) => ((x - PPOND.x)/PPOND.rx)**2 + ((z - PPOND.z)/PPOND.rz)**2 < 0.95 && Math.hypot(x - (PPOND.x + 6), z - (PPOND.z - 3)) > 3.4});
   mapRects.push({circle: true, cx: PPOND.x, cz: PPOND.z, r: 17, color: '#5fa8d0'});
@@ -14593,20 +14615,20 @@ nhmRoom = hollow({cx: MUSEUM.x, cz: MUSEUM.z, w: 22, d: 22, h: 12, style: 4, doo
     rocks.forEach(([x, y, z, w, h, d, ry], i) => { o.position.set(x, y - 0.05, z); o.rotation.set(0, ry, 0); o.scale.set(w, h*1.2, d); o.updateMatrix(); im.setMatrixAt(i, o.matrix); }); im.castShadow = im.receiveShadow = true; scene.add(im); }
   const isl = mesh(new THREE.CylinderGeometry(3.4, 3.8, 0.6, 12), mat(0x7fbf5a), PPOND.x + 6, 0.25, PPOND.z - 3); scene.add(isl); addSolid(PPOND.x + 6, PPOND.z - 3, 5, 5, 0, 0.55, 'island'); newTree(PPOND.x + 6.5, PPOND.z - 3.5, 0.8);
   const paths = []; const P_ = (x0, z0, x1, z1) => paths.push([(x0 + x1)/2, 0.125, (z0 + z1)/2, Math.abs(x1 - x0) || 3, 0.02, Math.abs(z1 - z0) || 3]);
-  P_(PARK.x0, -20, PARK.x1, -20); P_(PARK.x0, 92, PARK.x1, 92); P_(-420, PARK.z0, -420, PARK.z1); P_(-515, PARK.z0, -515, PARK.z1); P_(-450, -20, -450, 22);
+  P_(LAWN.x0, -20, LAWN.x1, -20); P_(LAWN.x0, 92, LAWN.x1, 92); P_(-420, LAWN.z0, -420, LAWN.z1); P_(-515, LAWN.z0, -515, LAWN.z1); P_(-450, -20, -450, 22);
   instBoxes(mat(0xe8cf98), paths);
   // a stone footbridge over the pond's east arm
   const br = new THREE.Group(); br.position.set(PPOND.x + 17, 0, PPOND.z + 6); scene.add(br);
   for (let k = -3; k <= 3; k++){ const y = 0.9 - Math.abs(k)*0.18; br.add(boxMesh(1.0, 0.25, 3, mat(0xc8c0b0), k, y, 0)); }
   for (const s of [-1, 1]) br.add(boxMesh(7, 0.5, 0.2, mat(0xb8b0a0), 0, 1.3, s*1.5));
   addSolid(PPOND.x + 17, PPOND.z + 6, 7, 3, 0, 0.95, 'bridge');
-  for (let k = 0; k < 70; k++){ const x = rr(PARK.x0 + 3, PARK.x1 - 3), z = rr(PARK.z0 + 3, PARK.z1 - 3); if (((x - PPOND.x)/(PPOND.rx + 4))**2 + ((z - PPOND.z)/(PPOND.rz + 4))**2 < 1) continue; if (Math.abs(z + 20) < 3 || Math.abs(z - 92) < 3 || Math.abs(x + 420) < 3 || Math.abs(x + 515) < 3) continue; newTree(x, z, rr(0.85, 1.25)); }
+  for (let k = 0; k < 70; k++){ const x = rr(LAWN.x0 + 3, LAWN.x1 - 3), z = rr(LAWN.z0 + 3, LAWN.z1 - 3); if (((x - PPOND.x)/(PPOND.rx + 4))**2 + ((z - PPOND.z)/(PPOND.rz + 4))**2 < 1) continue; if (Math.abs(z + 20) < 3 || Math.abs(z - 92) < 3 || Math.abs(x + 420) < 3 || Math.abs(x + 515) < 3) continue; newTree(x, z, rr(0.85, 1.25)); }
   const benches = []; for (let x = PARK.x0 + 8; x < PARK.x1; x += 14) for (const z of [-17.6, 89.4]){ benches.push([x, 0.55, z, 2.2, 0.12, 0.6]); benches.push([x, 0.85, z + (z < 0 ? -0.3 : 0.3), 2.2, 0.5, 0.1]); for (const e of [-0.95, 0.95]) benches.push([x + e, 0.3, z, 0.08, 0.5, 0.55]);   /* v300: legs (it hung in the air) */ addSolid(x, z, 2.2, 0.7, 0, 0.62, 'bench'); foodSpots.push({x, y: 0.15, z: z + (z < 0 ? 1.2 : -1.2)}); }
   instBoxes(woodMat, benches);
   // the Very Important Pigeon
   const vip = makePigeon({lite: true, scale: 4, body: 0x8a9a8a, head: 0x7a8a7a, wing: 0x9aaa9a, neckPlain: 0x6fae94}); vip.g.position.set(-420, 3.3, 40); vip.g.rotation.y = -PI/2; scene.add(vip.g);
   scene.add(boxMesh(3, 3, 3, mat(0xc8c0b0), -420, 1.6, 40)); addSolid(-420, 40, 3, 3, 0, 3.15, 'plinth'); addSolid(-420, 40, 1.2, 1.2, 3.15, 5.5, 'statue');
-  for (let k = 0; k < 24; k++) foodSpots.push({x: rr(PARK.x0 + 4, PARK.x1 - 4), y: 0.15, z: rr(PARK.z0 + 4, PARK.z1 - 4)});
+  for (let k = 0; k < 24; k++) foodSpots.push({x: rr(LAWN.x0 + 4, LAWN.x1 - 4), y: 0.15, z: rr(LAWN.z0 + 4, LAWN.z1 - 4)});
 }
 // the High Line: a park on an old elevated railway along the north edge
 {
@@ -15318,7 +15340,7 @@ DECAL_TEX = (() => {
     g.fillStyle = '#f4f4ef'; g.beginPath(); g.ellipse(x + 1*s, y + 2*s, 5*s, 3*s, -0.2, 0, PI*2); g.fill(); g.fillRect(x - 6*s, y - 3*s, 6*s, 2*s);
     g.fillStyle = '#ffd166'; g.fillRect(x + 9*s, y - 7*s, 2*s, 2*s);
   };
-  const text = (g, t, x, y, size, col, font = 'Georgia, serif') => { g.fillStyle = col; g.font = `700 ${size}px ${font}`; g.textAlign = 'center'; g.fillText(t, x, y); };
+  const text = (g, t, x, y, size, col, font = 'Georgia, serif') => { g.fillStyle = col; g.font = `700 ${size}px ${font}`; g.textAlign = 'center'; g.fillText(t, x, y, g.canvas.width - 16); };   // v306: squeeze to fit inside the frame
   return {
     tag: can(64, 64, (g) => { g.clearRect(0, 0, 64, 64); g.fillStyle = 'rgba(22,22,28,.85)'; g.beginPath(); g.arc(32, 32, 26, 0, PI*2); g.fill(); g.fillStyle = '#f4f4ef'; g.beginPath(); g.arc(32, 32, 21, 0, PI*2); g.fill(); magpie(g, 34, 34, 0.9); }),
     family: can(96, 120, (g) => { g.fillStyle = '#f4ead2'; g.fillRect(0, 0, 96, 120); g.strokeStyle = '#16161c'; g.lineWidth = 4; g.strokeRect(4, 4, 88, 112); magpie(g, 50, 52, 1.3); text(g, 'PROTECTED', 48, 92, 13, '#16161c'); text(g, 'BY THE FAMILY', 48, 106, 11, '#a8302a'); }),
@@ -16099,7 +16121,7 @@ function jobText(){ const answered = askHooks('jobText'); return answered ? answ
 function jobTextBase(){
   const J = curJob(); if (!J) return '';
   const st = S.jobStage;
-  if (st === 'brief') return S.job === 0 ? `Mama Pica's Ristorante, Market Lane, Uptown. Don Magpione is waiting. Don't keep him waiting.` : 'The Don has work for you. Go to Mama Pica\'s in Market Lane.';
+  if (st === 'brief') return S.job === 0 ? `Mama Pica's Ristorante, Market Lane, Little Itaily. Don Magpione is waiting. Don't keep him waiting.` : 'The Don has work for you. Go to Mama Pica\'s in Market Lane.';
   if (st === 'carry') return J.id === 'gulls' ? 'Report back to Tony at Mama Pica\'s.' : `Take the ${J.lootName} to the Don at Mama Pica's.${heat27 ? ' Lose the police first!' : ''}`;
   switch (J.id){
     case 'shiny': return 'Tiffeathers, Midtown. Snatch the brooch from the window display while the guard isn\'t looking.';
@@ -16348,9 +16370,14 @@ function bust27Base(){
   const J = curJob(), fine = Math.min(S.crumbs, 10); S.crumbs -= fine;
   let lost = '';
   if (J && S.jobStage === 'carry' && J.loot){ dropLoot(); S.jobStage = 'work'; lost = `They took the ${J.lootName} back.`; if (J.id === 'shiny') JEWEL.brooch.visible = true; if (J.id === 'museum') MOON.gem.visible = true; }
-  if (J && J.id === 'bagel'){ BAGEL.bagels = 0; for (const d of BAGEL.drops) scene.remove(d.m); BAGEL.drops.length = 0; BAGEL.basket = 3; if (!lost) lost = 'They confiscated the bagels.'; }
+  // v306: a bust takes the bagels still on the grass, not the ones Pidge already has (it used to take all of them, so the
+  // job was close to impossible: you have to land to pick a bagel up, and the police were already on the way)
+  if (J && J.id === 'bagel' && BAGEL.drops.length){ for (const d of BAGEL.drops) scene.remove(d.m); BAGEL.drops.length = 0; BAGEL.basket = Math.max(BAGEL.basket, 3 - BAGEL.bagels); if (!lost) lost = 'They took the bagels on the grass.'; }
   banner27('BUSTED!', `${lost} Fined ${fine} crumbs.`.trim()); sfx.bad(); knock(player.pos.x + rr(-1, 1), player.pos.z + rr(-1, 1), 6, 6);
   heat27 = 0; heatCool = 0; renderHeat(); MOON.chase = 0;
+  // v306: busted in the museum, the watchman walks Pidge out and looks the other way for a while; before, Pidge stayed
+  // at his feet and he spotted (and busted) Pidge again every five seconds
+  if (typeof nhmRoom !== 'undefined' && nhmRoom && roomAt(player.pos) === nhmRoom && nhmRoom.door){ const d = nhmRoom.door, x = d.x + d.ox*3, z = d.z + d.oz*3; placeTo(x, floorAt(x, z, 2) + 0.1, z, Math.atan2(d.ox, d.oz)); MOON.blind = 6; }
   for (const c of COPS) if (c.on){ c.mode = 'leave'; c.t = 6; if (c.H.g.position.distanceTo(player.pos) < 12) speak(c.H.g, mpick(['And stay out of trouble!', 'Feathered menace.', 'Back to the station, lads.'])); }
   renderQuest(); save();
 }
@@ -16443,7 +16470,7 @@ function updateCine(dt){
         PA('Well, well. You must be Pidge. Grandpa\'s little pride and joy.'),
         GC('You leave the youngster alone, you feathered hoodlums!'),
         VI('Easy, old timer. Nobody gets hurt. The Don just wants a word.'),
-        PA('One for sorrow, two for joy... and you, kid, are coming to the big city. Talons? Grab him.'),
+        PA('One for sorrow, two for joy... and you, kid, are coming to the big city. Talons? Grab the kid.'),
         GC('PIDGE!'),
       ], () => { state = 'cine'; c.phase = 'lift'; c.t = 0; sfx.skree(); CREW.talons.hover = true; });
     }
@@ -16757,7 +16784,7 @@ function cityArrival27(){
     {p: V28(-252, 62, 30), l: V28(-300, 22, 96), d: 4.4},
     {p: V28(-296, 14, 116), l: V28(-311, 3.6, 128), d: 3.4},
     {p: V28(-302.6, 2.4, 124.6), l: V28(-311, 3.0, 128.6), d: 2.2},
-  ], {freeze: true, skippable: true, caption: CITY_NAME.toUpperCase(), sub: 'Market Lane, Uptown. Home of the Family.', capDelay: 0.8, linger: 0.3, onEnd: () => {
+  ], {freeze: true, skippable: true, caption: CITY_NAME.toUpperCase(), sub: 'Market Lane, Little Itaily. Home of the Family.', capDelay: 0.8, linger: 0.3, onEnd: () => {
     state = 'play';
     say([PA(`Welcome to ${CITY_NAME}, kid. Big lights, big crumbs, big Don.`), PA('That\'s Mama Pica\'s. The Don\'s inside. Go on in, and wipe your feet. He hates feathers on the carpet. Ironic, I know.')], () => { toast('<b>The Family Business</b>: go inside Mama Pica\'s.', '', 3600); tip2('city27', 'This is the big city. Follow the <b>gold beam</b> to Mama Pica\'s. The <b>Map</b> shows the whole place.'); });
     shot([{p: V28(PICA_DOOR.x + 4.6, 2.1, PICA_DOOR.z - 3), l: V28(PICA_DOOR.x - 0.6, 1.1, PICA_DOOR.z + 0.8)}], {hold: () => !!dlg, linger: 0});
@@ -16792,7 +16819,7 @@ function establish(id){
 
 // the finales
 function orbitDon(caption, sub, onEnd){
-  const c = DON_POS, k = a => V28(c.x + Math.sin(a)*2.4, c.y + 0.4, c.z + Math.cos(a)*2.4);
+  const c = DON_POS, k = a => V28(c.x + Math.sin(a)*3.4, c.y + 0.8, c.z + Math.cos(a)*3.4);   // v306: a step back, so the prize is in the frame on a narrow screen too
   shot([{p: k(-0.9), l: c}, {p: k(-0.2), l: c, d: 2.4, ease: 'lin'}, {p: k(0.5), l: c, d: 2.4, ease: 'lin'}, {p: k(1.1), l: c, d: 2.2}], {freeze: true, skippable: true, caption, sub, linger: 0.6, onEnd});
 }
 /* ---------- base: world/new-yolk/bess-buns ---------- */
@@ -17060,7 +17087,7 @@ aroundHook('renderStory', function(next){ if (next()) return true;
   }
   return false; });
 answerHook('warpBlocked27', function(key){ const J = curJob(); if (J && J.id === 'cannoli' && S.jobStage === 'carry'){ toast('No shortcuts with the cannoli. Carmine will know.', '', 2400); return {answer: true}; } });
-addTalker('Take the cannoli', () => _d28.set(PR.cx - 0.8, 0.6, PR.z1 - 2.7), () => { giveLoot('cannoli'); CANN.t = 160; CANN.box = null; setStage('carry'); say([L('Mama Pica', 'Careful! Gentle! Like it\'s a baby bird. A baby bird made of pastry.')]); RAIDERS.forEach(r => { r.t = rr(8, 12); r.dive = null; }); }, 2.4, () => { const J = curJob(); return J && J.id === 'cannoli' && S.jobStage === 'work'; });
+addTalker('Take the cannoli', () => _d28.set(PR.cx - 0.8, 0.6, PR.z1 - 2.7), () => { giveLoot('cannoli'); CANN.t = 200; CANN.box = null; setStage('carry'); say([L('Mama Pica', 'Careful! Gentle! Like it\'s a baby bird. A baby bird made of pastry.')]); RAIDERS.forEach(r => { r.t = rr(8, 12); r.dive = null; }); }, 2.4, () => { const J = curJob(); return J && J.id === 'cannoli' && S.jobStage === 'work'; });
 addNamedTalker('Give Carmine the cannoli', 'Carmine', () => carmine.pos, () => { dropLoot(); say([L('Carmine', 'Mama Pica\'s cannoli! Still crispy! On top of the world, with cannoli. Life is good.'), L('Carmine', 'You tell my cousin: Carmine says grazie. And tell him the view\'s better than his mirror.')], () => { payOut(4, 170); nextJob(); }); }, 2.6, () => { const J = curJob(); return J && J.id === 'cannoli' && S.jobStage === 'carry' && !CANN.box; });
 addTalker('Pick up the Family\'s parcel', () => FISH_CRATE, () => { FISH_CRATE.parcel.visible = false; giveLoot('fish'); setStage('carry'); say([L('Morag', 'Wrapped it in yesterday\'s Gazette, like they asked. I don\'t want to know. Off you go.')]); }, 2.2, () => { const J = curJob(); return J && J.id === 'fishes' && S.jobStage === 'work'; });
 addNamedTalker('Deliver the message', 'The Admiral', () => _d28.set(NEST.x, NEST.y + 0.4, NEST.z), () => {
@@ -17095,7 +17122,8 @@ function updateCannoli(dt){
       }
     } else {
       r.pos.set(P.x + Math.cos(r.a)*7, P.y + 7 + Math.sin(r.a*1.3), P.z + Math.sin(r.a)*7); r.P.g.rotation.y = r.a + PI; animatePigeon(r.P, 'glide', r.anim, dt);
-      r.t -= dt; if (r.t <= 0 && exposed && state === 'play' && !dlg && !CANN.box){ r.dive = {from: r.pos.clone(), to: P.clone().add(_d28.set(player.vel.x*0.4, 0.3, player.vel.z*0.4)), t: 0}; sfx.skree(); floatText(r.pos, 'SKRAAA!', '#fff6dc', 0.9); }
+      // v306: a head start out of the door: the gulls hold off for ten seconds and while Pidge is near Mama Pica's
+      r.t -= dt; if (r.t <= 0 && exposed && state === 'play' && !dlg && !CANN.box && CANN.t < 190 && Math.hypot(P.x - PR.cx, P.z - (PR.z0 + PR.z1)/2) > 25){ r.dive = {from: r.pos.clone(), to: P.clone().add(_d28.set(player.vel.x*0.4, 0.3, player.vel.z*0.4)), t: 0}; sfx.skree(); floatText(r.pos, 'SKRAAA!', '#fff6dc', 0.9); }
     }
   }
 }
@@ -20512,7 +20540,7 @@ function updateV27(dt, time){
           BAGEL.knockCd = 1.0; BAGEL.basket--; sfx.bonk(); emit('bit', _bk, 6, 0.6, 2);
           const m = mesh(new THREE.TorusGeometry(0.1, 0.045, 5, 10), mat(0xd8a050)); m.rotation.x = PI/2; m.position.copy(_bk); scene.add(m);
           const a = rand()*PI*2; BAGEL.drops.push({m, vel: new THREE.Vector3(Math.cos(a)*2.5, 4, Math.sin(a)*2.5), rest: false});
-          speak(BAGEL.H.g, mpick(['OI! My bagels!', 'Get off, you flying rat!', 'Somebody call the police!'])); setHeat(1, 'The bagel boy is yelling for the police!'); renderQuest();
+          speak(BAGEL.H.g, mpick(['OI! My bagels!', 'Get off, you flying rat!', 'Somebody call the police!'])); if (heat27 === 0) copSpawnT = Math.max(copSpawnT, 4); tip2('bagel306', 'Quick: grab the bagel off the grass, then get up high before the police arrive. Bagels you already have are safe.'); setHeat(1, 'The bagel boy is yelling for the police!'); renderQuest();   // v306: the police take a moment to come
         }
       }
     }
@@ -20535,6 +20563,8 @@ function updateV27(dt, time){
   }
   // the museum: the watchman's rounds
   { const on = !!(J && J.id === 'museum' && (S.jobStage === 'work' || S.jobStage === 'carry')) && muG.visible; MOON.W.g.visible = on; MOON.gem.visible = !(S.job > 4) && !(J && J.id === 'museum' && S.jobStage === 'carry');
+    for (const H of rex.visitors || []) H.g.visible = !on;   // v306: it's a night job: the museum is closed, the visitors have gone home
+    if (on && playing && roomAt(P) === nhmRoom && nightF < 0.6) dayT = 0.82;   // ...and it is night inside, whatever the time outside
     if (on){
       const W = MOON.W, g = W.g; MOON.ph += dt*4;
       if (MOON.chase > 0){ MOON.chase -= dt; const dx = P.x - g.position.x, dz = P.z - g.position.z, dd = Math.hypot(dx, dz); if (roomAt(P) !== nhmRoom) MOON.chase = 0; else if (dd > 0.2){ g.position.x += dx/dd*3.6*dt; g.position.z += dz/dd*3.6*dt; g.rotation.y = Math.atan2(dx, dz); } if (dd < 0.95 && P.y - g.position.y < 1.1 && !dlg) bust27(); }
@@ -20542,7 +20572,8 @@ function updateV27(dt, time){
       else { const tgt = MOON.dir > 0 ? MOON.b : MOON.a, dx = tgt.x - g.position.x, dz = tgt.z - g.position.z, dd = Math.hypot(dx, dz); if (dd < 0.2){ MOON.dir *= -1; MOON.pause = 2.2; } else { g.position.x += dx/dd*1.3*dt; g.position.z += dz/dd*1.3*dt; g.rotation.y = angLerp(g.rotation.y, Math.atan2(dx, dz), damp(5, dt)); } }
       const sw = MOON.pause > 0 ? 0 : Math.sin(MOON.ph)*0.5; W.legs[0].rotation.x = sw; W.legs[1].rotation.x = -sw;
       MOON.cone.material.opacity = 0.1 + Math.sin(time*9)*0.02;
-      if (MOON.chase <= 0 && playing && !dlg && moonSees()){ MOON.chase = 7; speak(g, mpick(['HEY! A PIGEON!', 'Who goes there?! ...A pigeon?!', 'Not on my watch!'])); setHeat(2, 'The night watchman spotted you!'); }
+      if (MOON.blind > 0) MOON.blind -= dt;
+      if (MOON.chase <= 0 && !(MOON.blind > 0) && playing && !dlg && moonSees()){ MOON.chase = 7; speak(g, mpick(['HEY! A PIGEON!', 'Who goes there?! ...A pigeon?!', 'Not on my watch!'])); setHeat(2, 'The night watchman spotted you!'); }
     }
     MOON.gem.rotation.y += dt*1.2;
   }
@@ -26104,7 +26135,7 @@ aroundHook('questTarget', function(next){ const T = selTrack49(); if (!T || T.ke
   .qt49 button{font:700 13px/1 "Pixelify Sans",monospace;color:var(--ink);background:var(--parch-2);border:2px solid var(--wood-dark);border-radius:4px;padding:3px 7px;cursor:pointer;min-width:24px}
   .qt49 button:hover{background:#fff3d2}
   .qt49 .sp{flex:1}
-  .qt49 .fly{font-size:11px;letter-spacing:.03em}
+  .qt49 .fly{font-size:11px;letter-spacing:.03em;white-space:nowrap;flex:none}
   #questCard{border-left:6px solid var(--qt49c)}
   #questCard.min49 .eyebrow,#questCard.min49 p,#questCard.min49 .qprog{display:none!important}
   #questCard.min49 h2{font-size:14px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -26123,6 +26154,9 @@ aroundHook('questTarget', function(next){ const T = selTrack49(); if (!T || T.ke
   @keyframes goal49b{50%{transform:translateY(5px)}}
   .touchui .cmp49{top:4px;padding:3px 9px 3px 4px;gap:7px}.touchui .cmp49 .dial{width:36px;height:36px}.touchui .cmp49 .dial svg{width:24px;height:24px}.touchui .cmp49 .d{font-size:15px}
   .hud.photo .cmp49,.hud.photo .goal49{visibility:hidden}
+  /* v306: on narrow screens the compass sits in the gap between the left cards and the minimap instead of over them */
+  @media (max-width:760px){.cmp49{left:calc(min(236px,100vw - 140px) + 16px);right:112px;transform:none;max-width:none;top:6px;padding:3px 9px 3px 4px;gap:7px}.cmp49 .dial{width:36px;height:36px}.cmp49 .dial svg{width:24px;height:24px;left:3px;top:3px}.cmp49 .d{font-size:15px}.cmp49 .t{font-size:11px}.qt49 .fly{font-size:10px;letter-spacing:0;padding-left:4px;padding-right:4px}.qt49{gap:2px}.qt49 .k{padding-left:5px;padding-right:5px}.qt49 .n{min-width:0}}
+  @media (max-width:520px){.cmp49 .txt{display:none}.cmp49{right:auto;padding:3px}}
   .wmq49{margin:0 0 8px;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
   .wmq49 li{display:flex;align-items:center;gap:6px;font-size:13px}
   .wmq49 li i{width:10px;height:10px;border:2px solid #3d1f0e;transform:rotate(45deg);flex:none}
@@ -26831,6 +26865,7 @@ function lift51(label, pos, dest, opts = {}){ LIFTS51.push({pos, dest}); addTalk
 const HOTELSEEN51 = {};
 
 function updateHotels51(dt, time){
+  if (!KEMP51 || !MAND51) return;   // v306: Bangcluck is built when the story gets there; until then this threw every frame
   const P = player.pos, r = roomAt(P);
   if (state === 'play' && r && (r === MAND51.lobbyRoom || r === KEMP51.lobbyRoom) && !(Q51().seen || {})[r.name]){ const seen = Q51().seen = Q51().seen || {}; seen[r.name] = 1; save(); const L = r === MAND51.lobbyRoom ? MAND51.L : KEMP51.A, c = V48((L.x0 + L.x1)/2, 1.6, (L.z0 + L.z1)/2), H = r === MAND51.lobbyRoom ? 7.2 : 9;
     shot([{p: V48(L.x0 + 2, H - 1, L.z0 + 2), l: c}, {p: V48(L.x1 - 2, H - 2.5, L.z1 - 2), l: c, d: 5, ease: 'lin'}], {freeze: true, skippable: true, caption: r === MAND51.lobbyRoom ? 'THE MANDARIN ORIENTAIL' : 'THE KEMPINSKI BANGCLUCK', sub: r === MAND51.lobbyRoom ? 'Teak, orchids and a hundred and fifty years of very good manners.' : 'Black marble, gold leaf, and a very large shrimp.'}); addXP(20); }
@@ -27357,11 +27392,15 @@ P52.flowerbox = (K, x, y, z, ry) => { const a = at52(x, z, ry), [px, pz] = a(0, 
   for (const b of broodBlocks) if (b.hood !== 'prospect') addB(b.cx, b.cz);
   for (const [cx, cz] of NEWSLAB) if (Math.abs(cz) < 450 && cx > -640 && cx < 560 && !inPigeonPark(cx, cz)) addB(cx, cz);
   const SIDES = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  // v306: keep shop doors clear (a newsbox stood in Tiffeathers' doorway): a prop or a parked car that would land in front
+  // of a door slides along the kerb instead, so the random numbers, and the rest of the street, stay the same
+  const doors52 = rooms.map(r => r.door).filter(Boolean), atDoor = (x, z, r) => doors52.some(d => Math.hypot(x - d.x, z - d.z) < r);
+  const clearU = (u, P, off, r) => { for (const du of [0, 4, -4, 8, -8]) if (!atDoor(...P(u + du, off), r)) return u + du; return null; };
   for (const [cx, cz] of BLK){ const key = hood52(cx, cz), T = th52(key), A = area52(cx, cz);
     for (const [sx, sz] of SIDES){ const along = sz !== 0, ry = Math.atan2(sx, sz) + PI, P = (u, off) => along ? [cx + u, cz + sz*off] : [cx + sx*off, cz + u];
       // sidewalk props
       const tight = TIGHT52.includes(key), SW = tight ? 11.6 : 10.2;
-      for (let k = 0; k < T.pn; k++){ if (r52() < 0.25) continue; const u = rr52(-7.5, 7.5), [x, z] = P(u, SW), kind = pick52(T.props);
+      for (let k = 0; k < T.pn; k++){ if (r52() < 0.25) continue; const u0 = rr52(-7.5, 7.5), kind = pick52(T.props), u = clearU(u0, P, SW, 3.4); if (u === null) continue; const [x, z] = P(u, SW);
         if (kind === 'stall') P52.stall(A.K, ...P(u, tight ? 11.4 : 9.8), ry + PI, [0xd4302a, 0xffd23a], [0xff9a3a, 0x8ac83a, 0xffd23a, 0xd4302a, 0xf4f0e6]);
         else if (kind === 'cafe') P52.cafe(A.K, x, z, ry);
         else if (kind === 'vespa') P52.vespa(A.K, x, z, ry + PI/2);
@@ -27379,7 +27418,7 @@ P52.flowerbox = (K, x, y, z, ry) => { const a = at52(x, z, ry), [px, pz] = a(0, 
       }
       // parked cars along the kerb, some taxis, some dented
       const skipCentre = Math.abs(cx) <= 64 && Math.abs(cz) <= 64 && along, road = along ? cz + sz*16 : cx + sx*16, bikes = cyclists.some(c => c.axis === (along ? 'x' : 'z') && Math.abs(c.fixed - c.dir*3.3 - road) < 0.5);
-      if (!skipCentre && !tight && !bikes && r52() < T.cd){ const u = rr52(-5.5, 5.5), [x, z] = P(u, 12.0), carRy = along ? PI/2 + (r52() < 0.5 ? PI : 0) : (r52() < 0.5 ? PI : 0), kind = pick52(T.cars);
+      if (!skipCentre && !tight && !bikes && r52() < T.cd){ const uc = rr52(-5.5, 5.5), u = clearU(uc, P, 12.0, 4.2) ?? uc, [x, z] = P(u, 12.0), carRy = along ? PI/2 + (r52() < 0.5 ? PI : 0) : (r52() < 0.5 ? PI : 0), kind = pick52(T.cars);
         P52.car(A.K, x, z, carRy, {kind: kind === 'taxi' ? 'taxi' : kind === 'van' ? 'van' : 'car'}); const s_ = addSolid(x, z, along ? 4.1 : 1.9, along ? 1.9 : 4.1, 0, kind === 'van' ? 2.3 : 1.75, 'parked52'); CARS52.push({x, z, s: s_}); }
       // strings of lights or lanterns across the street
       if ((T.festoon || T.lanterns) && (sx > 0 || sz > 0)){ for (let k = 0; k < 2; k++){ const u = -6 + k*12 + rr52(-1.5, 1.5), a = P(u, 11.4), b = P(u, 20.6), h = rr52(6, 7.4);
@@ -29376,7 +29415,7 @@ function greet67(){ const Q = Q68(); Q.arrived = 1; setWar48(25); save(); render
   say([L('Greeter unit', '*bows* Irasshaimase! Welcome to Tokyoo, Pidge-san. We have been expecting you.'), L('Greeter unit', 'HAIKU-9000 sends its warmest regards, and a poem.'), L('HAIKU-9000', '(from every screen in the terminal) Small grey visitor. / The shrimp is safe in my care. / Please enjoy your stay.'), L('Tony', '...Kid. Every person in this airport just bowed at the same time. With little antennas on.'),
     L('Greeter unit', '*bows* Our humans are very happy. We help them walk. We help them bow. We help them with everything. They do not have to decide anything any more. Is it not wonderful?'), L('Tony', 'I\'m gonna go find a sushi place. You find Boris. And kid... don\'t let them put a hat on you.')], () => { endShot(true); toast('<b>Big in Japan</b>: leave the airport and look for Boris Kempinski.', '', 4200); }); }
 
-function updateTokyo67(dt, time){ const here = inTokyo67() || (SHOT && camera.position.z < -3000); tkG.visible = here; FUJI67.g.visible = here && !roomAt(player.pos); if (FUJI67.g.visible){ const c = camera.position; FUJI67.g.position.set(c.x + FUJI67.dir.x*200, -6, c.z + FUJI67.dir.z*200); FUJI67.g.lookAt(c.x, -6, c.z); }
+function updateTokyo67(dt, time){ const here = !!(inTokyo67() || (SHOT && camera.position.z < -3000));   // v306: a real boolean: with no cut-scene this was null, and three.js only hides what is visible === false, so Mount Fujii stood over Gus's square tkG.visible = here; FUJI67.g.visible = here && !roomAt(player.pos); if (FUJI67.g.visible){ const c = camera.position; FUJI67.g.position.set(c.x + FUJI67.dir.x*200, -6, c.z + FUJI67.dir.z*200); FUJI67.g.lookAt(c.x, -6, c.z); }
   if (!here) return; const H = HANEEDA, P = player.pos;
   if (TK.landing){ H.jet.position.x += dt*38; H.jet.position.y = Math.max(0, H.jet.position.y - dt*5.5); if (H.jet.position.y <= 0.2) H.jet.rotation.x = 0; }
   if (P.distanceTo(H.exit) < 120){ for (const B of H.bots) animBot67(B, dt, true); for (const d of H.drones){ d.t += dt; const bow = Math.sin(time*1.3) > 0; d.H.g.rotation.x = bow ? -0.35 : 0; d.H.led.visible = Math.floor(time*2) % 2 === 0; } }
@@ -31903,7 +31942,7 @@ function updateEdge88Base(dt){ const E = EDGE88; E.el.style.opacity = E.vg.style
 const TKEDGE88 = ['Sumimasen! The map of Tokyoo ends here. Thank you for your understanding.', 'HAIKU-9000 used to keep this part. It is not finished. Please turn back. *bows*', 'Beyond here: more Tokyoo, but nobody has drawn it yet. Sorry!'];
 
 /* ---------- per frame ---------- */
-function updateBeyond88(dt, time){ if (!inTokyo67()){ BD88.g.visible = false; return; } BD88.g.visible = !roomAt(player.pos) && camera.position.y > -2; BD88.update(camera.position.y - 1.2);
+function updateBeyond88(dt, time){ if (!inTokyo67()){ BD88.g.visible = false; return; } BD88.g.visible = !roomAt(player.pos) && camera.position.y > -2; BD88.update(horizonY306());
   SEA88.wheel.rotation.z += dt*0.03; for (const s of SEA88.ships){ s.a += dt*s.sp; s.g.position.set(s.cx + Math.cos(s.a)*s.r, Math.sin(time*0.8 + s.a*9)*0.15, s.cz + Math.sin(s.a)*s.r); s.g.rotation.y = -s.a; s.g.rotation.z = Math.sin(time*0.9 + s.a)*0.02; } }
 /* ---------- world: sky/wide-world ---------- */
 // From v89. The ld_* steps are run by boot/world.js, in load order.
@@ -31995,7 +32034,10 @@ const plane89 = (w, d, x, y, z, col, parent, o = {}) => { const m = mesh(new THR
 /* ---------- pushing against the edge: a banner, in the local manner ---------- */
 
 /* ---------- per frame: each horizon only where it belongs ---------- */
-function updateWide89(dt, time){ const c = cityOf58(), under = camera.position.y < -2 || !!roomAt(player.pos), cy = camera.position.y - 1.2;
+// v306: the painted horizon sinks below eye level as Pidge climbs (at eye level it hung in the sky, a flat band with a
+// hard edge under it, whenever Pidge was up high)
+const horizonY306 = () => Math.min(camera.position.y - 1.2, 1);   // the far skyline stands on the ground, like everything else
+function updateWide89(dt, time){ const c = cityOf58(), under = camera.position.y < -2 || !!roomAt(player.pos), cy = horizonY306();
   for (const [B, k] of [[BDNY89, 'ny'], [BDPB89, 'pb'], [BDVIL89, 'vil'], [BDBK89, 'bk']]){ B.g.visible = c === k && !under; if (B.g.visible) B.update(cy); }
   NYG89.visible = c === 'ny'; }
 /* ---------- world: tokyoo/texture ---------- */
@@ -32121,7 +32163,11 @@ if (typeof SYS52 !== 'undefined') SYS52.push(['ny91', updateNY91]);
 
 // a generic scatter of grass tufts and flowers over a list of rectangles (world coords), for any city
 function scatterGreen91(rects, n, parent, o = {}){ const area = rects.reduce((a, r) => a + (r.x1 - r.x0)*(r.z1 - r.z0), 0); if (!area) return null; const spots = [], flowers = [];
-  for (const r of rects){ const k = Math.round(n*(r.x1 - r.x0)*(r.z1 - r.z0)/area); for (let i = 0; i < k; i++){ const x = r.x0 + RNG91()*(r.x1 - r.x0), z = r.z0 + RNG91()*(r.z1 - r.z0); if (o.skip && o.skip(x, z)) continue; (RNG91() < (o.flowers ?? 0.15) ? flowers : spots).push([x, z]); } }
+  // v306: no tufts or flowers on paths, plazas and roads that lie inside the green (they grew out of Featherland's paving)
+  const bx0 = Math.min(...rects.map(r => r.x0)), bx1 = Math.max(...rects.map(r => r.x1)), bz0 = Math.min(...rects.map(r => r.z0)), bz1 = Math.max(...rects.map(r => r.z1));
+  const paved = (typeof mapRects !== 'undefined' ? mapRects : []).filter(r => !r.circle && /^(path|plaza|road)$/.test(r.kind || '') && Math.max(r.x0, r.x1) > bx0 && Math.min(r.x0, r.x1) < bx1 && Math.max(r.z0, r.z1) > bz0 && Math.min(r.z0, r.z1) < bz1);
+  const onPaving = (x, z) => paved.some(r => x > Math.min(r.x0, r.x1) - 0.4 && x < Math.max(r.x0, r.x1) + 0.4 && z > Math.min(r.z0, r.z1) - 0.4 && z < Math.max(r.z0, r.z1) + 0.4);
+  for (const r of rects){ const k = Math.round(n*(r.x1 - r.x0)*(r.z1 - r.z0)/area); for (let i = 0; i < k; i++){ const x = r.x0 + RNG91()*(r.x1 - r.x0), z = r.z0 + RNG91()*(r.z1 - r.z0); if ((o.skip && o.skip(x, z)) || onPaving(x, z)) continue; (RNG91() < (o.flowers ?? 0.15) ? flowers : spots).push([x, z]); } }
   const d = new THREE.Object3D(), c = new THREE.Color(); const mk = (list, geo, matl, cols, s0, s1) => { if (!list.length) return null; const im = new THREE.InstancedMesh(geo, matl, list.length); list.forEach(([x, z], i) => { const s = s0 + RNG91()*(s1 - s0); d.position.set(x, o.y ?? 0.17, z); d.rotation.set(0, RNG91()*PI*2, 0); d.scale.set(s, s*(0.8 + RNG91()*0.5), s); d.updateMatrix(); im.setMatrixAt(i, d.matrix); im.setColorAt(i, c.setHex(cols[Math.floor(RNG91()*cols.length)])); }); im.geometry = geo.clone(); { const b = new THREE.Box3(); for (const [x, z] of list) b.expandByPoint(new THREE.Vector3(x, 1, z)); im.geometry.boundingSphere = b.getBoundingSphere(new THREE.Sphere()); im.geometry.boundingSphere.radius += 2; } parent.add(im); return im; };
   return {g1: mk(spots, tuftGeo90(0.9, 0.7), swayMat90(TUFTTEX90), o.cols || [0xffffff, 0xe8f0d8, 0xd8e8c8, 0xf4f0d0], 0.7, 1.4), g2: mk(flowers, tuftGeo90(0.7, 0.6), swayMat90(FLOWTEX90), o.fcols || [0xffffff, 0xffc8dc, 0xffe060, 0xc8a8ff, 0xff8a6a], 0.7, 1.15), n: spots.length + flowers.length}; }
 
@@ -35883,7 +35929,7 @@ function rideEuro145(toBav){ for (const k in keys) keys[k] = false; fade27(true,
     shot([{p: () => V48(B.T.position.x - 18, 9, RAIL145.z + 26), l: () => B.T.position.clone().setY(2)}, {p: () => V48(B.T.position.x - 6, 14, RAIL145.z + 40), l: () => V48(BYX(CRAG145.x), CRAG145.h + 10, BYZ(CRAG145.z)), d: 26}], {freeze: true, hold: () => RIDE145.on > 0});
     say([L('Pidge', '(The Euro Express slides out of the Gare de l\'Est at dawn. Paree goes past, then the suburbs, then fields of grapes, fields of more grapes, and a sign that says CHAMPAGNE with a very small pigeon asleep on it.)'), L('Pidge', '(Brussels. The train stops. A man in a grey suit gets on with a clipboard, a stamp, and a briefcase marked DIRECTORATE-GENERAL FOR PIGEON AFFAIRS.)'), L('Eurocrat', 'Bonjour. Goedendag. Guten Tag. Good morning. Under EU Directive 2024/117, all pigeons travelling between member states must be of standard dimensions. Please stand in the box.'), L('Pidge', '(You stand in the box. He measures you. He measures you again. He writes something down in all twenty-four official languages, one after the other, with the same pen.)'), L('Eurocrat', 'You are three millimetres over the harmonised pigeon length. ...We will allow it. It is Friday. Also, a word of advice: they are not French fries. They are Belgian fries. Please tell everyone.'), L('Pidge', '(Through the window, as the train pulls out: a small bronze statue of a boy, relieving himself into a fountain. Two pigeons are sitting on his head, looking extremely unbothered.)'), L('Pidge', '(Germany. Night. Then morning again, and the Alps, white and enormous, and a valley so green it looks fake. And up on a crag, above the clouds, the most ridiculous castle you have ever seen.)')], () => { RIDE145.on = 0; const Q = Q145(); if (WARST48() === 60) setWar48(61); if (!Q.arrived){ Q.arrived = 1; save(); addXP(80); } toast('<b>Bavaria.</b> Neutaubenstein Bahnhof. The castle is up on the crag.', '', 5000); }); }, 1600); }
 
-function updateBav145(dt, time){ const inB = inBav146(); if (inB !== byG.visible && !RIDE145.on) byG.visible = inB; if (inBav146() || inBav146(camera.position)){ tkG.visible = false; FUJI67.g.visible = false; BD88.g.visible = false; } BDBY145.g.visible = byG.visible && !roomAt(player.pos) && camera.position.y > -2; if (BDBY145.g.visible) BDBY145.update(camera.position.y - 1.2);
+function updateBav145(dt, time){ const inB = inBav146(); if (inB !== byG.visible && !RIDE145.on) byG.visible = inB; if (inBav146() || inBav146(camera.position)){ tkG.visible = false; FUJI67.g.visible = false; BD88.g.visible = false; } BDBY145.g.visible = byG.visible && !roomAt(player.pos) && camera.position.y > -2; if (BDBY145.g.visible) BDBY145.update(horizonY306());
   const B = BYTRAIN145; if (byG.visible){ if (B.arriving){ B.x += dt*(B.x < -40 ? 22 : Math.max(2, 10 + B.x/6)); if (B.x >= 0){ B.x = 0; B.arriving = false; } } B.T.position.set(BYX(B.x), 0.35, RAIL145.z); }
   if (inParis124() && Math.hypot(player.pos.x - GDE145.cx, player.pos.z - GDE145.cz) < 50) GDE145.conductor.arms[1].rotation.x = -0.6 + Math.sin(time*1.4)*0.2; }
 /* ---------- world: bavaria/neutaubenstein ---------- */
@@ -47591,6 +47637,13 @@ WHATS_NEW.unshift(['304 · Quick Start', 'The first load is about a quarter shor
 GAME_VER.n = 305;
 GAME_VER.name = 'Bagels and Bangcluck';
 WHATS_NEW.unshift(['305 · Bagels and Bangcluck', '“Gone in Sixty Seeds” can be finished again: the bagel boy now always cycles round Pigeon Park, and the gold beam points at him wherever you are (before, until you went to the park he waited unseen in the middle of the square by Gus). The first load is shorter again: Bangcluck is built when the Don hands over the ticket, behind a short travel card.']);
+/* =====================================================================
+   v306 · FUJII GOES HOME: fixes from the 11 October playtest
+   ===================================================================== */
+// v306
+GAME_VER.n = 306;
+GAME_VER.name = 'Fujii Goes Home';
+WHATS_NEW.unshift(['306 · Fujii Goes Home', 'The giant tent over Gus’s square is gone: it was Mount Fujii, waiting at the middle of the map for Tokyoo. Busted in the museum, you are walked outside instead of busted again and again, and you can no longer fly out through its ceiling. Cars stay off Pigeon Park’s grass, shop doors are clear of newsboxes and parked cars, the bagel job keeps the bagels you already have, the cannoli job gives you a head start, and the night heist happens at night. Rain no longer looks like grey poles, the far skyline sits on the ground, and the HUD fits narrow screens.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -47649,7 +47702,7 @@ function renderQuestBase(){
     return;
   }
   $('qEyebrow').textContent = S.qi < CH1 ? `Quest ${S.qi+1} of ${CH1}` : `Chapter 2 · Quest ${S.qi-CH1+1} of ${QUESTS.length-CH1}`;
-  $('qTitle').textContent = q.title;
+  $('qTitle').textContent = q.goal > 1 ? `${q.title} · ${S.qp}/${q.goal}` : q.title;   // v306: the count shows on the folded card too
   $('qText').textContent = q.text;
   $('qPips').innerHTML = Array.from({length:q.goal}, (_, i) => `<i class="${i < S.qp ? 'on' : ''}"></i>`).join('');
   $('qCount').textContent = `${S.qp} / ${q.goal}`;
@@ -47748,7 +47801,8 @@ function ch2Intro(delay){
 /* ---------- dialog ---------- */
 let dlg = null;
 function say(lines, onDone, who='Gus'){ return callHooked('say', sayBase, [lines, onDone, who]); }
-function sayBase(lines, onDone, who='Gus'){ dlg = {lines, i:0, onDone, who}; $('dialog').hidden = false; renderDlg(); sfx.blip(); }
+function sayBase(lines, onDone, who='Gus'){ if (typeof photo !== 'undefined' && photo) togglePhoto();   // v306: someone talks to you: the HUD comes back
+  dlg = {lines, i:0, onDone, who}; $('dialog').hidden = false; renderDlg(); sfx.blip(); }
 function curLine(){ const l = dlg.lines[dlg.i]; return typeof l === 'string' ? {text: l} : l; }
 function renderDlg(){ const result = renderDlgBase(); runHooks('renderDlg'); return result; }
 function renderDlgBase(){
@@ -47766,7 +47820,8 @@ function renderDlgBase(){
       b.addEventListener('click', ev => { ev.stopPropagation(); choose(k); });
       box.appendChild(b);
     });
-    $('dMore').textContent = isTouch ? 'Tap an answer' : 'Press 1, 2, 3 or click an answer';
+    const nums = line.choices.map((c, k) => k + 1), keysTxt = nums.length > 1 ? nums.slice(0, -1).join(', ') + ' or ' + nums[nums.length - 1] : '1';   // v306: only the keys there are
+    $('dMore').textContent = isTouch ? 'Tap an answer' : `Press ${keysTxt} or click an answer`;
   } else {
     box.hidden = true;
     $('dMore').textContent = dlg.i < dlg.lines.length - 1 ? '▼ E / tap to continue' : '▼ E / tap to close';
@@ -47815,7 +47870,11 @@ function updateFloaters(dt){
     _v.copy(f.follow ? f.follow.position : f.pos); _v.y += f.yoff + f.t*f.rise; _v.project(camera);
     if (_v.z > 1){ f.el.style.opacity = 0; continue; }
     f.el.style.opacity = String(1 - Math.max(0, (f.t - f.life*0.7)/(f.life*0.3)));
-    f.el.style.transform = `translate(${Math.round((_v.x*0.5+0.5)*w)}px, ${Math.round((-_v.y*0.5+0.5)*h)}px) translate(-50%,-50%)`;
+    // v306: a bubble just past the edge is nudged back on screen (they were cut off at the top and the sides)
+    let sx = (_v.x*0.5+0.5)*w, sy = (-_v.y*0.5+0.5)*h; if (f.bw === undefined){ f.bw = f.el.offsetWidth || 0; f.bh = f.el.offsetHeight || 0; }
+    const mx = f.bw/2 + 6, my = f.bh/2 + 6; if (sx < -w*0.15 || sx > w*1.15 || sy < -h*0.15 || sy > h*1.15){ f.el.style.opacity = 0; continue; }
+    sx = clamp(sx, Math.min(mx, w/2), Math.max(w - mx, w/2)); sy = clamp(sy, Math.min(my, h/2), Math.max(h - my, h/2));
+    f.el.style.transform = `translate(${Math.round(sx)}px, ${Math.round(sy)}px) translate(-50%,-50%)`;
   }
 }
 
@@ -48022,8 +48081,11 @@ let bumped = false;
 function collide(p, vel, prevY){ return callHooked('collide', collideBase, [p, vel, prevY]); }
 function collideBase(p, vel, prevY){
   const SL = solidsAt48(p.x, p.z);
+  // v306: inside a room, a wall or anything else that reaches the ceiling is never a step up: climbing beside the museum's
+  // wall, Pidge stepped into the wall's top and from there onto the roof, out of the building
+  let ceil306 = Infinity; for (const r of rooms){ if (r.top && p.x > r.minX - R - 0.4 && p.x < r.maxX + R + 0.4 && p.z > r.minZ - R - 0.4 && p.z < r.maxZ + R + 0.4 && prevY < r.top && prevY >= (r.y0 ?? -1)){ ceil306 = r.top - 0.05; break; } }   // (a margin: in the wall's thickness Pidge is already a touch outside the room)
   for (const b of SL){
-    if (b.ceil || b.maxY <= p.y + STEP || b.minY >= p.y + 0.6) continue;
+    if (b.ceil || (b.maxY <= p.y + STEP && b.maxY < ceil306) || b.minY >= p.y + 0.6) continue;
     if (p.x <= b.minX - R || p.x >= b.maxX + R || p.z <= b.minZ - R || p.z >= b.maxZ + R) continue;
     const dx1 = p.x - (b.minX - R), dx2 = (b.maxX + R) - p.x, dz1 = p.z - (b.minZ - R), dz2 = (b.maxZ + R) - p.z;
     const m = Math.min(dx1, dx2, dz1, dz2);
@@ -48038,6 +48100,7 @@ function collideBase(p, vel, prevY){
   const top = Math.max(p.y, prevY) + STEP, e = R*0.6;
   for (const b of SL){
     if (b.maxY > top || b.maxY <= floor) continue;
+    if (b.maxY >= ceil306 || (b.ceil && Math.max(p.y, prevY) < b.minY - 0.05)) continue;
     if (p.x < b.minX - e || p.x > b.maxX + e || p.z < b.minZ - e || p.z > b.maxZ + e) continue;
     floor = b.maxY; under = b;
   }
@@ -48104,10 +48167,16 @@ function updatePlayerBase(dt){
   }
   if (P.grounded) P.stamina = Math.min(maxStamina(), P.stamina + 1.8*dt*TREE40.refill());
   P.push.multiplyScalar(Math.exp(-2.6*dt));
+  // v306: while someone is talking Pidge comes to a stop (landing on the church roof as Grandpa spoke, Pidge slid off it)
+  if (dlg && P.grounded){ P.fwd *= Math.exp(-10*dt); P.push.multiplyScalar(Math.exp(-10*dt)); }
   const hx = Math.sin(P.heading), hz = Math.cos(P.heading);
   P.vel.x = hx*P.fwd + P.push.x; P.vel.z = hz*P.fwd + P.push.z;
-  const prevY = P.pos.y, vyBefore = P.vel.y, pz0 = P.pos.z;
+  const prevY = P.pos.y, vyBefore = P.vel.y, pz0 = P.pos.z, room0 = roomAt(P.pos);
   P.pos.addScaledVector(P.vel, dt);
+  // v306: inside a room Pidge stays under the ceiling; a quick climb used to pop up through the thin roof slab and out on
+  // top of the building (the museum)
+  if (room0 && room0.top && P.pos.y > room0.top - 0.5 && P.pos.x > room0.minX && P.pos.x < room0.maxX && P.pos.z > room0.minZ && P.pos.z < room0.maxZ
+      && solidsAt48(P.pos.x, P.pos.z).some(b => b.ceil && Math.abs(b.minY - room0.top) < 0.6 && P.pos.x > b.minX && P.pos.x < b.maxX && P.pos.z > b.minZ && P.pos.z < b.maxZ)){ P.pos.y = room0.top - 0.5; if (P.vel.y > 0) P.vel.y = 0; }   // (not under a hatch)
   clampWorld(P, pz0);
   { const cap = Math.hypot(P.pos.x - EMPIRE.x, P.pos.z - EMPIRE.z) < 30 ? 146 : (P.pos.x < -3000 && BK.skyperch && Math.hypot(P.pos.x - BK.skyperch.x, P.pos.z - BK.skyperch.z) < 45) ? 152 : capAlt151(P.pos); if (P.pos.y > cap){ P.pos.y = Math.max(cap, P.pos.y - 30*dt); P.vel.y = Math.min(0, P.vel.y); } }
   bumped = false;
@@ -48119,6 +48188,11 @@ function updatePlayerBase(dt){
     P.fwd *= 0.2; P.push.set(-hx*3, 0, -hz*3);
   } else if (bumped && air) P.fwd *= Math.exp(-3*dt);
   P.standing = st; P.grounded = !!st;
+  // v306: Pidge steps round people's feet instead of standing inside them (the watchman, cops, passers-by)
+  if (P.grounded && typeof ride !== 'undefined' && !ride){ const near = o => { if (!o || !o.visible) return; const dx = P.pos.x - o.position.x, dz = P.pos.z - o.position.z, d = Math.hypot(dx, dz), dy = P.pos.y - o.position.y;
+      if (d < 0.42 && d > 1e-4 && dy > -0.3 && dy < 0.8){ P.pos.x = o.position.x + dx/d*0.42; P.pos.z = o.position.z + dz/d*0.42; } };
+    for (const h of humans) if (h.H && Math.abs(h.H.g.position.x - P.pos.x) < 0.5 && Math.abs(h.H.g.position.z - P.pos.z) < 0.5) near(h.H.g);
+    for (const c of COPS) if (c.on) near(c.H.g); if (MOON.W && MOON.W.g) near(MOON.W.g); }
   if (P.grounded && air){
     if (vyBefore < -5.5){ sfx.thump(); land44(vyBefore); }
     else { sfx.flap(); emit('dust', P.pos, 3, 0.7, 0.3); }
@@ -48553,6 +48627,10 @@ function updateCameraBase(dt){
   cam.actual = allowed < cam.actual ? allowed : lerp(cam.actual, allowed, damp(4, dt));
   camera.position.copy(camTarget).addScaledVector(camDir, cam.actual);
   camPush(camera.position, camTarget);
+  // v306: in a room the camera keeps half a metre inside the walls and under the ceiling (in Tiffeathers it sat in the
+  // doorway, behind the door leaf, and the whole screen was one green surface)
+  if (room && room !== true && room.maxX - room.minX > 1.4 && room.maxZ - room.minZ > 1.4){ const c = camera.position;
+    c.x = clamp(c.x, room.minX + 0.5, room.maxX - 0.5); c.z = clamp(c.z, room.minZ + 0.5, room.maxZ - 0.5); if (room.top) c.y = Math.min(c.y, room.top - 0.3); }
   hideNearCam(camera.position);
   { const cfl = inRiver(P.pos.x, P.pos.z) && P.pos.y < 0.5 ? RV.y + 0.35 : (P.pos.y < -0.3 || inHole(P.pos.x, P.pos.z)) ? -60 : 0.35; if (camera.position.y < cfl) camera.position.y = cfl; }
   fadeBlockers(camTarget, camera.position);
@@ -48564,8 +48642,9 @@ function updateCameraBase(dt){
 let attractT = 0, attractY = 0;
 function updateAttract(dt){
   attractT += dt*(reduceMotion ? 0.02 : 0.06);
-  const ax = Math.cos(attractT)*32, az = Math.sin(attractT)*32, top = Math.max(floorAt(ax, az, 90), floorAt(Math.cos(attractT + 0.25)*32, Math.sin(attractT + 0.25)*32, 90), floorAt(Math.cos(attractT + 0.5)*32, Math.sin(attractT + 0.5)*32, 90));
-  attractY = lerp(attractY || 36, Math.max(34, top + 8), Math.min(1, dt*2));
+  // v306: wider and higher, with more room over the roofs (the title screen skimmed water tanks and walls up close)
+  const R = 40, ax = Math.cos(attractT)*R, az = Math.sin(attractT)*R; let top = 0; for (const da of [-0.25, 0, 0.25, 0.5]) for (const rr_ of [R - 6, R, R + 6]) top = Math.max(top, floorAt(Math.cos(attractT + da)*rr_, Math.sin(attractT + da)*rr_, 120));
+  attractY = lerp(attractY || 48, Math.max(46, top + 14), Math.min(1, dt*2));
   camera.position.set(ax, attractY, az);
   camera.lookAt(0, 3, 0);
 }
@@ -48709,7 +48788,7 @@ const WARPS = {
   laundry: [-85.8, 0.15, 96, -PI/2],
   lake: [-160, 0.18, 11, PI],
   suburbs: [-192, 0.15, 213, 0],
-  zoo: [-208, 0.15, -177.4, PI],
+  zoo: [-208, 0.15, -184, PI],   // v306: on the zoo path, not out in the road
   station: [0, 0.15, -242.6, PI],
   featherland: [-100, 0.15, -277, PI],
   lostprop: [43, 0.15, -96, -PI/2],
@@ -48744,8 +48823,12 @@ const WARPS = {
 $('warpRow').addEventListener('click', e => {
   const b = e.target.closest('[data-warp]'); if (!b) return;
   if (warpBlocked27(b.dataset.warp)){ toggleHelp(false); return; }
-  const [x, y, z, h] = WARPS[b.dataset.warp];
+  if (typeof photo !== 'undefined' && photo) togglePhoto();   // v306: fast travel leaves photo mode
+  let [x, y, z, h] = WARPS[b.dataset.warp];
   player.pos.set(x, y + 0.02, z); player.vel.set(0, 0, 0); player.push.set(0, 0, 0); player.fwd = 0;
+  // v306: don't arrive nose to a wall: if something stands right in front, face the most open way instead
+  { const clear = a => { for (let d = 0.8; d <= 6; d += 0.6){ const px = x + Math.sin(a)*d, pz = z + Math.cos(a)*d; if (solidsAt48(px, pz).some(s => s.maxY > y + 0.8 && s.minY < y + 1.5 && px > s.minX && px < s.maxX && pz > s.minZ && pz < s.maxZ)) return d; } return 6; };
+    if (clear(h) < 3){ let best = h, bd = 0; for (let k = 0; k < 8; k++){ const a = h + k*PI/4, d = clear(a); if (d > bd){ bd = d; best = a; } } h = best; } }
   player.heading = player.prevHeading = h; player.grounded = false;
   cam.yaw = h + PI; cam.look = 0; camTarget.set(x, y + 0.7, z); cam.actual = 4;
   emit('feather', player.pos, 6, 1, 1.2);
@@ -48883,6 +48966,9 @@ function groupWarps302(){
     const h = document.createElement('h4'); h.className = 'wgroup'; h.textContent = c; row.appendChild(h);
     list.sort((a, b) => a.textContent.localeCompare(b.textContent)); for (const b of list) row.appendChild(b); }
   if (MENU302.find) filterWarps302(MENU302.find.value);
+  // v306: places you can't fly to right now are greyed, with the reason on hover (it used to flash past as the menu closed)
+  const t0 = toast; let why = ''; toast = (h) => { why = String(h).replace(/<[^>]+>/g, ''); };
+  try { for (const b of row.querySelectorAll('[data-warp]')){ why = ''; let blocked = false; try { blocked = warpBlocked27(b.dataset.warp); } catch (e){} b.classList.toggle('locked306', !!blocked); b.title = blocked ? why : ''; } } finally { toast = t0; }
 }
 function filterWarps302(text){
   const row = $('warpRow'); if (!row) return; const t = text.trim().toLowerCase();
