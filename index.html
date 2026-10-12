@@ -739,7 +739,9 @@ const isTouch = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in wi
 // v306: visible is always a true boolean. three.js only skips an object whose visible === false, so a line such as
 // `g.visible = here && ...` that came out null or undefined drew the object anyway (Mount Fujii stood over Gus's
 // square, 70 m wide, whenever no cut-scene was running). Set on the prototype before anything is made.
-Object.defineProperty(THREE.Object3D.prototype, 'visible', {get(){ return this._visible306 !== false; }, set(v){ this._visible306 = !!v; }, configurable: true});
+// v308: _camHide308 is the camera's own way of hiding what its lens is inside (core/camera-collision.js), kept apart from
+// the game's visible so that showing it again can't undo the game hiding it in the meantime
+Object.defineProperty(THREE.Object3D.prototype, 'visible', {get(){ return this._visible306 !== false && this._camHide308 !== true; }, set(v){ this._visible306 = !!v; }, configurable: true});
 
 // - v304: bounding spheres of plain position arrays straight from the array (the same box centre and largest distance
 //   three works out through a Vector3 per vertex, which was most of a second of the first load)
@@ -11441,15 +11443,23 @@ function camLiftProbe(){
 // people, pets and vehicles aren't solid, so hide any the lens ends up inside
 let camHidden = [];
 
+// v308: hidden and shown through the camera's own flag (core/three-compat.js): putting things back used to set visible
+// back to true, even for something the game had hidden meanwhile (an event extra going back to the pool stood back up
+// where the camera had been). Batched static meshes have a visible of their own (render/static-batch.js) and are
+// hidden the old way
+const ownVis308 = o => Object.prototype.hasOwnProperty.call(o, 'visible');
+function camHide308(o){ if (ownVis308(o)) o.visible = false; else o._camHide308 = true; }
+function camShow308(o){ o._camHide308 = false; if (ownVis308(o)) o.visible = true; }
+
 const _chv = new THREE.Vector3();
 
 function hideNearCam(c){
-  for (const o of camHidden) o.visible = true; camHidden = [];
+  for (const o of camHidden) camShow308(o); camHidden = [];
   if (state !== 'play') return;
   const test = o => {
     if (!o.isGroup || !o.visible || o === player.P.g || (o.position.x === 0 && o.position.y === 0 && o.position.z === 0) || o.children.length > 60) return;
     const s = o.scale.y || 1, dx = c.x - o.position.x, dz = c.z - o.position.z, dy = c.y - o.position.y;
-    if (dx*dx + dz*dz < 0.85*0.85*Math.max(1, s) && dy > -0.4 && dy < 2.5*s){ o.visible = false; camHidden.push(o); }
+    if (dx*dx + dz*dz < 0.85*0.85*Math.max(1, s) && dy > -0.4 && dy < 2.5*s){ camHide308(o); camHidden.push(o); }
   };
   for (const o of scene.children) if (o.isGroup && Math.abs(o.position.x - c.x) < 3 && Math.abs(o.position.z - c.z) < 3) test(o);
   for (const ig of interiorGroups) if (ig.g.visible && Math.abs(ig.x - c.x) < ig.r && Math.abs(ig.z - c.z) < ig.r) for (const o of ig.g.children) if (o.isGroup && Math.abs(o.position.x - c.x) < 3 && Math.abs(o.position.z - c.z) < 3) test(o);
@@ -11457,7 +11467,7 @@ function hideNearCam(c){
     const g = v.g; if (!g.visible || Math.abs(g.position.x - c.x) > 6 || Math.abs(g.position.z - c.z) > 6) continue;
     const h = g.rotation.y, cs = Math.cos(h), sn = Math.sin(h), dx = c.x - g.position.x, dz = c.z - g.position.z;
     const lx = dx*cs - dz*sn, lz = dx*sn + dz*cs;
-    if (Math.abs(lz) < v.len/2 + 0.35 && Math.abs(lx) < 1.35 && c.y < (v.M.tall || 2) + 0.35){ g.visible = false; camHidden.push(g); }
+    if (Math.abs(lz) < v.len/2 + 0.35 && Math.abs(lx) < 1.35 && c.y < (v.M.tall || 2) + 0.35){ camHide308(g); camHidden.push(g); }
   }
 }
 
@@ -11510,7 +11520,7 @@ function buildFadeGrid(){
 }
 
 function fadeBlockers(from, to){
-  for (const o of faded) o.visible = true; faded = [];
+  for (const o of faded) camShow308(o); faded = [];
   if (!fadeBuilt) buildFadeGrid();
   _cco.subVectors(to, from); const len = _cco.length(); if (len < 0.5) return; _cco.divideScalar(len);
   fadeRay.set(from, _cco); fadeRay.far = len;
@@ -11521,7 +11531,7 @@ function fadeBlockers(from, to){
       const ox = f.c.x - from.x, oy = f.c.y - from.y, oz = f.c.z - from.z, t = clamp(ox*_cco.x + oy*_cco.y + oz*_cco.z, 0, len);
       const qx = ox - _cco.x*t, qy = oy - _cco.y*t, qz = oz - _cco.z*t;
       if (qx*qx + qy*qy + qz*qz > f.r*f.r || !f.o.visible) continue;
-      if ((f.box && f.box.containsPoint(to)) || fadeRay.intersectObject(f.o, false).length){ f.o.visible = false; faded.push(f.o); }
+      if ((f.box && f.box.containsPoint(to)) || fadeRay.intersectObject(f.o, false).length){ camHide308(f.o); faded.push(f.o); }
     }
   }
 }
@@ -47731,6 +47741,13 @@ WHATS_NEW.unshift(['306 · Fujii Goes Home', 'The giant tent over Gus’s square
 GAME_VER.n = 307;
 GAME_VER.name = 'Moving Day';
 WHATS_NEW.unshift(['307 · Moving Day', 'Shelly’s “Moving Day” can be finished: the tin can, the teacup and the traffic cone now show up on Red Crook Docks when she asks for a new shell. Gus no longer trips over his words once the New Yolk story is done, the cannoli job survives a reload, and a gull can no longer knock the box into a subway opening. On touch screens the early lessons name the buttons instead of keys. Park events gather beside the statue instead of inside it, Agnes points the right way to Pages, a returned hat gives you your own back, and loot you carry for a job comes back to your beak after a favour.']);
+/* =====================================================================
+   v308 · OUT OF SIGHT: fixes from the core code review
+   ===================================================================== */
+// v308
+GAME_VER.n = 308;
+GAME_VER.name = 'Out of Sight';
+WHATS_NEW.unshift(['308 · Out of Sight', 'The people New Yolk keeps out of sight at the start of the story are really gone now: they no longer bump into you, talk from thin air or hand out pretzels from nowhere, and the gold beam in “Charm Offensive” points at someone you can actually see. After clicking a button on screen, Space flies again instead of pressing the button a second time. If your browser won’t let the game save, it tells you instead of showing “Saved”. And if something goes wrong in a frame, the game keeps drawing instead of freezing.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -47995,6 +48012,9 @@ addEventListener('keyup', e => {
   if (e.code === 'Space') keys.flap = false;
 });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+// v308: a button clicked with the mouse or a finger gives up the focus, so Space flies again instead of pressing it a
+// second time (Fly near, the quest arrows, Bag, Map...). Buttons reached with the keyboard keep it (detail is 0)
+document.addEventListener('click', e => { const b = e.target && e.target.closest && e.target.closest('button'); if (b && e.detail > 0) b.blur(); }, true);
 
 let drag = null;
 canvas.addEventListener('pointerdown', e => {
@@ -48082,7 +48102,7 @@ function cooBase(){
   let tried = 0;
   for (const h of humans){
     const p = h.H.g.position;
-    if (!h.snack || h.cool > 0) continue;
+    if (!h.snack || h.cool > 0 || !h.H.g.visible) continue;   // v308: only people Pidge can see (hidden ones handed out snacks from thin air)
     if ((p.x - player.pos.x)**2 + (p.z - player.pos.z)**2 > 25 || player.pos.y > 3) continue;
     tried++;
     if (Math.random() < cooChance()){
@@ -48341,6 +48361,7 @@ function updatePlayerBase(dt){
     }
   }
   for (const h of humans){
+    if (!h.H.g.visible) continue;   // v308: hidden walkers (the quiet start keeps half the town out of sight) aren't there to bump into
     const p = h.H.g.position, ddx = P.pos.x - p.x, ddz = P.pos.z - p.z, d2 = ddx*ddx + ddz*ddz;
     if (d2 < 0.36 && P.pos.y < 1.9){ const d = Math.sqrt(d2) || 1; P.pos.x = p.x + ddx/d*0.6; P.pos.z = p.z + ddz/d*0.6; }
   }
@@ -48380,7 +48401,7 @@ function updateHumans(dt){
   }
   if (state === 'play' && ambientCd <= 0){
     ambientCd = rr(6, 12);
-    const near = humans.filter(h => h.H.g.position.distanceToSquared(player.pos) < 300);
+    const near = humans.filter(h => h.H.g.visible && h.H.g.position.distanceToSquared(player.pos) < 300);   // v308: nobody talks from out of sight
     if (near.length) speak(mpick(near).H.g, mpick(wx.rain > 0.4 ? RAIN_LINES : nightF > 0.55 ? NIGHT_LINES : dayT > 0.6 && dayT < 0.8 ? GOLDEN_LINES : AMBIENT_LINES));
   }
 }
@@ -48669,7 +48690,8 @@ function questTargetBase(){
   switch (qid()){
     case 'meet': return GUS_POS;
     case 'eat': { let best = null, bd = 1e9; for (const f of foods){ const d = f.pos.distanceToSquared(player.pos); if (d < bd){ bd = d; best = f.pos; } } return best; }
-    case 'coo': { let best = null, bd = 1e9; for (const h of humans){ if (!h.snack || h.cool > 0) continue; const d = h.H.g.position.distanceToSquared(player.pos); if (d < bd){ bd = d; best = h.H.g.position; } } return best; }
+    // v308: not the townsfolk the quiet start keeps out of sight (the beam pointed at nobody); far ones show as Pidge gets near
+    case 'coo': { let best = null, bd = 1e9; for (const h of humans){ if (!h.snack || h.cool > 0 || h.calm) continue; const d = h.H.g.position.distanceToSquared(player.pos); if (d < bd){ bd = d; best = h.H.g.position; } } return best; }
     case 'statue': return STATUE_HEAD;
     case 'tower': return _t.set((towerSolid.minX+towerSolid.maxX)/2, towerSolid.maxY, (towerSolid.minZ+towerSolid.maxZ)/2);
     case 'gull': return gull.pos;
@@ -48835,8 +48857,11 @@ function updateGoal(tg){
 // The save: one JSON object, {format, ver, at, S}. A save in any other format (including the old
 // 'crumb-city-save-v1') is not read: the game starts fresh instead, and the old one is cleared away.
 const SAVE_KEY = 'pecking-order-save', SAVE_FORMAT = 2, OLD_SAVE_KEYS = ['crumb-city-save-v1'];
-function save(){ const result = saveBase(); runHooks('save'); return result; }
-function saveBase(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify({format: SAVE_FORMAT, ver: GAME_VER.n, at: Date.now(), S: {level:S.level, xp:S.xp, crumbs:S.crumbs, qi:S.qi, qp:S.qp, time:S.time, handouts:S.handouts, gulls:S.gulls, eaten:S.eaten, won:S.won, shinies:S.shinies, fav:S.fav, favFocus:S.favFocus, racersFound:S.racersFound, met:S.met, popped:S.popped, rides:S.rides, tramStops:S.tramStops, photos:S.photos, scarf:S.scarf, tubeRides:S.tubeRides || 0, riverRides:S.riverRides || 0, riverPiers:S.riverPiers || [], chipGulls:S.chipGulls || 0, tubeStops:S.tubeStops || [], dvis:S.dvis || [], ch2seen:!!S.ch2seen, won2:!!S.won2, pebbleHome:!!S.pebbleHome, giraffeRide:!!S.giraffeRide, fam:S.fam || null, trainRides:S.trainRides || 0, trainStops:S.trainStops || [], events:S.events || [], murals:S.murals || [], passport:S.passport || {}, hugCoo:!!S.hugCoo, alarms:S.alarms || 0, headRides:S.headRides || 0, hats:S.hats || 0, piano:!!S.piano, swung:!!S.swung, slid:!!S.slid, headers:S.headers || 0, props:S.props || {}, bag:S.bag || {}, notes:S.notes || [], qloot:S.qloot || {}, dug:!!S.dug, bellsRung:!!S.bellsRung, hatsCaught:S.hatsCaught || 0, visited:S.visited || {park: true}, wornHat:pidgeHat ? S.wornHat : null, tipsSeen:S.tipsSeen || [], seenV2:!!S.seenV2, planeRide:!!S.planeRide, empireTop:!!S.empireTop, story:S.story || null, tut:S.tut || 0, job:S.job || 0, jobStage:S.jobStage || null, jobAt:S.jobAt || 0, busted:S.busted || 0, fedora:!!S.fedora, lookouts:S.lookouts || [], collectAt:S.collectAt || 0, ticket29:S.ticket29 || null, loyal29:S.loyal29, loyalPaid29:!!S.loyalPaid29, half29:!!S.half29, cooCam29:!!S.cooCam29, chessWins:S.chessWins || 0, chessPigeon:!!S.chessPigeon, view29:!!S.view29, bridge29:!!S.bridge29, libTop29:!!S.libTop29, hoard:S.hoard || [], lootFound:S.lootFound || 0, stashes:S.stashes || 0, raids:S.raids || 0, stellaSales:S.stellaSales || 0, stellaScold:!!S.stellaScold, gear:S.gear || {}, shell30:S.shell30 || 0, peter30:!!S.peter30, cine30:S.cine30 || {}, tank30:!!S.tank30, goldie32:!!S.goldie32, look33:S.look33 || null, fab33:!!S.fab33, kevin33:S.kevin33 || null, selfies33:S.selfies33 || [], crowWins35:S.crowWins35 || 0, seenVer:S.seenVer || 0, op30:S.op30 || null, pbPerch:S.pbPerch || [], shellSide:S.shellSide || null, dash30:S.dash30 || 0, dashDone30:!!S.dashDone30, v38:S.v38 || {}, v39:S.v39 || {}, tree:S.tree || {a: []}, err:S.err || null, alm:S.alm || {got: []}, tunes45:S.tunes45 || [], v47:S.v47 || {}, v48:S.v48 || {}, v49:S.v49 || {}, v50:S.v50 || {}, v51:S.v51 || {}, ...Object.fromEntries(Object.keys(S).filter(k => /^v\d+$/.test(k)).map(k => [k, S[k]])), v52:S.v52 || {}, v53:S.v53 || {}, v54:S.v54 || {}, v55:S.v55 || {}, v56:S.v56 || {}, v57:S.v57 || {}, v58:S.v58 || {}, v59:S.v59 || {}, v60:S.v60 || {}, v61:S.v61 || {}, v62:S.v62 || {}, v63:S.v63 || {}, v64:S.v64 || {}, v65:S.v65 || {}, v66:S.v66 || {}, war48:S.war48 || 0}})); } catch(e) {} }
+// v308: saveBase says whether the save was written; 'Saved' shows only when it was, and a blocked or full storage is
+// said once instead of failing in silence
+let saveWarned308 = false;
+function save(){ const ok = saveBase(); if (ok) runHooks('save'); else if (!saveWarned308 && state !== 'title' && typeof toast === 'function'){ saveWarned308 = true; toast('<b>Can\'t save.</b> This browser is blocking storage for the game (or it is full), so progress will be lost when the page closes.', '', 7000); } return ok; }
+function saveBase(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify({format: SAVE_FORMAT, ver: GAME_VER.n, at: Date.now(), S: {level:S.level, xp:S.xp, crumbs:S.crumbs, qi:S.qi, qp:S.qp, time:S.time, handouts:S.handouts, gulls:S.gulls, eaten:S.eaten, won:S.won, shinies:S.shinies, fav:S.fav, favFocus:S.favFocus, racersFound:S.racersFound, met:S.met, popped:S.popped, rides:S.rides, tramStops:S.tramStops, photos:S.photos, scarf:S.scarf, tubeRides:S.tubeRides || 0, riverRides:S.riverRides || 0, riverPiers:S.riverPiers || [], chipGulls:S.chipGulls || 0, tubeStops:S.tubeStops || [], dvis:S.dvis || [], ch2seen:!!S.ch2seen, won2:!!S.won2, pebbleHome:!!S.pebbleHome, giraffeRide:!!S.giraffeRide, fam:S.fam || null, trainRides:S.trainRides || 0, trainStops:S.trainStops || [], events:S.events || [], murals:S.murals || [], passport:S.passport || {}, hugCoo:!!S.hugCoo, alarms:S.alarms || 0, headRides:S.headRides || 0, hats:S.hats || 0, piano:!!S.piano, swung:!!S.swung, slid:!!S.slid, headers:S.headers || 0, props:S.props || {}, bag:S.bag || {}, notes:S.notes || [], qloot:S.qloot || {}, dug:!!S.dug, bellsRung:!!S.bellsRung, hatsCaught:S.hatsCaught || 0, visited:S.visited || {park: true}, wornHat:pidgeHat ? S.wornHat : null, tipsSeen:S.tipsSeen || [], seenV2:!!S.seenV2, planeRide:!!S.planeRide, empireTop:!!S.empireTop, story:S.story || null, tut:S.tut || 0, job:S.job || 0, jobStage:S.jobStage || null, jobAt:S.jobAt || 0, busted:S.busted || 0, fedora:!!S.fedora, lookouts:S.lookouts || [], collectAt:S.collectAt || 0, ticket29:S.ticket29 || null, loyal29:S.loyal29, loyalPaid29:!!S.loyalPaid29, half29:!!S.half29, cooCam29:!!S.cooCam29, chessWins:S.chessWins || 0, chessPigeon:!!S.chessPigeon, view29:!!S.view29, bridge29:!!S.bridge29, libTop29:!!S.libTop29, hoard:S.hoard || [], lootFound:S.lootFound || 0, stashes:S.stashes || 0, raids:S.raids || 0, stellaSales:S.stellaSales || 0, stellaScold:!!S.stellaScold, gear:S.gear || {}, shell30:S.shell30 || 0, peter30:!!S.peter30, cine30:S.cine30 || {}, tank30:!!S.tank30, goldie32:!!S.goldie32, look33:S.look33 || null, fab33:!!S.fab33, kevin33:S.kevin33 || null, selfies33:S.selfies33 || [], crowWins35:S.crowWins35 || 0, seenVer:S.seenVer || 0, op30:S.op30 || null, pbPerch:S.pbPerch || [], shellSide:S.shellSide || null, dash30:S.dash30 || 0, dashDone30:!!S.dashDone30, v38:S.v38 || {}, v39:S.v39 || {}, tree:S.tree || {a: []}, err:S.err || null, alm:S.alm || {got: []}, tunes45:S.tunes45 || [], v47:S.v47 || {}, v48:S.v48 || {}, v49:S.v49 || {}, v50:S.v50 || {}, v51:S.v51 || {}, ...Object.fromEntries(Object.keys(S).filter(k => /^v\d+$/.test(k)).map(k => [k, S[k]])), v52:S.v52 || {}, v53:S.v53 || {}, v54:S.v54 || {}, v55:S.v55 || {}, v56:S.v56 || {}, v57:S.v57 || {}, v58:S.v58 || {}, v59:S.v59 || {}, v60:S.v60 || {}, v61:S.v61 || {}, v62:S.v62 || {}, v63:S.v63 || {}, v64:S.v64 || {}, v65:S.v65 || {}, v66:S.v66 || {}, war48:S.war48 || 0}})); return true; } catch(e) { return false; } }
 function load(){
   try { for (const k of OLD_SAVE_KEYS) localStorage.removeItem(k); } catch(e) {}
   try { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return d && d.format === SAVE_FORMAT && d.S && typeof d.S.level === 'number' ? d.S : null; } catch(e) { return null; } }
@@ -49082,7 +49107,8 @@ addEventListener('resize', resize); resize();
 
 let last = performance.now(), time = 0, saveT = 0, mapT = 0, frameN = 0;
 const FRAMEERR47 = new Set();
-function frame(now){ requestAnimationFrame(frame); try { frameBody47(now); } catch(e){ const k = String(e && e.message); if (!FRAMEERR47.has(k)){ FRAMEERR47.add(k); console.error('frame', e); } } }
+function frameErr308(e){ const k = String(e && e.message); if (!FRAMEERR47.has(k)){ FRAMEERR47.add(k); console.error('frame', e); if (FRAMEERR47.size === 1 && typeof toast === 'function') try { toast('Something went wrong in the game. It carries on, but if things look stuck, reload the page: your progress is saved.', '', 6000); } catch(_){} } }
+function frame(now){ requestAnimationFrame(frame); try { frameBody47(now); } catch(e){ frameErr308(e); } }
 // v295: the frame-time governor (quality Auto only). A smoothed frame time; over 25 ms for 3 s it steps down (render
 // scale 0.85, then 0.72 with the soft glow off), under 17 ms for 8 s it steps back up. Dialogue, cut-scenes and menus
 // leave it where it is; the test harness (window.__snap) and other quality settings keep it at full.
@@ -49098,6 +49124,8 @@ function frameBody47(now){
   gov295(now);
   if (updateRegions() === 'busy'){ last = now; return; }   // regions build the first frame they are needed (core/regions.js); a city behind its load card (v303)
   const dt = Math.min(0.05, Math.max(0, (now - last)/1000)); last = Math.max(last, now); time += dt;   // v298.1: never a negative step (a stale first rAF stamp after a long boot gave dt = -30 s)
+  // v308: an update that throws no longer stops the frame being drawn (the screen froze on its last picture)
+  try {
   if (state === 'play'){ updatePlayer(dt); S.time += dt; saveT += dt; if (saveT > 10){ saveT = 0; save(); } }
   else if (state === 'title'){ player.anim.t += dt; animatePigeon(player.P, 'idle', player.anim, dt); player.P.g.position.copy(player.pos); player.P.g.rotation.y = player.heading; }
   const ny294 = cityOf58() === 'ny';   // v294: New Yolk's own street life only runs while Pidge is in (or near) New Yolk
@@ -49120,6 +49148,7 @@ function frameBody47(now){
     mapT -= dt; if (mapT <= 0){ mapT = 1/20; drawMinimap(time); }
   }
   updateFloaters(dt);
+  } catch(e){ frameErr308(e); }
   skyDome.position.copy(camera.position);
   followSky();
   renderer.shadowMap.needsUpdate = (frameN++ % shadowEvery) === 0;

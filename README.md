@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v307 (Shelly's "Moving Day" can be finished, Gus no longer trips over his words after the New Yolk story, the cannoli job survives a reload, touch screens name their buttons, and park events stay out of the statue).
+Current version: v308 (hidden townsfolk no longer bump into Pidge or hand out snacks from thin air, Space flies again after clicking an on-screen button, and the game tells you if your browser won't let it save).
