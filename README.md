@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v312 (smoother on slower machines: the new renderer's upkeep looks over the scene once a second instead of three times, and no longer stalls when a new district comes into view).
+Current version: v313 (everyone has their head back, the Crumb Line's station stairs can be walked again, the river has quay walls, and the cannoli job is fairer).

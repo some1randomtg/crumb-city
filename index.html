@@ -254,6 +254,8 @@
   .ending .wordmark{font-size:clamp(52px,9vw,96px)}
   .wordmark.pecking{font-size:clamp(40px,8.2vw,104px);line-height:.9}
   .ending .wordmark.long{font-size:clamp(34px,7.6vw,84px)}
+  /* v313: the button stays in view: the stats list is taller than a laptop screen */
+  .ending .row{position:sticky;bottom:0;margin-bottom:0;padding:10px 0}
 
   @media (max-width:560px){
     #minimap{width:100px;height:100px}
@@ -1513,7 +1515,7 @@ const GUS = {
   eat: ['Start simple. Five bits of food. Walk over \'em and they\'re yours. There\'s a few right here round the bench.'],
   coo: [`Not bad. Now, people. Anyone holding a snack goes soft if you coo at \'em. Get close and ${KK('press Q', 'tap Coo')}.`, 'Look for the little gold marker over their heads. Three handouts and we\'ll talk.'],
   statue: ['You\'ve got charm. Now, respect. Every pigeon in this town has sat on Mayor Featherstone\'s head.', `${KK('Hold Space', 'Hold Flap')} to climb, let go to glide. ${KK('Hold S', 'Pull the stick back')} to slow right down, and drop onto the ring under you.`, 'And keep an eye out for shinies up on the rooftops. Bottle caps, buttons... a pigeon needs a collection.'],
-  tower: ['See that glass tower north-west of here? New Yolk Tower. Tallest roof in town.', 'You won\'t make it in one go. Hop roof to roof. Landing anywhere refills your wings.'],
+  tower: ['See that glass tower north-west of here? New Yolk Tower. Tallest roof round here.', 'Watch your wing on the way up. If it runs low, hop roof to roof. Landing anywhere refills your wings.'],
   gull: [`Trouble. A seagull from the harbour is hoovering up our fries. Fly up close and peck it with ${KK('E', 'the Peck button')}.`, 'Twice ought to send it home.'],
   hotdog: ['One last job. Sal\'s hot dog cart, across the road east of the park.', `Sal watches the street. See the red cone? Stay out of it. Sneak in while he\'s looking away, then ${KK('press E', 'tap Peck')}.`],
   end: ['A whole hot dog. In one beak.', 'Kid... the square is yours. Long live the King.'],
@@ -2074,7 +2076,7 @@ function sbBundle(b){
     u = {g, root: b.root, local: new THREE.Sphere(), sphere: new THREE.Sphere(), dirty: true}; g.userData.sbBundle = u; b.root.add(g); B.bundles.set(k, u); }
   return u;
 }
-function sbBundleChanged(g){ g.needsUpdate = true; g.userData.sbBundle.dirty = true; }
+function sbBundleChanged(g){ g.needsUpdate = true; g.userData.sbBundle.dirty = true; g.userData.sbBundle.wOk = false; }
 const SB_FRUSTUM = new THREE.Frustum(), SB_PV = new THREE.Matrix4();
 function sbCullBundles(cam){
   const B = SBATCH; if (!B || !B.bundles.size) return;
@@ -2082,7 +2084,15 @@ function sbCullBundles(cam){
   for (const u of B.bundles.values()){ const g = u.g;
     if (u.dirty){ u.dirty = false; let first = true; for (const m of g.children){ const bs = m.geometry.boundingSphere; if (first){ u.local.copy(bs); first = false; } else u.local.union(bs); } if (first) u.local.makeEmpty(); }
     u.sphere.copy(u.local).applyMatrix4(u.root.matrixWorld);
-    g.visible = g.children.length > 0 && SB_FRUSTUM.intersectsSphere(u.sphere); }
+    g.visible = g.children.length > 0 && SB_FRUSTUM.intersectsSphere(u.sphere);
+    // v313: a bundle inside a group of its own (a person, a bench: userData.sbRoot) kept the identity world matrix for
+    // its batches, so they drew at the world origin, inside the park's statue plinth: people lost their heads
+    if (g.visible && !u.wOk) sbBundleWorld(u); }
+}
+function sbBundleWorld(u){
+  const g = u.g, rw = u.root.matrixWorld; g.matrixWorld.multiplyMatrices(rw, g.matrix); g.matrixWorldNeedsUpdate = false;
+  for (const m of g.children){ m.matrixWorld.multiplyMatrices(g.matrixWorld, m.matrix); m.matrixWorldNeedsUpdate = false; }
+  u.wOk = true; g.needsUpdate = true;
 }
 /* ---------- render: pipeline ---------- */
 // The frame on r186's WebGPU renderer, built from nodes (TSL). One scene pass writes colour, normals and a water mask;
@@ -3987,6 +3997,8 @@ function shirtTex(kind){
 
 function makeHuman(o={}){
   const g = new THREE.Group();
+  // v313: a person's head, face and torso stay out of the static batches (render/static-batch.js), as they did up to v311
+  g.userData.sbLively = true;
   const shirtC = o.shirt ?? pick(SHIRTS), pantsC = o.pants ?? pick(PANTS), skinC0 = o.skin ?? pick(SKIN), shoeC = pick(SHOES);
   const R = hRand(shirtC*7 ^ pantsC*13 ^ skinC0*31 ^ (o.hair ?? 77)*3);
   const skinC = o.skin ?? (R() < 0.3 ? SKIN_MID[Math.floor(R()*SKIN_MID.length)] : skinC0);
@@ -9361,8 +9373,10 @@ function drawDeparture(st){
   st.depTex.needsUpdate = true;
 }
 
+let tubeTrip313 = false;
 function tubeRide(k){
-  S.tubeRides = (S.tubeRides || 0) + 1;
+  // v313: one ride per trip (each stop passed counted as a ride in the stats)
+  if (!tubeTrip313){ tubeTrip313 = true; S.tubeRides = (S.tubeRides || 0) + 1; }
   S.tubeStops = Array.isArray(S.tubeStops) ? S.tubeStops : [];
   const fresh = !S.tubeStops.includes(k);
   if (fresh){ S.tubeStops.push(k); addXP(15); }
@@ -9451,7 +9465,7 @@ function updateUnderground(dt, time){
       ugWorld(lx, lz, P.pos);
     }
     const inside = Math.abs(lx) < UGT.W/2 - 0.1 && Math.abs(lz) < UGT.L/2 - 0.1 && P.pos.y > UG_Y - 0.4 && P.pos.y < UG_Y + UGT.H;
-    if (inside && !ugWasInside){ ugBoard = ugT.state === 'stop' ? ugT.stop : ugT.stop; ugMoved = false; tip('tube', 'You\'re on the Crumb Line! Ride to the next station and hop off when the doors open.'); }
+    if (inside && !ugWasInside){ tubeTrip313 = false; ugBoard = ugT.state === 'stop' ? ugT.stop : ugT.stop; ugMoved = false; tip('tube', 'You\'re on the Crumb Line! Ride to the next station and hop off when the doors open.'); }
     if (inside && ugT.state === 'run' && ugT.v > 2) ugMoved = true;
     if (!inside && ugWasInside) ugBoard = -1;
     ugWasInside = inside; P.onTrain = inside;
@@ -9695,6 +9709,9 @@ BRIDGES = roadLines.filter(rc => rc > -250 && rc < 160);
     addSolid(cx + 8.6, 181.2, 0.2, 0.2, 0.15, 3.3, 'pole');
     mapRects.push({x0: cx - 6.5, z0: RV.z0, x1: cx + 6.5, z1: 187.3, color: '#a8763a', kind: 'pier'});
   }
+  // v313: the quay walls, both banks: only the bridges had them, so from a pontoon or the water Pidge walked in under
+  // the towpath and fell out of the world (the Crumb Line's rescue then put Pidge on a subway platform)
+  for (let x = RV.x0; x < RV.x1; x += 24){ const x1 = Math.min(RV.x1, x + 24); for (const z of [RV.z0 - 0.3, RV.z1 + 0.3]) addSolid((x + x1)/2, z, x1 - x, 0.6, RV.y - 1, 0, 'quay'); }
   const m = mergeBoxes(items, [mat(0xc8a882, {map: plankTex}), mat(0x5c544c), mat(0x2f4f3a), mat(0x3a3330), mat(0x2fae8f), stoneMat, mat(0x6b6460)]); m.castShadow = false; occluders.push(m);
 }
 /* Gull Bay: sand, surf and the rocky shore */
@@ -13549,7 +13566,16 @@ function updateWind(dt, time){
   for (const v of vanes){ v.a = angLerp(v.a, WIND.a + PI, Math.min(1, dt*2)); v.arrow.rotation.y = v.a + Math.sin(time*7)*0.05*WIND.s; }
   // the little wind arrow next to the clock
   windT -= dt;
-  if (windT <= 0){ windT = 0.25; const rel = angDiff(cam.yaw + PI, WIND.a); WIND.icon = ['↑', '↖', '←', '↙', '↓', '↘', '→', '↗'][((Math.round(rel/(PI/4)) % 8) + 8) % 8]; WIND.word = WIND.s < 0.35 ? 'calm' : WIND.s < 0.7 ? 'breezy' : WIND.s < 1.15 ? 'windy' : 'gale'; }
+  if (windT <= 0){ windT = 0.25; const rel = angDiff(cam.yaw + PI, WIND.a); WIND.icon = ['↑', '↖', '←', '↙', '↓', '↘', '→', '↗'][((Math.round(rel/(PI/4)) % 8) + 8) % 8]; WIND.word = windWord313(WIND.s, WIND.word); }
+}
+
+// v313: a gust near a threshold flipped the clock chip between calm and breezy every second: the word only changes once
+// the wind is 0.08 past the line
+const WIND_WORDS313 = ['calm', 'breezy', 'windy', 'gale'], WIND_LINES313 = [0.35, 0.7, 1.15];
+function windWord313(s, cur){
+  let i = 0; while (i < 3 && s >= WIND_LINES313[i]) i++;
+  const c = WIND_WORDS313.indexOf(cur); if (c < 0 || c === i) return WIND_WORDS313[i];
+  const line = WIND_LINES313[Math.min(c, i)]; return Math.abs(s - line) < 0.08 ? cur : WIND_WORDS313[i];
 }
 /* ---------- base: gameplay/loot ---------- */
 // From 090-loot-and-pidge-s-bag, 159-loot-diablo-style-rarities-rolled-stats-, 198-new-loot-a-new-badge-room-for-60-and-a-n. The bs_* steps are run by boot/base.js, in load order.
@@ -13606,7 +13632,7 @@ function bagGive(id, n = 1, quiet = false){
 
 function bagTake(id, n = 1){ if (!S.bag || !S.bag[id]) return; S.bag[id] = Math.max(0, S.bag[id] - n); if (!S.bag[id]) delete S.bag[id]; save(); }
 
-function addNote(id, text){ S.notes = S.notes || []; if (S.notes.some(n => n.id === id)) return; S.notes.push({id, text}); toast('Noted in your bag: <i>' + text.slice(0, 60) + (text.length > 60 ? '…' : '') + '</i>', '', 2800); save(); }
+function addNote(id, text){ S.notes = S.notes || []; if (S.notes.some(n => n.id === id)) return; S.notes.push({id, text}); toast('Noted in your bag: <i>' + (text.length > 140 ? text.slice(0, 140) + '…' : text) + '</i>', '', 2800 + Math.min(4000, text.length*25)); save(); }   // v313: the whole clue (the bell tune was cut off at 60 letters), up longer
 
 const LOOT_TABLE = ['cap', 'cap', 'cap', 'penny', 'penny', 'button', 'button', 'ticket', 'bluefeather', 'cracker', 'cracker', 'seeds'];
 
@@ -13684,7 +13710,10 @@ function renderBagBase(){
   $('bagGrid').innerHTML = ids.length ? ids.map(id => `<button class="bagcell${id === bagSel ? ' sel' : ''}" data-id="${id}" type="button" title="${ITEMS[id].name}"><img src="${ICON[id]}" alt="${ITEMS[id].name}"><span>${S.bag[id] > 1 ? '×' + S.bag[id] : ''}</span></button>`).join('') : '<p class="bagempty">Nothing yet. Rummage in bins, peck at things, and look for glints on rooftops.</p>';
   const it = bagSel && ITEMS[bagSel];
   $('bagInfo').innerHTML = it ? `<div class="baghead"><img src="${ICON[bagSel]}" alt=""><b>${it.name}</b></div><p>${it.desc}</p>${it.map ? `<img class="bagmap" src="${mapImage()}" alt="The treasure map">` : ''}${it.use ? `<button class="btn small" id="bagUse" type="button">${it.use}</button>` : ''}${it.sell ? `<p class="muted">Archibald at Antiques &amp; Curios pays ${it.sell} crumbs.</p>` : ''}` : '<p class="muted">Pick something to look at it.</p>';
-  $('bagNotes').innerHTML = (S.notes || []).length ? S.notes.map(n => `<li>${n.text}</li>`).join('') : '<li class="muted">Clues you find will be written here.</li>';
+  // v313: clues for a favour or job that's finished are no longer listed (they stay in the save)
+  const NOTE_FAV313 = {bells: 'bells', tune: 'bells', lost1: 'lost', lost2: 'lost', lost3: 'lost', map: 'treasure', bones: 'bones', p1: 'strongbox', p2: 'strongbox', p3: 'strongbox'};
+  const notes = (S.notes || []).filter(n => !(NOTE_FAV313[n.id] && favState(NOTE_FAV313[n.id]) === 'done') && !(n.id === 'mob1' && S.job > 1));
+  $('bagNotes').innerHTML = notes.length ? notes.map(n => `<li>${n.text}</li>`).join('') : '<li class="muted">Clues you find will be written here.</li>';
   const u = $('bagUse'); if (u) u.onclick = () => useItem(bagSel);
 }
 
@@ -13695,7 +13724,10 @@ function useItem(id){
   else if (id === 'watch') toast(`The watch says <b>${$('clock').textContent.split('·')[0].trim()}</b>. Ticking politely.`, '', 2400);
   else if (id === 'goldfeather'){ freshT = 60; P.stamina = maxStamina(); toast('The golden feather glows. <b>Faster flying</b> for a minute!', '', 2600); }
   else if (id === 'bluefeather') floatText(P.pos, 'so fancy.', '#8fd3f4', 1.2);
-  else if (id === 'bell'){ toggleBag(false); tone(1568, 0.6, 'sine', 0.06); tone(2093, 0.5, 'sine', 0.03, null, 0.1); coo(); return; }
+  // v313: the silver bell calls pigeons from 30 m, not just the coo's 7 m, and says so when nobody's about
+  else if (id === 'bell'){ toggleBag(false); tone(1568, 0.6, 'sine', 0.06); tone(2093, 0.5, 'sine', 0.03, null, 0.1); coo();
+    let n = 0; for (const b of flock){ if (b.state !== 'ground' || Math.abs(b.home.y - P.pos.y) > 0.6 || b.pos.distanceTo(P.pos) > 30) continue; const a = rr(0, PI*2), r = rr(0.9, 2.2); b.wp = (b.wp || new THREE.Vector3()).set(P.pos.x + Math.cos(a)*r, b.home.y, P.pos.z + Math.sin(a)*r); b.seed = null; b.t = 4; n++; }
+    floatText(P.pos, n ? `ding! ${n} pigeon${n > 1 ? 's' : ''} coming` : 'ding! ...no pigeons in earshot', '#fff6dc', 1.4); return; }
   else if (id === 'compass'){ const left = shinies.filter(s => !s.found); if (!left.length) toast('The needle spins lazily. You\'ve found every shiny!', '', 2600); else { let best = left[0]; for (const s of left) if (s.pos.distanceTo(P.pos) < best.pos.distanceTo(P.pos)) best = s; const ang = Math.atan2(best.pos.x - P.pos.x, -(best.pos.z - P.pos.z)), dirs = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']; toast(`The needle points <b>${dirs[(Math.round(ang/(PI/4)) + 8) % 8]}</b>: something shiny, about ${Math.round(best.pos.distanceTo(P.pos))} m away.`, '', 3600); } }
   toggleBag(false);
 }
@@ -13939,7 +13971,7 @@ htG = igroup(-91.7, 32);
   hattie = shopNPC('Hattie', htG, x0 + 1.1, z - 2.2, PI/2, 'Milliner. Has opinions about your head.');
 }
 FAV.lost = {giver: 'Mags', title: 'Lost & Found', text: 'Mags at Lost Property needs three lost things brought back: a red mitten, some reading glasses and a tiny teddy. The clues are in your bag.', xp: 60};
-FAV.strongbox = {giver: 'Archibald', title: 'The Strongbox', text: 'Archibald\'s late uncle hid the strongbox combination in three brass plaques around town: by the Old Town clock, at Featherland\'s gate and at the Harbour playground.', xp: 60};
+FAV.strongbox = {giver: 'Archibald', title: 'The Strongbox', text: 'Archibald\'s late uncle hid the strongbox combination in three brass plaques around town: by the Old Town clock, at Featherland\'s gate and at the Wall Tweet playground.', xp: 60};
 FAV.bells = {giver: 'Clement', title: 'The Rooftop Bells', text: 'Four hand-bells hang on rooftops around St Columba\'s. Ring them in the order of the old tune. Tilly\'s music box at Tinker\'s Toys still plays it.', xp: 70};
 FAV.treasure = {giver: 'Tilly', title: 'X Marks the Spot', text: 'Tilly has a third of a treasure map. Another piece is on top of Hattie\'s wardrobe, and the last blew up to the lighthouse gallery. Put it together and dig.', xp: 80};
 for (const [id, who, H] of [['lost', 'Mags', () => mags], ['strongbox', 'Archibald', () => archibald], ['treasure', 'Tilly', () => tilly]]){
@@ -13953,7 +13985,7 @@ clement.g.rotation.y = PI/2;
 addNamedTalker('Talk to Mags', 'Mags', () => npcPos(mags), () => {
   const st = favState('lost'), got = Object.keys(LP_ITEMS).filter(bagHas);
   if (st === 'none') return say([L('Mags', 'Lost Property, how can I... oh. A pigeon. Well, everyone loses something.'), L('Mags', 'Three people came in this week. A red mitten, some reading glasses, a tiny teddy. Never handed in. Fancy a look?', [
-    {label: 'I\'ll find them!', fn: () => { startFav('lost'); addNote('lost1', 'Red mitten: "Lost it at the Harbour playground. Probably in the sand."'); addNote('lost2', 'Reading glasses: "Watching a film at The Roxy... then I went up on the ROOF to see the stars."'); addNote('lost3', 'Tiny teddy: "A gull took it. Flew off towards the fish market, the brute."'); say([L('Mags', 'Wonderful. I\'ve written down what they told me. Bring them here, I\'ll do the paperwork.')]); }},
+    {label: 'I\'ll find them!', fn: () => { startFav('lost'); addNote('lost1', 'Red mitten: "Lost it at the Wall Tweet playground. Probably in the sand."'); addNote('lost2', 'Reading glasses: "Watching a film at The Roxy... then I went up on the ROOF to see the stars."'); addNote('lost3', 'Tiny teddy: "A gull took it. Flew off towards the fish market, the brute."'); say([L('Mags', 'Wonderful. I\'ve written down what they told me. Bring them here, I\'ll do the paperwork.')]); }},
     {label: 'Not today.', fn: () => say([L('Mags', 'Fair enough. They\'ll keep. Nothing ever leaves this place.')])},
   ])]);
   if (st === 'active'){
@@ -13966,7 +13998,7 @@ addTalker('Ring the counter bell', () => _s21.set(lostRoom.minX + 2.2, 1.4, LP.z
 addNamedTalker('Talk to Archibald', 'Archibald', () => npcPos(archibald), () => {
   const st = favState('strongbox');
   if (st === 'none') return say([L('Archibald', 'Welcome to Antiques & Curios. Mind the clock, it bites.'), L('Archibald', 'My late uncle left me that strongbox. The combination, he said, is "in brass, about town". Three plaques. Riddles. Typical Horace.', [
-    {label: 'I\'ll read the plaques.', fn: () => { startFav('strongbox'); say([L('Archibald', 'One by the Old Town clock, one at the Featherland gate, one at the Harbour playground. Then come and try the dials.')]); }},
+    {label: 'I\'ll read the plaques.', fn: () => { startFav('strongbox'); say([L('Archibald', 'One by the Old Town clock, one at the Featherland gate, one at the Wall Tweet playground. Then come and try the dials.')]); }},
     {label: 'Sell some things', fn: sellTo},
   ])]);
   say([L('Archibald', st === 'active' ? 'Found the plaques yet? The dials are on the strongbox in the corner.' : 'What can I do for you?', [{label: 'Sell some things', fn: sellTo}, {label: 'Just browsing', fn: () => say([L('Archibald', 'Browse away. Touch nothing. Especially the clock.')])}])]);
@@ -14031,6 +14063,8 @@ const STRONG = [3, 5, 2];
 function tryStrongbox(){
   if (favState('strongbox') === 'done') return say([L('Archibald', 'Empty now. But what a moment that was.')]);
   if (favState('strongbox') !== 'active') return floatText(player.pos, 'a heavy, locked strongbox', '#fff6dc', 1.2);
+  // v313: the riddles first (any combination could be tried for free, without reading a plaque)
+  { const unread = RIDDLES.filter(p => !(S.notes || []).some(n => n.id === p.id)).length; if (unread) return say([L('Archibald', `Ah, ah. No guessing. Uncle Horace would haunt us both. ${unread === 3 ? 'Read the three plaques first' : unread === 1 ? 'One plaque still to read' : 'Two plaques still to read'}: by the Old Town clock, at the Featherland gate and at the Wall Tweet playground.`)]); }
   const ans = [];
   const ask = i => say([L('Strongbox', `The ${['first', 'second', 'third'][i]} dial clicks round...`, [[2, 3, 4, 5], [3, 4, 5, 6], [1, 2, 3, 4]][i].map(n => ({label: String(n), fn: () => { ans.push(n); tone(600 + n*40, 0.05, 'square', 0.03); if (i < 2) ask(i + 1); else check(); }})))]);
   const check = () => {
@@ -14056,8 +14090,8 @@ const bs_gameplayPuzzles_1 = () => {
 AIR_SMOKE = [0xd4483a, 0xf4f4ef, 0x3f6bd4].map(c => new THREE.MeshBasicMaterial({color: c, transparent: true, opacity: 0.6, depthWrite: false}));
 RIDDLES = [
   {x: 5, z: -186.5, y: 0.15, id: 'p1', text: 'FIRST: How many legs has a pigeon? Add the number of beaks.'},
-  {x: -106.3, z: -277, y: 0.05, id: 'p2', text: 'SECOND: Count the blue spires on the castle of Featherland.'},
-  {x: PG.x + 5, z: PG.z - 4.5, y: 0.18, id: 'p3', text: 'THIRD: How many swings hang in the Harbour playground?'},
+  {x: -106.3, z: -277, y: 0.05, id: 'p2', text: 'SECOND: Count the blue spires on the castle of Featherland. A bird\'s-eye view helps.'},
+  {x: PG.x + 5, z: PG.z - 4.5, y: 0.18, id: 'p3', text: 'THIRD: How many swings hang in the Wall Tweet playground?'},
 ];
 for (const p of RIDDLES){
   scene.add(boxMesh(0.12, 1.0, 0.12, mat(0x2a2622), p.x, p.y + 0.5, p.z)); const plate = boxMesh(0.6, 0.45, 0.06, mat(0xe0b040, {emissive: 0x3a2a00}), p.x, p.y + 1.05, p.z); plate.rotation.x = -0.3; scene.add(plate);
@@ -14084,7 +14118,7 @@ addNamedTalker('Talk to Clement', 'Clement', () => _s21.set(CLEMENT_POS.x, 0.6, 
     {label: 'I\'ll ring them!', fn: () => { startFav('bells'); addNote('bells', 'Four hand-bells on rooftops near St Columba\'s. Ring them in the order of the old tune. Tilly\'s music box plays it.'); say([L('Clement', 'Tilly\'s music box at Tinker\'s Toys plays it. Listen closely: big bells ring low, little bells ring high.')]); }},
     {label: 'I\'m tone deaf.', fn: () => say([L('Clement', 'So was I. Never stopped me.')])},
   ])]);
-  if (st === 'active' && S.bellsRung){ finishFav('bells'); bagGive('bell'); return say([L('Clement', 'I HEARD it! Fifty years and I still get goosebumps. Under all these feathers, I mean... you know what I mean.'), L('Clement', 'Take my old silver bell. Ring it and every pigeon in earshot will come running.')]); }
+  if (st === 'active' && S.bellsRung){ finishFav('bells'); bagGive('bell'); return say([L('Clement', 'I HEARD it! Fifty years and I still get goosebumps. Look at that: goosebumps on my goosebumps.'), L('Clement', 'Take my old silver bell. Ring it and every pigeon in earshot will come running.')]); }
   if (st === 'active') return say([L('Clement', 'Hmm-hmm... no, that\'s not it either. The music box knows.')]);
   say([L('Clement', mpick(['Dong. Ding. Dong-ding. Lovely.', 'Fifty years of bells. Still got my hearing. WHAT? Only joking.']))]);
 }, 2.6);
@@ -17212,7 +17246,8 @@ function updateCannoli(dt){
     if (CANN.t <= 0){ dropLoot(); if (CANN.box){ scene.remove(CANN.box); CANN.box = null; } setStage('work'); banner27('TOO LATE!', 'The cannoli went soft. Mama Pica will make another batch.'); sfx.bad(); return; }
   }
   // the box on the ground, if the gulls knocked it loose
-  if (CANN.box && CANN.box.position.distanceTo(P) < 0.9){ scene.remove(CANN.box); CANN.box = null; giveLoot('cannoli'); sfx.eat(); floatText(P, 'got it!', '#ffd166', 1); renderQuest(); }
+  // v313: the gulls' timers ran on (below zero) while the box lay there, so a pickup was knocked out again 0.8 s later
+  if (CANN.box && CANN.box.position.distanceTo(P) < 0.9){ scene.remove(CANN.box); CANN.box = null; giveLoot('cannoli'); sfx.eat(); floatText(P, 'got it!', '#ffd166', 1); renderQuest(); RAIDERS.forEach(r => { r.t = Math.max(r.t, rr(5, 8)); r.dive = null; }); }
   const exposed = !roomAt(P) && Math.abs(P.y - EMPIRE.deck) > 2 && P.y < 120;
   for (const r of RAIDERS){
     r.P.g.visible = true; r.anim.t += dt; r.a += dt*0.8;
@@ -17221,13 +17256,17 @@ function updateCannoli(dt){
       if (k >= 1){ r.dive = null; r.t = rr(6, 10);
         // v307: the box lands on a floor Pidge can reach: over a subway opening with nothing under it, floorAt gives -60
         // and the box fell out of the world; with no good spot near, the gull misses
-        let spot = null; if (r.pos.distanceTo(P) < 1.3 && player.lootKind === 'cannoli' && !CANN.box) for (let k = 0; k < 8 && !spot; k++){ const x = P.x + rr(-1.5, 1.5)*(k < 4 ? 1 : 0.4), z = P.z + rr(-1.5, 1.5)*(k < 4 ? 1 : 0.4), y = floorAt(x, z, P.y + 0.5); if (y > -2 && !inHole(x, z)) spot = [x, y, z]; }
+        // v313: only a floor near Pidge's height: a knock high up dropped the box to the street and ended the run; with no
+        // ledge within 4 m below, Pidge hangs on to it and the shake-up costs 8 seconds
+        const hit = r.pos.distanceTo(P) < 1.3 && player.lootKind === 'cannoli' && !CANN.box;
+        let spot = null; if (hit) for (let k = 0; k < 8 && !spot; k++){ const x = P.x + rr(-1.5, 1.5)*(k < 4 ? 1 : 0.4), z = P.z + rr(-1.5, 1.5)*(k < 4 ? 1 : 0.4), y = floorAt(x, z, P.y + 0.5); if (y > -2 && y > P.y - 4 && !inHole(x, z)) spot = [x, y, z]; }
+        if (hit && !spot){ CANN.t = Math.max(1, CANN.t - 8); knock(r.pos.x, r.pos.z, 5, 5); sfx.skree(); floatText(P, 'SQUAWK! Hang on to it! -8 s', '#ff7a6b', 1.3); renderQuest(); }
         if (spot){ dropLoot(); const b = lootMesh('cannoli'); b.scale.setScalar(1.6); b.position.set(spot[0], spot[1] + 0.1, spot[2]); scene.add(b); CANN.box = b; knock(r.pos.x, r.pos.z, 5, 5); sfx.skree(); floatText(P, 'SQUAWK! Dropped it!', '#ff7a6b', 1.3); renderQuest(); }
       }
     } else {
       r.pos.set(P.x + Math.cos(r.a)*7, P.y + 7 + Math.sin(r.a*1.3), P.z + Math.sin(r.a)*7); r.P.g.rotation.y = r.a + PI; animatePigeon(r.P, 'glide', r.anim, dt);
       // v306: a head start out of the door: the gulls hold off for ten seconds and while Pidge is near Mama Pica's
-      r.t -= dt; if (r.t <= 0 && exposed && state === 'play' && !dlg && !CANN.box && CANN.t < 190 && Math.hypot(P.x - PR.cx, P.z - (PR.z0 + PR.z1)/2) > 25){ r.dive = {from: r.pos.clone(), to: P.clone().add(_d28.set(player.vel.x*0.4, 0.3, player.vel.z*0.4)), t: 0}; sfx.skree(); floatText(r.pos, 'SKRAAA!', '#fff6dc', 0.9); }
+      r.t -= dt; if (r.t <= 0 && exposed && state === 'play' && !dlg && !CANN.box && CANN.t < 190 && Math.hypot(P.x - PR.cx, P.z - (PR.z0 + PR.z1)/2) > 25){ r.dive = {from: r.pos.clone(), to: P.clone().add(_d28.set(player.vel.x*0.4, 0.3, player.vel.z*0.4)), t: 0}; sfx.skree(); floatText(r.pos, 'SKRAAA!', '#fff6dc', 0.9); tip('cannoliGulls', 'A gull is diving! When you hear <b>SKRAAA!</b>, turn hard to dodge. Climbing? Fly forward in circles, and rest on the tower\'s podium halfway up.'); }
     }
   }
 }
@@ -23530,7 +23569,7 @@ function infoTree40(){
 
 function pickNode40(e){ const c = T40C(), r = c.getBoundingClientRect(), x = (e.clientX - r.left)*c.width/r.width, y = (e.clientY - r.top)*c.height/r.height; const pr = Math.max(18, 24*c.width/r.width); let best = null, bd = pr*pr; for (const n of TREE40.N){ const [nx, ny] = t40xy(n), d = (nx - x)**2 + (ny - y)**2; if (d < bd){ bd = d; best = n; } } return best; }
 
-function featherToast40(n, why){ FT40.n += n; FT40.why.add(why); clearTimeout(FT40.t); FT40.t = setTimeout(() => { const w = [...FT40.why].join(', '); toast(`<b>+${FT40.n} feather${FT40.n > 1 ? 's' : ''}</b> (${w}). ${isTouch ? 'Tap <b>✦</b>' : 'Press <b>T</b>'} to spend ${FT40.n > 1 ? 'them' : 'it'} in the Feather Tree.`, '', 3800); FT40.n = 0; FT40.why.clear(); renderBadge40(); }, 1400); }
+function featherToast40(n, why){ FT40.n += n; FT40.why.add(why); clearTimeout(FT40.t); FT40.t = setTimeout(() => { const w = [...FT40.why].join(', '); toast(`<b>+${FT40.n} feather${FT40.n > 1 ? 's' : ''}</b> (${w}). ${isTouch ? 'Tap <b>✦</b>' : 'Press <b>T</b>'} to spend ${FT40.n > 1 ? 'them' : 'it'} in the Feather Tree.${treePoints40() > FT40.n ? ` <b>${treePoints40()} waiting</b> to be spent.` : ''}`, '', 3800);   /* v313: the total waiting too (18 had piled up unnoticed) */ FT40.n = 0; FT40.why.clear(); renderBadge40(); }, 1400); }
 
 function levelUp40(){ const result = levelUp40Base(); runHooks('levelUp40'); return result; }
 
@@ -28004,7 +28043,7 @@ const Q56 = () => (S.v56 = S.v56 || {});
 const ld_bangcluckJusticeBeaver_1 = () => {
 BK56 = {}; M56 = {mellow: 0, loose: 0, thinkT: 0, singeT: 0};
 /* ---------- fire, tracers ---------- */
-FL56 = []; FLG56 = new THREE.IcosahedronGeometry(0.2, 0); FLM56 = [0xfff2a0, 0xffb02a, 0xff5a1a, 0x5a4a44].map((c, i) => new THREE.MeshBasicMaterial({color: c, transparent: true, opacity: i === 3 ? 0.45 : 0.85, depthWrite: false, blending: i === 3 ? THREE.NormalBlending : THREE.AdditiveBlending}));
+if (!FL56) fx313Init();
 TR56 = []; TRG56 = new THREE.BoxGeometry(0.035, 0.035, 0.9); TRM56 = new THREE.MeshBasicMaterial({color: 0xfff0a0});
 VOICES['Justice Beaver'] = {kind: 'chatter', base: 330, range: 0.5, rate: 14, cps: 52};
 VOICES['Steel Jaw'] = {kind: 'human', base: 90, range: 0.2, rate: 9, cps: 30};
@@ -28144,13 +28183,19 @@ function mgun56(){ const g = new THREE.Group(), k = mat(0x2a2a30); g.add(boxMesh
 
 function flamer56(){ const g = new THREE.Group(); g.add(boxMesh(0.08, 0.08, 0.7, mat(0x6a6a72), 0, 0, 0.3)); g.add(boxMesh(0.14, 0.14, 0.14, mat(0x2a2a30), 0, 0, 0.68)); g.add(boxMesh(0.06, 0.14, 0.08, mat(0x2a2a30), 0, -0.1, 0.05)); return g; }
 
-function flame56(p, d, n = 3, sp = 7, size = 1){ for (let k = 0; k < n; k++){ let f = FL56.find(x => x.life <= 0); if (!f){ if (FL56.length > 140) return; f = {m: new THREE.Mesh(FLG56, FLM56[0]), v: new THREE.Vector3(), life: 0}; scene.add(f.m); FL56.push(f); } f.m.visible = true; f.m.position.copy(p); f.v.set(d.x*sp + rr(-0.6, 0.6), d.y*sp + rr(-0.3, 0.6), d.z*sp + rr(-0.6, 0.6)); f.life = f.max = rr(0.35, 0.6)*(size > 1 ? 2.2 : 1); f.big = size; } }
+// v313: the flame pool is made on first use: the Goodyolk blimp (sky/blimps.js) and Gojirra call flame56 before Bangcluck
+// is built, and FL56.find threw; until then a stand-in system moves the flames (Bangcluck's own update does it after)
+function fx313Init(){
+  FL56 = []; FLG56 = new THREE.IcosahedronGeometry(0.2, 0); FLM56 = [0xfff2a0, 0xffb02a, 0xff5a1a, 0x5a4a44].map((c, i) => new THREE.MeshBasicMaterial({color: c, transparent: true, opacity: i === 3 ? 0.45 : 0.85, depthWrite: false, blending: i === 3 ? THREE.NormalBlending : THREE.AdditiveBlending}));
+  if (typeof SYS52 !== 'undefined') SYS52.push(['fx313', dt => { if (!SYS52.some(s => s[0] === 'bang56')) updateFx56(dt); }]);
+}
+function flame56(p, d, n = 3, sp = 7, size = 1){ if (!FL56) fx313Init(); for (let k = 0; k < n; k++){ let f = FL56.find(x => x.life <= 0); if (!f){ if (FL56.length > 140) return; f = {m: new THREE.Mesh(FLG56, FLM56[0]), v: new THREE.Vector3(), life: 0}; scene.add(f.m); FL56.push(f); } f.m.visible = true; f.m.position.copy(p); f.v.set(d.x*sp + rr(-0.6, 0.6), d.y*sp + rr(-0.3, 0.6), d.z*sp + rr(-0.6, 0.6)); f.life = f.max = rr(0.35, 0.6)*(size > 1 ? 2.2 : 1); f.big = size; } }
 
 function tracer56(from, to){ let t = TR56.find(x => x.life <= 0); if (!t){ if (TR56.length > 60) return; t = {m: new THREE.Mesh(TRG56, TRM56), v: new THREE.Vector3(), life: 0}; scene.add(t.m); TR56.push(t); } t.m.visible = true; t.m.position.copy(from); t.v.subVectors(to, from); const d = t.v.length(); t.v.multiplyScalar(70/d); t.life = d/70; t.m.lookAt(to); }
 
 function updateFx56(dt){
   for (const f of FL56){ if (f.life <= 0) continue; f.life -= dt; if (f.life <= 0){ f.m.visible = false; continue; } const a = 1 - f.life/f.max; f.v.y += 3*dt; f.v.multiplyScalar(Math.exp(-2.2*dt)); f.m.position.addScaledVector(f.v, dt); f.m.scale.setScalar((0.6 + a*2.2)*(f.big || 1)); f.m.material = FLM56[Math.min(3, Math.floor(a*4))]; f.m.rotation.x += dt*5; }
-  for (const t of TR56){ if (t.life <= 0) continue; t.life -= dt; if (t.life <= 0){ t.m.visible = false; continue; } t.m.position.addScaledVector(t.v, dt); }
+  if (TR56) for (const t of TR56){ if (t.life <= 0) continue; t.life -= dt; if (t.life <= 0){ t.m.visible = false; continue; } t.m.position.addScaledVector(t.v, dt); }
 }
 
 const rat56 = (n = 8, vol = 0.05) => { for (let k = 0; k < n; k++){ noise(0.035, 1400, vol, k*0.075); tone(90, 0.04, 'square', vol*0.5, 60, k*0.075); } };
@@ -28886,7 +28931,8 @@ function humanity59Base(B){ const Y = YOLK59; Y.t = 0; Y.B = B; Y.boomed = false
 function updateYolk59(dt, time){ const Y = YOLK59, P = player.pos;
   // trigger: now and then, when you're under a blimp
   if (Y.t < 0){ if (Y.down > 0){ Y.down -= dt; const B = Y.B; if (Y.down <= 0 && B){ B.g.scale.setScalar(1); toast(`A new blimp is up. Fully inspected. Probably.`, '', 2600); } else if (B) B.g.visible = false; }
-    else { const B = BLIMPS58.find(b => b.g.visible); if (B && state === 'play' && !SHOT && !dlg && (settings.events || 'sometimes') !== 'off' && heat27 <= 0 && !(typeof jobLive56 === 'function' && jobLive56()) && S.story !== 'tutorial'){ const d = Math.hypot(B.g.position.x - P.x, B.g.position.z - P.z); if (d < 160){ Y.next -= dt; if (Y.next <= 0 && d < 120){ Y.next = rr(600, 1000); humanity59(B); } } } } }
+    // v313: not while Pidge is indoors (the shot took over the camera inside Café Croûton, mid-favour)
+    else { const B = BLIMPS58.find(b => b.g.visible); if (B && state === 'play' && !SHOT && !dlg && !roomAt(player.pos) && (settings.events || 'sometimes') !== 'off' && heat27 <= 0 && !(typeof jobLive56 === 'function' && jobLive56()) && S.story !== 'tutorial'){ const d = Math.hypot(B.g.position.x - P.x, B.g.position.z - P.z); if (d < 160){ Y.next -= dt; if (Y.next <= 0 && d < 120){ Y.next = rr(600, 1000); humanity59(B); } } } } }
   else { const B = Y.B; Y.t += dt; const T = Y.t; B.g.getWorldPosition(_a59);
     if (T < 2.6){ if (rand() < dt*(10 + T*20)){ B.g.localToWorld(_b59.set(rr(-3, 3), rr(2, 5), rr(-16, -4 + T*6))); flame56(_b59, new THREE.Vector3(0, 1, 0), 1, 3, 5 + T*3); } if (rand() < dt*6) emit('smoke', _b59, 1, 1, 1); if (Math.floor(T*4) !== Math.floor((T - dt)*4)) noise(0.3, 600, 0.04); }
     if (T >= 2.6 && !Y.boomed){ Y.boomed = true; B.g.visible = false; B.g.scale.setScalar(0.001); if (!reduceMotion){ NK56.fl.style.opacity = 0.6; setTimeout(() => NK56.fl.style.opacity = 0, 120); } tone(48, 1.6, 'sawtooth', 0.09, 30); noise(1.2, 300, 0.09); noise(0.4, 2400, 0.05);
@@ -47812,6 +47858,13 @@ WHATS_NEW.unshift(['311 · Time to Read', 'Messages stay up long enough to read,
 GAME_VER.n = 312;
 GAME_VER.name = 'One Look Round';
 WHATS_NEW.unshift(['312 · One Look Round', 'Smoother on slower machines: the new renderer’s upkeep (batching the city’s still objects, finding water, trimming tiny shadows) looks over the scene once a second instead of three times, and spreads the work of a new district coming into view over a few seconds instead of doing it all in one frame.']);
+/* =====================================================================
+   v313 · HEADS UP: fixes from the second playtest
+   ===================================================================== */
+// v313
+GAME_VER.n = 313;
+GAME_VER.name = 'Heads Up';
+WHATS_NEW.unshift(['313 · Heads Up', 'Everyone has their head back: townsfolk who stood or sat still for a while lost their heads (and a bench its seat) to the renderer. The Crumb Line’s station stairs can be walked up and down again, and the river has quay walls, so stepping off a riverbus pontoon no longer drops Pidge under the city. Cannoli: a knocked box no longer gets knocked straight out of your beak again, a knock high above the street costs 8 seconds instead of the whole box, and a tip explains dodging. Also: Sal waits a moment after Gus’s briefing, the ending card’s button stays in view (and Enter works), Gus waits until you’re off the train, the Goodyolk blimp’s flames show, the silver bell really calls pigeons, finished clues leave the bag, and the strongbox wants the riddles read first.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -47892,8 +47945,14 @@ function completeQuest(){
   renderQuest(); flashQuest(); save();
   const next = QUESTS[S.qi];
   if (q.id === 'hotdog'){ S.won = true; save(); say(GUS.end, showEnding); }
-  else if (next) say(GUS[next.id]);
+  else if (next) gusCall313(GUS[next.id]);
   else { S.won2 = true; save(); say(GUS.end2, showEnding); }
+}
+// v313: Gus's call for the next quest waits until Pidge is off the train, tram or riverbus: finishing Mind the Gap opened
+// it as the doors opened, and the train left with Pidge still aboard, reading
+function gusCall313(lines){
+  const go = () => { if (player.onTrain || player.onTram || (typeof rbMover !== 'undefined' && rbMover.carrying) || state !== 'play' || dlg) return setTimeout(go, 500); say(lines); };
+  go();
 }
 
 /* ---------- chapter two: the whole city ---------- */
@@ -47904,7 +47963,7 @@ QUESTS.push(
   {id: 'belfry', title: 'Sanctuary', text: 'Fly into the belfry of St Columba\'s church in Old Town and perch beside the great bell.', goal: 1, xp: 90},
   {id: 'sardine', title: 'Catch of the Day', text: 'Morag guards the ice tables at the Harbour Fish Market. Wait until she turns to shoo her gull, then snatch a sardine (E).', goal: 1, xp: 110},
   {id: 'matinee', title: 'Matinee', text: 'Slip into The Roxy in the West End and watch some of the film. Settle down inside and stay still for a while.', goal: 1, xp: 90},
-  {id: 'clock', title: 'Top of the Clock', text: 'Land on the ledge above the Old Town clock faces, the highest perch in the city. Rest on the lower ledge on the way up.', goal: 1, xp: 200},
+  {id: 'clock', title: 'Top of the Clock', text: 'Land on the ledge above the Old Town clock faces, the highest perch in Old Town. Rest on the lower ledge if your wing runs low.', goal: 1, xp: 200},
 );
 Object.assign(GUS, {
   ch2: ['Oh, and Your Majesty? Don\'t get too comfortable on that bench.'],
@@ -47913,7 +47972,7 @@ Object.assign(GUS, {
   belfry: ['Every pigeon worth their crumbs has roosted in a church belfry once.', 'St Columba\'s, in Old Town. Fly into the bell tower and sit right by the bell. Try not to be there on the hour.'],
   sardine: ['A test of nerve, now. Morag at the Harbour Fish Market. Fiercest fishmonger on the coast.', 'She can\'t abide gulls. When she turns to shoo hers, nip in and snatch a sardine off the ice with E. If she\'s watching, you\'ll know about it.'],
   matinee: ['A bit of culture. The Roxy in the West End shows pictures all day long.', 'Slip in and watch some of the film. Settle down and keep still. Reg hates fidgeters.'],
-  clock: ['Last one, and it\'s the big one. The Old Town clock tower. Tallest perch in New Yolk.', 'You won\'t make it in one go. Rest on the lower ledge, catch your breath, then land right on top, above the clock faces.'],
+  clock: ['Last one, and it\'s the big one. The Old Town clock tower. Highest perch in Old Town.', 'Watch your wing on the way up. If it runs low, rest on the lower ledge, then land right on top, above the clock faces.'],
   end2: ['Look at that. The square, the harbour, the trains, the lot. From up there it\'s all yours.', 'Mabel says I\'m to stop calling you kid. Fine. King of New Yolk, then. The whole city.'],
 });
 const DISTRICT_SPOTS = {oldtown: [0, -170], harbour: [150, 0], market: [0, 165], westend: [-112, -40], suburbs: [-192, 222], bay: [188, 222], zoo: [-208, -200]};
@@ -47934,7 +47993,8 @@ function ch2Target(){
       if (ugT.state === 'stop' && UG_STATIONS[ugT.stop] === st && ugT.door > 0.5){ ugDoor(1, _c2); return _c2.setY(UG_Y); }
       return UGW(st, 6, 2.6, UG_Y, _c2);
     }
-    case 'belfry': return BELFRY;
+    // v313: beside the bell, not under it (Pidge ended up inside the bell, which filled the camera)
+    case 'belfry': return _c2.set(BELFRY.x + 1.8, BELFRY.y, BELFRY.z);
     case 'sardine': return SARD_T;
     case 'matinee': return ROXY_T;
     case 'clock': return CLOCK_T;
@@ -47949,13 +48009,16 @@ function updateChapter2(dt){
   if (ch2T <= 0){
     ch2T = 0.5;
     if (curDistrict !== 'centre'){ S.dvis = Array.isArray(S.dvis) ? S.dvis : []; if (!S.dvis.includes(curDistrict)){ S.dvis.push(curDistrict); save(); } }
-    if (qid() === 'beyond' && !dlg){ const n = Math.min(3, (S.dvis || []).length); if (n > S.qp) progress('beyond', n - S.qp); }
+    if (qid() === 'beyond' && !dlg && S.ch2heard !== false){ const n = Math.min(3, (S.dvis || []).length); if (n > S.qp) progress('beyond', n - S.qp); }
   }
   if (dlg) return;
   const q = qid();
   if (q === 'belfry' && P.grounded && Math.abs(P.pos.x - BELFRY.x) < 2.6 && Math.abs(P.pos.z - BELFRY.z) < 2.6 && P.pos.y > 16 && P.pos.y < 17.2){ heart(P.pos); progress('belfry'); }
   if (q === 'matinee' && roomAt(P.pos) === cinemaRoom){
     tip('matinee', 'Settle down somewhere and <b>stay still</b>. Enjoy the picture.');
+    // v313: settled, Pidge (and the camera) turn to the screen, which was often behind the camera
+    if ((P.idleT || 0) > 1 && !P.film313){ P.film313 = true; const dh = angDiff(P.heading, -PI/2); P.heading += dh; P.prevHeading += dh; cam.yaw += dh; }
+    if ((P.idleT || 0) < 0.5) P.film313 = false;
     if ((P.idleT || 0) > 6){ floatText(P.pos, 'What a film!', '#fff6dc', 1.4); progress('matinee'); }
   }
   if (q === 'clock' && P.grounded && P.standing && P.standing.tag === 'clockledge'){ emit('spark', P.pos, 30, 2.5, 3); progress('clock'); }
@@ -47963,7 +48026,9 @@ function updateChapter2(dt){
 function ch2Intro(delay){
   if (!(S.qi >= CH1 && S.qi < QUESTS.length) || S.ch2seen) return;
   S.ch2seen = true; save();
-  setTimeout(() => { if (state === 'play' && !dlg) say(GUS.ch2.concat(GUS[qid()])); else S.ch2seen = false; }, delay);
+  // v313: Beyond the Square waits for this intro (a player who knew three districts already had it done before Gus spoke)
+  S.ch2heard = false;
+  setTimeout(() => { if (state === 'play' && !dlg) say(GUS.ch2.concat(GUS[qid()]), () => { S.ch2heard = true; }); else { S.ch2seen = false; S.ch2heard = true; } }, delay);
 }
 
 /* ---------- dialog ---------- */
@@ -48262,7 +48327,9 @@ function collideBase(p, vel, prevY){
   const SL = solidsAt48(p.x, p.z);
   // v306: inside a room, a wall or anything else that reaches the ceiling is never a step up: climbing beside the museum's
   // wall, Pidge stepped into the wall's top and from there onto the roof, out of the building
-  let ceil306 = Infinity; for (const r of rooms){ if (r.top && p.x > r.minX - R - 0.4 && p.x < r.maxX + R + 0.4 && p.z > r.minZ - R - 0.4 && p.z < r.maxZ + R + 0.4 && prevY < r.top && prevY >= (r.y0 ?? -1)){ ceil306 = r.top - 0.05; break; } }   // (a margin: in the wall's thickness Pidge is already a touch outside the room)
+  // v313: not underground (r.ug): a Crumb Line station hall (top -2) holds its stairwell, so every step above -2 was a
+  // wall and the stairs couldn't be walked up or down; the stations have ceiling solids of their own
+  let ceil306 = Infinity; for (const r of rooms){ if (r.top && !r.ug && p.x > r.minX - R - 0.4 && p.x < r.maxX + R + 0.4 && p.z > r.minZ - R - 0.4 && p.z < r.maxZ + R + 0.4 && prevY < r.top && prevY >= (r.y0 ?? -1)){ ceil306 = r.top - 0.05; break; } }   // (a margin: in the wall's thickness Pidge is already a touch outside the room)
   for (const b of SL){
     if (b.ceil || (b.maxY <= p.y + STEP && b.maxY < ceil306) || b.minY >= p.y + 0.6) continue;
     if (p.x <= b.minX - R || p.x >= b.maxX + R || p.z <= b.minZ - R || p.z >= b.maxZ + R) continue;
@@ -48336,6 +48403,8 @@ function updatePlayerBase(dt){
     P.stamina = Math.max(0, P.stamina - dt*TREE40.drain()); if (P.stamina <= 0) TREE40.outOfWing();
     P.flapSfx -= dt; if (P.flapSfx <= 0){ sfx.flap(); P.flapSfx = 0.17; }
     if (P.stamina <= 0) tip('tired', 'Out of wing! Glide down and land anywhere (rooftops count) to rest.');
+    // v313: braking while flapping hovers and climbs at a fifth of the speed for the same wing
+    P.hover313 = thr < 0 ? (P.hover313 || 0) + dt : 0; if (P.hover313 > 2.5) tip('hover313', 'Holding <b>S</b> while flapping hovers, and you climb slowly. Let go of S to climb five times faster on the same wing.');
   } else if (air){
     if (keys.dive) P.vel.y = Math.max(P.vel.y - 30*dt, -16);
     else {
@@ -48439,7 +48508,9 @@ function updatePlayerBase(dt){
   }
   if (P.grounded && qid() === 'statue' && P.standing.tag === 'statuehead') progress('statue');
   if (P.grounded && qid() === 'tower' && P.pos.y >= towerSolid.maxY - 0.05 && Math.abs(P.pos.x - (towerSolid.minX+towerSolid.maxX)/2) < 5 && Math.abs(P.pos.z - (towerSolid.minZ+towerSolid.maxZ)/2) < 5) progress('tower');
-  if (qid() === 'hotdog' && sal.catchCd <= 0 && !P.carrying && salSees(P.pos)) caught();
+  // v313: two seconds' grace after any dialogue: Gus's briefing ended with Pidge already in Sal's sightline, caught at once
+  if (dlg) sal.grace313 = 2; else if (sal.grace313 > 0) sal.grace313 -= dt;
+  if (qid() === 'hotdog' && sal.catchCd <= 0 && !(sal.grace313 > 0) && !P.carrying && salSees(P.pos)) caught();
 }
 
 /* ---------- world updates ---------- */
@@ -48917,7 +48988,8 @@ function updateGoal(tg){
   $('cmp49a').style.transform = `rotate(${ang.toFixed(3)}rad)`;
   let title = isWp ? 'Waypoint' : (QT49.title || 'Quest'); if (!isWp){ let qt = null; try { qt = questTarget(); } catch(e) {} if (!qt){ const fid = activeFav(); if (fid && FAV[fid]) title = FAV[fid].title; } }
   setH49('cmp49t', title);
-  const dTxt = dist < 1000 ? Math.round(dist) + ' m' : (dist/1000).toFixed(1) + ' km', hTxt = Math.abs(dy) > 4 ? `<small>${dy > 0 ? '▲' : '▼'} ${Math.round(Math.abs(dy))} m ${dy > 0 ? 'up' : 'down'}</small>` : '';
+  // v313: near the target the height shows from 2 m (on an awning above a door it said "0 m")
+  const dTxt = dist < 1000 ? Math.round(dist) + ' m' : (dist/1000).toFixed(1) + ' km', hTxt = Math.abs(dy) > (dist < 15 ? 2 : 4) ? `<small>${dy > 0 ? '▲' : '▼'} ${Math.round(Math.abs(dy))} m ${dy > 0 ? 'up' : 'down'}</small>` : '';
   setH49('cmp49d', dTxt + hTxt, true);
   // the tag over the target, when it's on screen
   _cp49.copy(tg); _cp49.y += 2.4; _cp49.project(camera);
@@ -48945,9 +49017,11 @@ function showEnding(){
   $('ending').querySelector('.kicker').textContent = two ? 'Top of the Clock: complete' : 'The Big Score: complete';
   const wm = $('ending').querySelector('.wordmark'); wm.innerHTML = two ? 'KING OF<br>NEW YOLK' : 'KING OF<br>THE SQUARE'; wm.classList.toggle('long', two);
   $('endStats').innerHTML = statRows().map(([k,v]) => `<span>${k}</span><span>${v}</span>`).join('');
-  state = 'ending'; exitLock(); $('ending').hidden = false;
+  state = 'ending'; exitLock(); $('ending').hidden = false; $('ending').scrollTop = 0;
 }
 $('keepBtn').addEventListener('click', () => { $('ending').hidden = true; state = 'play'; ch2Intro(600); });
+// v313: a key carries on too (the button was below the fold, and nothing said so)
+addEventListener('keydown', e => { if (state === 'ending' && !$('ending').hidden && ['Enter', 'Space', 'Escape', 'KeyE'].includes(e.code)){ e.preventDefault(); $('keepBtn').click(); } });
 function toggleHelp(on){ const result = toggleHelpBase(on); runHooks('toggleHelp', on); return result; }
 function toggleHelpBase(on){
   if (on){ state = 'help'; exitLock(); } else state = 'play';
