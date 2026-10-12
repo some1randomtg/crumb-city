@@ -1457,10 +1457,13 @@ const EDGEMSG89 = {ny: ['That\'s the edge of New Yolk. Beyond here is Joisey. Tu
 // Text tables for story: lines, names, signs and the like, with nothing but data in them. Each notes the
 // module that uses it.
 
+// a key for keyboards, a button for touch screens (v307: moved here from story/magpie-marks.js, so the hints below can use it)
+const KK = (k, t) => isTouch ? t : k;
+
 // (from story/favours.js)
 // (032-favours)
 const FAV = {
-  flower:{giver:'Mabel', title:'A Flower for Gus', text:'Pick a flower from a flower bed in the park (E), then bring it to Mabel.', xp:40},
+  flower:{giver:'Mabel', title:'A Flower for Gus', text:`Pick a flower from a flower bed in the park (${KK('E', 'Peck')}), then bring it to Mabel.`, xp:40},
   croissant:{giver:'Margot', title:'Special Delivery', text:'Carry Margot\'s croissant to Bruno at the Bun & Done bakery, west of the park.', xp:50},
   spoon:{giver:'Bruno', title:'The Runaway Spoon', text:'A magpie dropped Bruno\'s lucky spoon on a rooftop out west. Bring it back.', xp:60},
   pages:{giver:'Agnes', title:'Where\'s Pages?', text:'Find Pages, the ginger bookshop cat, somewhere up high. Coo at him to send him home.', xp:60},
@@ -1470,7 +1473,7 @@ const FAV = {
 
 // (from story/romance.js)
 const FAM_TEXT = {
-  court: 'Win Plume\'s heart: coo when you\'re close (Q) and offer crumbs (E). Five hearts and you\'re a pair.',
+  court: `Win Plume's heart: coo when you're close (${KK('Q', 'Coo')}) and offer crumbs (${KK('E', 'Peck')}). Five hearts and you're a pair.`,
   site: 'You and Plume are a pair! Choose a nest site together: the old plane tree in the park, the roof of New Yolk Tower, the clock tower\'s lower ledge or St Columba\'s belfry.',
   twigs: 'Build the nest. Walk over twigs in the park and nearby streets to pick one up, then bring it to the nest. Six twigs.',
   lay: 'The nest is ready, and Plume is settling in. Something is about to happen...',
@@ -1493,24 +1496,24 @@ const GENERIC65 = {ny: ['Is that pigeon following me?', 'Hey, nice feathers, bud
 
 // (from story/progression.js)
 const QUESTS = [
-  {id:'meet', title:'Meet Old Gus', text:'Gus is perched on the park bench beside the statue. Walk up to him and press E.', goal:1, xp:0},
+  {id:'meet', title:'Meet Old Gus', text:`Gus is perched on the park bench beside the statue. Walk up to him and ${KK('press E', 'tap Talk')}.`, goal:1, xp:0},
   {id:'eat', title:'Breakfast of Champions', text:'Eat 5 bits of food: on the pavement, on a bench, up on a roof. Walk over a crumb, fry or crust to peck it up.', goal:5, xp:30},
-  {id:'coo', title:'Charm Offensive', text:'People with a gold marker are holding snacks. Get close and coo (Q) to win 3 handouts.', goal:3, xp:50},
-  {id:'statue', title:'Statue Duty', text:'Perch on the head of Mayor Featherstone. Hold Space to climb, hold S to slow down, and land on the ring.', goal:1, xp:50},
+  {id:'coo', title:'Charm Offensive', text:`People with a gold marker are holding snacks. Get close and coo (${KK('Q', 'Coo')}) to win 3 handouts.`, goal:3, xp:50},
+  {id:'statue', title:'Statue Duty', text:`Perch on the head of Mayor Featherstone. ${KK('Hold Space', 'Hold Flap')} to climb, ${KK('hold S', 'pull the stick back')} to slow down, and land on the ring.`, goal:1, xp:50},
   {id:'tower', title:'High Ground', text:'Land on the roof of New Yolk Tower, the glass tower north-west of the park. Rest on lower rooftops to refill your wings.', goal:1, xp:80},
-  {id:'gull', title:'Gull Patrol', text:'A harbour seagull is stealing the town\'s food. Get close and peck it (E). Chase it off twice.', goal:2, xp:80},
-  {id:'hotdog', title:'The Big Score', text:'Steal the hot dog from Sal\'s cart across the road. Stay out of his red sightline, get close and press E.', goal:1, xp:150},
+  {id:'gull', title:'Gull Patrol', text:`A harbour seagull is stealing the town's food. Get close and peck it (${KK('E', 'Peck')}). Chase it off twice.`, goal:2, xp:80},
+  {id:'hotdog', title:'The Big Score', text:`Steal the hot dog from Sal's cart across the road. Stay out of his red sightline, get close and ${KK('press E', 'tap Peck')}.`, goal:1, xp:150},
 ];
 
 // (from story/progression.js)
 const GUS = {
   meet: ['Well, well. A fresh fledgling. Name\'s Gus. I\'ve worked this square since the mayor was still bronze-coloured.', 'This here is my Mabel. Forty springs together and she still laughs at my jokes.', 'New Yolk is a crumb town, kid. Food on every corner, if you know where to look.'],
   eat: ['Start simple. Five bits of food. Walk over \'em and they\'re yours. There\'s a few right here round the bench.'],
-  coo: ['Not bad. Now, people. Anyone holding a snack goes soft if you coo at \'em. Get close and press Q.', 'Look for the little gold marker over their heads. Three handouts and we\'ll talk.'],
-  statue: ['You\'ve got charm. Now, respect. Every pigeon in this town has sat on Mayor Featherstone\'s head.', 'Hold Space to climb, let go to glide. Hold S to slow right down, and drop onto the ring under you.', 'And keep an eye out for shinies up on the rooftops. Bottle caps, buttons... a pigeon needs a collection.'],
+  coo: [`Not bad. Now, people. Anyone holding a snack goes soft if you coo at \'em. Get close and ${KK('press Q', 'tap Coo')}.`, 'Look for the little gold marker over their heads. Three handouts and we\'ll talk.'],
+  statue: ['You\'ve got charm. Now, respect. Every pigeon in this town has sat on Mayor Featherstone\'s head.', `${KK('Hold Space', 'Hold Flap')} to climb, let go to glide. ${KK('Hold S', 'Pull the stick back')} to slow right down, and drop onto the ring under you.`, 'And keep an eye out for shinies up on the rooftops. Bottle caps, buttons... a pigeon needs a collection.'],
   tower: ['See that glass tower north-west of here? New Yolk Tower. Tallest roof in town.', 'You won\'t make it in one go. Hop roof to roof. Landing anywhere refills your wings.'],
-  gull: ['Trouble. A seagull from the harbour is hoovering up our fries. Fly up close and peck it with E.', 'Twice ought to send it home.'],
-  hotdog: ['One last job. Sal\'s hot dog cart, across the road east of the park.', 'Sal watches the street. See the red cone? Stay out of it. Sneak in while he\'s looking away, then press E.'],
+  gull: [`Trouble. A seagull from the harbour is hoovering up our fries. Fly up close and peck it with ${KK('E', 'the Peck button')}.`, 'Twice ought to send it home.'],
+  hotdog: ['One last job. Sal\'s hot dog cart, across the road east of the park.', `Sal watches the street. See the red cone? Stay out of it. Sneak in while he\'s looking away, then ${KK('press E', 'tap Peck')}.`],
   end: ['A whole hot dog. In one beak.', 'Kid... the square is yours. Long live the King.'],
 };
 /* ---------- data: tokyoo ---------- */
@@ -1849,7 +1852,8 @@ const SB_LEAVES = [];
 function sbLeaf(o){
   let vis = o.visible; o.__sbL = true; o.__sbI = SB_LEAVES.length; SB_LEAVES.push(o);
   Object.defineProperty(o, 'visible', {configurable: true, enumerable: true, get(){ return vis; },
-    set(v){ if (v === vis) return; vis = v; if (v === false && this.__sbS !== undefined) sbRelease(this, false); }});
+    set(v){ v = !!v; if (v === vis) return;   // v307: a boolean, as Object3D.visible is since v306 (core/three-compat.js)
+      vis = v; if (v === false && this.__sbS !== undefined) sbRelease(this, false); }});
 }
 function sbUnleaf(o){
   const v = o.visible; delete o.visible; o.visible = v; o.__sbL = false;
@@ -6673,9 +6677,13 @@ function makeItemBase(kind){
   return g;
 }
 
-function giveItem(kind){ dropItem(); const m = makeItem(kind); player.P.neckP.add(m); m.position.set(0, 0.06, 0.27); player.item = kind; player.itemMesh = m; }
+function giveItem(kind){ dropItem(true); const m = makeItem(kind); player.P.neckP.add(m); m.position.set(0, 0.06, 0.27); player.item = kind; player.itemMesh = m; }
 
-function dropItem(){ if (player.itemMesh && player.itemMesh.parent) player.itemMesh.parent.remove(player.itemMesh); player.item = null; player.itemMesh = null; }
+// v307: a favour item picked up while carrying a job's loot used to make the loot vanish for good (the job carried on
+// regardless); once the favour item is handed over or lost, the loot is back in Pidge's beak. replacing: something
+// else goes in the beak straight away
+function dropItem(replacing){ const was = player.item; if (player.itemMesh && player.itemMesh.parent) player.itemMesh.parent.remove(player.itemMesh); player.item = null; player.itemMesh = null;
+  if (!replacing && was && was !== 'loot27' && player.lootKind && S.jobStage === 'carry') giveLoot(player.lootKind); }
 
 const bs_storyFavours_1 = () => {
 FLOWER_BEDS = [[-3.5, -3.5], [3.5, -3.5], [-3.5, 3.5], [3.5, 3.5]].map(([x, z]) => new THREE.Vector3(x, 0.37, z));
@@ -6905,8 +6913,12 @@ function drawFavourOnMap(mctx, toMap, Rr, time){
 // (035-polish-finishing-touches-on-the-town)
 function gusHint(){
   const hints = {flower:'Mabel\'s been giving me funny looks all day. Did I forget something?', croissant:'Margot at the café looked like she could use a hand.', spoon:'Bruno at the bakery has been shouting about a spoon all morning.', pages:'Agnes from the bookshop is looking for that cat of hers again.', racers:'Old Pemberton, up on the roof by the pond, is missing some of his birds.', rings:'That posh wood pigeon by the pond keeps going on about some race.', yarn:'Edie, up in Roost Court, dropped something out of her window. Third floor, I think.', kiki:'Ottilie at the pet shop has lost one of her cockatoos. Noisy thing. You\'ll hear it before you see it.'};
-  const open = Object.keys(FAV).find(k => favState(k) !== 'done');
-  if (open) return hints[open];
+  // v307: most favours have no line of their own (the list stopped at eight of them), and an undefined hint broke the
+  // dialog. Gus mentions the first open favour he has a line for, or else the first open one by name.
+  const open = Object.keys(FAV).filter(k => favState(k) !== 'done');
+  const known = open.find(k => hints[k]);
+  if (known) return hints[known];
+  if (open.length){ const F = FAV[open[0]]; return `${F.giver} could use a hand, I hear. Something about "${F.title}".`; }
   if (S.shinies.length < shinies.length) return 'They say there\'s still shinies about, Your Majesty. Check the rooftops.';
   return 'Your Majesty. The bench is always warm for you.';
 }
@@ -6983,7 +6995,7 @@ function talkMabel(){
     {label:'Maybe later.', fn: () => say([L('Mabel', 'No rush, dear. He won\'t remember either way.')])},
   ])]);
   if (st === 'active' && player.item === 'flower'){ dropItem(); for (let i = 0; i < 4; i++) setTimeout(() => heart(_t5.set(5.2, 0.9, -0.42), 0.6), i*300); gusAnim.cooT = 0.8; return say([L('Mabel', 'Oh! It\'s lovely! Gus, look what you got me!'), L('Gus', '...I did? I mean. Yes. Happy anniversary, my love.'), L('Mabel', 'Forty springs, and he still makes me laugh.')], () => finishFav('flower')); }
-  if (st === 'active') return say([L('Mabel', 'The flower beds are round the statue, dear. Pick one with E.')]);
+  if (st === 'active') return say([L('Mabel', `The flower beds are round the statue, dear. Pick one with ${KK('E', 'Peck')}.`)]);
   say([L('Mabel', mpick(['You\'re a good egg, Pidge. Don\'t let Gus tell you otherwise.', 'He\'s been humming all day. It\'s unbearable. I love it.', 'Have you met the wood pigeons by the pond? Ever so posh.']))]);
 }
 
@@ -7030,7 +7042,7 @@ function talkAgnes(){
     {label:'I\'ll look for him.', fn: () => { startFav('pages'); say([L('Agnes', 'Thank you, dear. He\'ll be on a rooftop somewhere, the silly old thing.')]); }},
     {label:'Not just now.', fn: () => say([L('Agnes', 'That\'s alright. He usually turns up by teatime.')])},
   ])]);
-  if (st === 'active') return say([L('Agnes', 'Somewhere high, I expect. He likes the quiet rooftops to the south-east.')]);
+  if (st === 'active') return say([L('Agnes', 'Somewhere high, I expect. He likes the quiet rooftops to the north-east.')]);
   say([L('Agnes', mpick(['Pages has been asleep on that armchair all day. Thank you again, dear.', 'We\'ve a lovely book about birds. It\'s mostly about owls, I\'m afraid.', 'Mind the ladder, dear. And the cat. Mostly the cat.', 'Have you read anything good lately? No? Well. You\'re a pigeon.']))]);
 }
 
@@ -7040,7 +7052,7 @@ function talkPemberton(){
     {label:'I\'ll round them up.', fn: () => { startFav('racers'); say([L('Pemberton', 'Good bird. White, with blue leg bands. Coo at them and they\'ll remember where home is.')]); }},
     {label:'Can\'t right now.', fn: () => say([L('Pemberton', 'Fair enough. They\'ll keep.')])},
   ])]);
-  if (st === 'active') return say([L('Pemberton', `${3 - S.racersFound.length} still out. White birds, blue bands. Try the pond, the café, and the roads.`)]);
+  if (st === 'active') return say([L('Pemberton', `${3 - S.racersFound.length} still out. White birds, blue bands. Try the pond, the café, and the statue.`)]);
   say([L('Pemberton', mpick(['Watch my kit fly the block. Beautiful sight.', 'Pigeons carried messages through two world wars. Heroes, the lot of them.', 'Rock doves have lived alongside people for ten thousand years. We built the cities. You lot just moved in.']))]);
 }
 
@@ -7054,7 +7066,7 @@ function talkWendell(){
   ])]);
   if (st === 'none') return offer([L('Wendell', 'Ah. A town pigeon. How... quaint. Wendell Woodcote-Pigeon, of the Hampshire Woodcote-Pigeons.'), L('Wendell', 'We wood pigeons are rather larger, you\'ll notice. And these splendid white neck patches. Do try not to stare.')]);
   if (st === 'active') return offer([L('Wendell', 'Back for another go? Splendid. Persistence. Almost countryside of you.')]);
-  say([L('Wendell', mpick(['I suppose you fly rather well. For a town bird.', 'Coo-COO-coo, coo-coo. That\'s "good afternoon" in proper Woodland.', 'Do mind the buses, old chap. Ghastly things.']))]);
+  say([L('Wendell', mpick(['I suppose you fly rather well. For a town bird.', 'Coo-COO-coo, coo-coo. That\'s "good afternoon" in proper Woodland.', 'Do mind the buses, old bean. Ghastly things.']))]);
 }
 
 /* coo reactions for favours */
@@ -11024,7 +11036,8 @@ function updateFamily(dt, time){
   const st = F.stage, site = NEST_SITES[F.site];
   // coo near Plume while courting earns a heart
   const cooing = P.anim.cooT > 0.7;
-  if (cooing && !cooSeen && playing){ cooSeen = true; const d = dist2(P.pos, g.position); if (d < 4.5){ if (st === 'court' && plumeCd <= 0){ plumeCd = 8; setTimeout(addHeart, 500); } else if (st !== 'none'){ setTimeout(() => { sfx.npcCoo(); heart(g.position, 0.6); }, 500); } } }
+  // v307: only while Plume is there to hear it (hidden while she's missing, her hearts and coos kept coming)
+  if (cooing && !cooSeen && playing){ cooSeen = true; const d = dist2(P.pos, g.position); if (d < 4.5 && g.visible){ if (st === 'court' && plumeCd <= 0){ plumeCd = 8; setTimeout(addHeart, 500); } else if (st !== 'none'){ setTimeout(() => { sfx.npcCoo(); heart(g.position, 0.6); }, 500); } } }
   if (!cooing) cooSeen = false;
   // where Plume wants to be
   let target = null, sit = false;
@@ -11805,7 +11818,22 @@ function evPath(R, u0, u1, lat = 0, n = 2){ const pts = []; for (let k = 0; k < 
 
 function evOpen(p){
   const opts = [{x: 0, z: 0, r: 7, name: 'the park'}, ...outerBlocks.filter(b => ['plaza', 'green', 'clock'].includes(b.kind)).map(b => ({x: b.cx, z: b.cz, r: 6, name: DISTRICTS[b.district].name})), {x: ZC.x, z: ZC.z + 9, r: 4, name: 'the zoo'}];
-  let best = opts[0], bd = 1e9; for (const o of opts){ const d = Math.hypot(o.x - p.x, o.z - p.z); if (d < bd){ bd = d; best = o; } } return best;
+  let best = opts[0], bd = 1e9; for (const o of opts){ const d = Math.hypot(o.x - p.x, o.z - p.z); if (d < bd){ bd = d; best = o; } } return evClearSpot307(best);
+}
+
+// v307: the middle of an open space is often taken: Mayor Featherstone's pedestal in the park, trees on the greens,
+// the clock tower. Events there stood people inside the pedestal and put the bandstand round the statue. They now
+// gather at the most open point within 9 m of the middle (worked out once per place)
+const EVSPOT307 = new Map();
+
+function evClearSpot307(o){
+  const key = o.x + ',' + o.z; if (EVSPOT307.has(key)) return Object.assign({}, o, EVSPOT307.get(key));
+  const near = solids.filter(s => s.maxY > 0.2 && s.minY < 6 && s.maxX > o.x - 14 && s.minX < o.x + 14 && s.maxZ > o.z - 14 && s.minZ < o.z + 14);
+  const room = (x, z) => { let m = 99; for (const s of near){ const d = Math.hypot(Math.max(s.minX - x, 0, x - s.maxX), Math.max(s.minZ - z, 0, z - s.maxZ)); if (d < m) m = d; } return m; };
+  let best = {x: o.x, z: o.z}, br = room(o.x, o.z);
+  if (br < 4) for (let dx = -9; dx <= 9; dx++) for (let dz = -9; dz <= 9; dz++){ const off = Math.hypot(dx, dz); if (off > 9) continue; const r = room(o.x + dx, o.z + dz);
+    if (r > br + 0.3 || (r > br - 0.01 && off < Math.hypot(best.x - o.x, best.z - o.z))){ best = {x: o.x + dx, z: o.z + dz}; br = r; } }
+  EVSPOT307.set(key, best); return Object.assign({}, o, best);
 }
 
 /* the event runner */
@@ -11853,7 +11881,7 @@ function evEnd(e, silent){
 function updateEvents(dt, time){
   const playing = state === 'play';
   if (!EV.cur){
-    if ((settings.events || 'sometimes') === 'off' || !playing || dlg || inVillage() || inPeter30() || player.pos.z < -2000 || player.pos.x < -3000 || S.story === 'tutorial' || heat27 > 0 || busyLevel() < 0.3) return;
+    if ((settings.events || 'sometimes') === 'off' || !playing || dlg || inVillage() || inPeter30() || player.pos.z < -2000 || player.pos.x < -3000 || (typeof inParis124 === 'function' && inParis124()) || (typeof inBav146 === 'function' && inBav146()) || S.story === 'tutorial' || heat27 > 0 || busyLevel() < 0.3) return;
     EV.next -= dt;
     if (EV.next <= 0){ EV.next = 20; evStartRandom(); }
     return;
@@ -12089,7 +12117,7 @@ const EVENT_DEFS = [
     e.crowdAt(p.x, p.z, 6, 3, {arc: PI, a0: -sp.H.g.rotation.y}); e.vars.cooed = 0;
     e.every(4.5, () => { if (!e.vars.fled) e.say(sp, mpick(['Pigeons are a MENACE!', 'Spikes on every ledge!', 'They\'re eating our chips!', 'Ban the birds! Ban them!', 'I was pooped on in 1987 and I have NOT forgotten!'])); });
   }, update(e, dt){
-    if (!e.vars.fled && player.anim.cooT > 0.75 && e.near(9) && !e.vars.cd){ e.vars.cd = true; setTimeout(() => e.vars.cd = false, 1200); e.vars.cooed++; e.cheer(true); setTimeout(() => e.cheer(false), 1500); for (const c of e.crowd.slice(0, 2)) e.say(c.p, mpick(['Hahaha!', 'He\'s got a point, the pigeon!', 'Coo!'])); e.say(e.vars.sp, mpick(['Who said that?!', 'Don\'t you coo at me!', 'This is exactly what I mean!']));
+    if (!e.vars.fled && player.anim.cooT > 0.75 && e.near(9) && !e.vars.cd){ e.vars.cd = true; setTimeout(() => e.vars.cd = false, 1200); e.vars.cooed++; e.cheer(true); setTimeout(() => e.cheer(false), 1500); for (const c of e.crowd.slice(0, 2)) e.say(c.p, mpick(['Hahaha!', 'The pigeon\'s got a point!', 'Coo!'])); e.say(e.vars.sp, mpick(['Who said that?!', 'Don\'t you coo at me!', 'This is exactly what I mean!']));
       if (e.vars.cooed >= 3){ e.vars.fled = true; e.reward(25, 'Heckled off his soapbox!'); e.walk(e.vars.sp, [e.vars.sp.H.g.position.clone().setY(0.15), e.c.clone().add(_ev.set(20, 0, 20))], 2.5, {jog: true}); } }
   }},
   {id: 'picnic', name: 'Picnic in the Park', dur: 60, start(e){
@@ -12322,14 +12350,15 @@ EVENT_DEFS.push(
     const hat = e.prop(makeHat(pick(HAT_STYLES), pick(HAT_COLS))); hat.position.copy(own.H.g.position).setY(2.1);
     e.vars = {own, hat, R, u: R.u0, y: 2.1, side}; e.c.copy(own.H.g.position);
     e.say(own, 'Whoa, what a gust! MY HAT!');
-    e.talk('Give the hat back', () => own.H.g.position, () => { if (pidgeHat === hat){ player.P.neckP.remove(hat); pidgeHat = null; } hat.position.set(0, 1.97, 0); hat.rotation.set(0, 0, 0); hat.scale.setScalar(1); own.H.g.add(hat); e.vars.back = true; e.say(own, 'You beauty! Here, have a crust.'); spawnFood(own.H.g.position.x + 0.8, 0.15, own.H.g.position.z, 'crust', null); e.reward(25, 'You returned the runaway hat!'); setTimeout(() => { e.done = true; }, 3000); }, 2.6, () => pidgeHat === hat && !e.vars.back);
+    e.talk('Give the hat back', () => own.H.g.position, () => { if (pidgeHat === hat){ player.P.neckP.remove(hat); pidgeHat = null; } evOwnHat307(e.vars); hat.position.set(0, 1.97, 0); hat.rotation.set(0, 0, 0); hat.scale.setScalar(1); own.H.g.add(hat); e.vars.back = true; e.say(own, 'You beauty! Here, have a crust.'); spawnFood(own.H.g.position.x + 0.8, 0.15, own.H.g.position.z, 'crust', null); e.reward(25, 'You returned the runaway hat!'); setTimeout(() => { e.done = true; }, 3000); }, 2.6, () => pidgeHat === hat && !e.vars.back);
   }, update(e, dt, time){
     const v = e.vars; if (v.caught || v.back) return;
     v.u += dt*3.2; v.y = 1.2 + Math.abs(Math.sin(e.t*1.3))*2.5; const p = rp(v.R, v.u, 1.5*v.side); v.hat.position.set(p.x, v.y, p.z); v.hat.rotation.x += dt*5; v.hat.rotation.z += dt*3;
     e.c.copy(v.hat.position);
-    if (v.hat.position.distanceTo(player.pos) < 1.0){ v.caught = true; v.hat.rotation.set(0, 0, 0); wearHat(v.hat); floatText(player.pos, 'caught it! now give it back', '#ffc83d', 1.6); sfx.pop(); }
+    // v307: Pidge's own hat comes off for a moment rather than landing in the street, and goes back on with the hat returned
+    if (v.hat.position.distanceTo(player.pos) < 1.0){ v.caught = true; v.hat.rotation.set(0, 0, 0); v.prevHat = pidgeHat; v.prevWorn = S.wornHat; if (pidgeHat){ player.P.neckP.remove(pidgeHat); pidgeHat = null; } wearHat(v.hat); floatText(player.pos, 'caught it! now give it back', '#ffc83d', 1.6); sfx.pop(); }
     if (v.u > v.R.u0 + 70){ toast('The hat blew clean away. Somewhere, a gull is wearing it.'); e.done = true; }
-  }},
+  }, end(e){ if (e.vars.caught && !e.vars.back && pidgeHat === e.vars.hat && e.vars.prevHat){ const h = e.vars.prevHat; h.scale.setScalar(1); h.position.copy(player.pos).setY(floorAt(player.pos.x, player.pos.z, player.pos.y + 0.2) + 0.02); h.rotation.set(0, rand()*6, 0.25); scene.add(h); droppedHats.push(h); } }},
   {id: 'balloonlost', name: 'A Runaway Balloon', dur: 55, start(e){
     const o = evOpen(player.pos); e.where = o.name; const kid = e.person('kid', {kid: true}); kid.H.g.position.set(o.x + 2, 0.15, o.z + 2); kid.H.arms[1].rotation.x = -2.8;
     const b = e.prop(new THREE.Group()); const bm = mesh(SPHERE, mat(pick([0xd4483a, 0xffd166, 0x3f8ad4, 0xff8fa3])), 0, 0, 0); bm.scale.set(0.35, 0.42, 0.35); b.add(bm); b.add(boxMesh(0.01, 1.2, 0.01, mat(0xf4f4ef), 0, -0.9, 0));
@@ -12376,7 +12405,7 @@ EVENT_DEFS.push(
     e.every(1.8, () => { const v = e.vars; v.lady.H.arms[0].rotation.x = -1.6; setTimeout(() => { v.lady.H.arms[0].rotation.x = 0; }, 300); if (v.n < 40 && foods.length < MAX_FOOD){ for (let k = 0; k < 3; k++) spawnFood(o.x + rr(-3.5, 3.5), floorAt(o.x, o.z, 1) + 0.02, o.z + rr(-3.5, 3.5), 'seed', null); v.n += 3; } e.say(v.lady, mpick(['There you go, my darlings.', 'Plenty for everyone!', 'Coo, coo, come on then!'])); });
   }},
   {id: 'chalk', name: 'The Chalk Artist', dur: 70, start(e){
-    const o = evOpen(player.pos); e.where = o.name; const art = e.person('plain'); art.H.g.position.set(o.x + 2.6, 0.15, o.z); art.H.g.rotation.y = -PI/2; art.H.legs.forEach(l => l.rotation.x = -1.2); art.H.knees.forEach(k => k.rotation.x = 1.6); art.H.g.position.y = -0.3;
+    const o = evOpen(player.pos); e.where = o.name; const art = e.person('plain'); art.H.g.position.set(o.x, 0.15, o.z + 2.6); art.H.g.rotation.y = PI; art.H.legs.forEach(l => l.rotation.x = -1.2); art.H.knees.forEach(k => k.rotation.x = 1.6); art.H.g.position.y = -0.3;
     const c = document.createElement('canvas'); c.width = c.height = 64; const tex = new THREE.CanvasTexture(c); tex.magFilter = THREE.NearestFilter;
     const pl = e.prop(mesh(new THREE.PlaneGeometry(3.2, 3.2), new THREE.MeshBasicMaterial({map: tex, transparent: true}), o.x, floorAt(o.x, o.z, 1) + 0.025, o.z)); pl.rotation.x = -PI/2;
     e.vars = {c, tex, row: 0, art, o, sit: 0}; e.c.set(o.x, 0.15, o.z);
@@ -12456,6 +12485,9 @@ EVENT_DEFS.push(
   }, end(){ gondolaM.visible = false; placeMover(gondolaMover, 9999, 9999, 0); }},
 );
 };
+
+// the hat Pidge had on before catching a stranger's, back on once that one is returned (v307)
+function evOwnHat307(v){ if (v.prevHat) wearHat(v.prevHat); if (v.prevWorn) S.wornHat = v.prevWorn; else delete S.wornHat; v.prevHat = null; }
 
 const CHALK_PIGEON = ['......####......', '....########....', '...##########...', '..####o#######..', '.####....######.', '..##.....#######', '.........#######', '........########', '.......#########', '......##########', '.....###########', '......##..##....', '......#...#.....'];
 
@@ -15450,7 +15482,7 @@ function villageClamp(P){
   }
 }
 
-const KK = (k, t) => isTouch ? t : k;
+// (KK, a key or a touch button, lives in data/story.js since v307)
 
 const _s27 = new THREE.Vector3(), _s27b = new THREE.Vector3();
 /* ---------- base: world/little-pecking/village ---------- */
@@ -15984,7 +16016,7 @@ function tutDone(){
 
 function talkGramps(){
   gramps.anim.cooT = 0.8; sfx.npcCoo();
-  if (S.story !== 'tutorial') return say([GC(mpick(['Pidge! You\'re back! The city treating you all right? You look thin. Eat something.', 'Those magpies... I\'ve heard things. You be careful, lad.', 'The sheep send their regards. Well, they said "baa". I\'m taking it as regards.']))]);
+  if (S.story !== 'tutorial') return say([GC(mpick(['Pidge! You\'re back! The city treating you all right? You look thin. Eat something.', 'Those magpies... I\'ve heard things. You be careful, little one.', 'The sheep send their regards. Well, they said "baa". I\'m taking it as regards.']))]);
   const st = TUT[S.tut];
   if (!st) return;
   if (st.id === 'gramps') return say([GC('Ah, there you are, young Pidge! Sleep well? Course you did. Pigeons always do.'), GC('Big day today: the Little Pecking summer fete! But first, your old grandpa is going to teach you the tricks of the trade.', [
@@ -16232,7 +16264,7 @@ function lootMeshBase(kind){
   return g;
 }
 
-function giveLoot(kind){ dropItem(); const m = lootMesh(kind); player.P.neckP.add(m); m.position.set(0, 0.06, 0.27); player.item = 'loot27'; player.itemMesh = m; player.lootKind = kind; }
+function giveLoot(kind){ dropItem(true); const m = lootMesh(kind); player.P.neckP.add(m); m.position.set(0, 0.06, 0.27); player.item = 'loot27'; player.itemMesh = m; player.lootKind = kind; }
 
 function dropLoot(){ if (player.item === 'loot27') dropItem(); player.lootKind = null; }
 
@@ -16574,7 +16606,7 @@ function storyBeginBase(fromSave){
     return true;
   }
   thimble.visible = false;
-  if (S.jobStage === 'carry'){ const J = curJob(); if (J && J.loot) giveLoot(J.loot); }
+  if (S.jobStage === 'carry'){ const J = curJob(); if (J && J.loot) giveLoot(J.loot); if (J && J.id === 'cannoli'){ CANN.t = 200; CANN.box = null; } }   // v307: the cannoli clock isn't saved: it started at 0 and the job failed the moment a save was loaded
   if (S.jobStage === 'work'){ const J = curJob(); if (J && J.id === 'gulls') for (const g of GANG){ g.state = 'idle'; g.pos.copy(g.home); g.P.g.visible = true; } }
   if (S.fedora && !S.wornHat) wearHat(makeHat('fedora', 0x2a2622));
   if (S.job === 0 && S.jobStage === 'brief'){ placeTo(PICA_DOOR.x + 1.5, 0.17, PICA_DOOR.z - 1.0, -PI/2); renderQuest(); return true; }
@@ -17161,7 +17193,10 @@ function updateCannoli(dt){
     if (r.dive){
       const d = r.dive; d.t += dt/0.8; const k = Math.min(1, d.t); r.pos.lerpVectors(d.from, d.to, k*k); r.P.g.rotation.y = Math.atan2(d.to.x - d.from.x, d.to.z - d.from.z); animatePigeon(r.P, 'dive', r.anim, dt);
       if (k >= 1){ r.dive = null; r.t = rr(6, 10);
-        if (r.pos.distanceTo(P) < 1.3 && player.item === 'loot27' && !CANN.box){ dropLoot(); const b = lootMesh('cannoli'); b.scale.setScalar(1.6); b.position.set(P.x + rr(-1.5, 1.5), 0, P.z + rr(-1.5, 1.5)); b.position.y = floorAt(b.position.x, b.position.z, P.y + 0.5) + 0.1; scene.add(b); CANN.box = b; knock(r.pos.x, r.pos.z, 5, 5); sfx.skree(); floatText(P, 'SQUAWK! Dropped it!', '#ff7a6b', 1.3); renderQuest(); }
+        // v307: the box lands on a floor Pidge can reach: over a subway opening with nothing under it, floorAt gives -60
+        // and the box fell out of the world; with no good spot near, the gull misses
+        let spot = null; if (r.pos.distanceTo(P) < 1.3 && player.lootKind === 'cannoli' && !CANN.box) for (let k = 0; k < 8 && !spot; k++){ const x = P.x + rr(-1.5, 1.5)*(k < 4 ? 1 : 0.4), z = P.z + rr(-1.5, 1.5)*(k < 4 ? 1 : 0.4), y = floorAt(x, z, P.y + 0.5); if (y > -2 && !inHole(x, z)) spot = [x, y, z]; }
+        if (spot){ dropLoot(); const b = lootMesh('cannoli'); b.scale.setScalar(1.6); b.position.set(spot[0], spot[1] + 0.1, spot[2]); scene.add(b); CANN.box = b; knock(r.pos.x, r.pos.z, 5, 5); sfx.skree(); floatText(P, 'SQUAWK! Dropped it!', '#ff7a6b', 1.3); renderQuest(); }
       }
     } else {
       r.pos.set(P.x + Math.cos(r.a)*7, P.y + 7 + Math.sin(r.a*1.3), P.z + Math.sin(r.a)*7); r.P.g.rotation.y = r.a + PI; animatePigeon(r.P, 'glide', r.anim, dt);
@@ -18625,7 +18660,7 @@ const SHELL_Q = {
   5: {title: 'The Big News', text: () => 'The caviar is aboard. Big Shrimpo wants a word at the Shrimp Shack.', at: () => _st30.set(SK.cx - 2.6, 1.0, SK.z)},
 };
 
-function carryThing(kind, meshFn){ dropItem(); const m = meshFn(); player.P.neckP.add(m); m.position.set(0, 0.06, 0.27); player.item = 'shell30'; player.itemMesh = m; SH.carry = kind; }
+function carryThing(kind, meshFn){ dropItem(true); const m = meshFn(); player.P.neckP.add(m); m.position.set(0, 0.06, 0.27); player.item = 'shell30'; player.itemMesh = m; SH.carry = kind; }
 
 function dropCarry(){ if (player.item === 'shell30') dropItem(); SH.carry = null; }
 
@@ -18657,7 +18692,9 @@ function updateV30(dt, time){
   if (SHELL.shelly.position.distanceTo(P) < 80){ const sh = SHELL.shelly; sh.position.z = 57 + Math.sin(time*0.25)*2; sh.rotation.y = -PI/2 + Math.sin(time*0.8)*0.2; sh.visible = S.story === 'mafia' || shStage() > 0; }
   for (const d of SHELL.dock){ const vis = d.o.position.distanceTo(P) < 90 && S.shellSide !== 'family'; d.o.visible = vis; if (!vis) continue; d.ph += dt; if (d.k === 'crab'){ d.o.position.x = d.x + Math.sin(d.ph*0.6)*2; const c1 = d.o.userData['claw-1'], c2 = d.o.userData.claw1; if (c1) c1.rotation.x = Math.sin(d.ph*5)*0.3; if (c2) c2.rotation.x = -Math.sin(d.ph*5)*0.3; } else d.o.position.y = (d.z === 98.5 ? 0.85 : 0.15) + Math.abs(Math.sin(d.ph*3))*0.05; }
   if (skg.visible){ const present = S.shellSide !== 'family'; SHELL.boss.visible = SHELL.clawdio.visible = SHELL.lenny.visible = present; SHELL.boss.position.y = 0.87 + Math.abs(Math.sin(time*2))*0.04; SHELL.krill.forEach((k, i) => k.position.y = 1.3 + Math.sin(time*2 + i)*0.15); if (roomAt(P) === shackRoom && Math.random() < dt*0.4) BIRDS27.chatter(0.01); }
-  for (const s of SH.shells) if (s.o.visible){ s.o.rotation.y += dt*0.8; s.o.visible = shStage() === 1 && SH.carry !== s.kind; }
+  // v307: worked out every frame: it used to be updated only while a shell was showing, so the first frame hid all
+  // three before Shelly asked for one and nothing showed them again (Moving Day could only be finished after a reload)
+  for (const s of SH.shells){ s.o.visible = shStage() === 1 && SH.carry !== s.kind; if (s.o.visible) s.o.rotation.y += dt*0.8; }
   // the chef watches his tank, then turns to stir
   if (lpg.visible){ POT.t += dt; const cyc = POT.t % 9; POT.watch = cyc < 5.5; const G = POT.chef.g; G.rotation.y = angLerp(G.rotation.y, POT.watch ? Math.atan2(LP30.x0 + 1 - G.position.x, LP30.z - 2 - G.position.z) : PI, damp(3, dt)); POT.chef.arms[1].rotation.x = POT.watch ? 0 : -1.2 + Math.sin(time*5)*0.3;
     if (Math.abs(cyc - 5.6) < dt && roomAt(P) === potRoom) speak(G, mpick(['Stir, stir...', 'Where\'s my paprika?', 'Hmm, needs salt.']));
@@ -34123,7 +34160,7 @@ function flyParis124(){ state = 'cine'; for (const k in keys) keys[k] = false; f
     L('Captain', 'We are beginning our descent into Charles de Gaulle-coo. The baggage handlers are also on strike. Your suitcase has been sent to Belgium. Welcome to Paree.')];
   setTimeout(() => { placeTo(CDG124.exit.x, 0.4, CDG124.exit.z, PI*0.75); paG.visible = true; fade27(false); FLYP124.on = 1; shot([{p: V48(PRX(-370), 75, PRZ(200)), l: V48(PRX(-290), 70, PRZ(75))}, {p: V48(PRX(-150), 85, PRZ(80)), l: V48(PRX(40), 15, PRZ(-140)), d: 16}, {p: V48(PRX(240), 60, PRZ(-220)), l: V48(CDG124.exit.x, 0, CDG124.exit.z), d: 16}], {freeze: true, hold: () => FLYP124.on > 0}); say(lines, () => { const Q = Q124(); Q.arrived = 1; save(); FLYP124.on = 0; fade27(true, 'PAREE'); setTimeout(() => { fade27(false); state = 'play'; toast('<b>Paree.</b> The city of love. Somewhere in it: Plume, and the Pecking Order.', '', 5000); }, 1600); }); }, 1600); }
 
-function updateParis124(){ paG.visible = inParis124() || (SHOT && inParis124(camera.position)); }
+function updateParis124(){ paG.visible = !!(inParis124() || (SHOT && inParis124(camera.position))); }
 
 const ld_storyGone_2 = () => {
 // distance culling for the people and pigeons placed by hand in Paree and Bavaria
@@ -47687,6 +47724,13 @@ WHATS_NEW.unshift(['305 · Bagels and Bangcluck', '“Gone in Sixty Seeds” can
 GAME_VER.n = 306;
 GAME_VER.name = 'Fujii Goes Home';
 WHATS_NEW.unshift(['306 · Fujii Goes Home', 'The giant tent over Gus’s square is gone: it was Mount Fujii, waiting at the middle of the map for Tokyoo. Busted in the museum, you are walked outside instead of busted again and again, and you can no longer fly out through its ceiling. Cars stay off Pigeon Park’s grass, shop doors are clear of newsboxes and parked cars, the bagel job keeps the bagels you already have, the cannoli job gives you a head start, and the night heist happens at night. Rain no longer looks like grey poles, the far skyline sits on the ground, and the HUD fits narrow screens.']);
+/* =====================================================================
+   v307 · MOVING DAY: fixes from the story code review
+   ===================================================================== */
+// v307
+GAME_VER.n = 307;
+GAME_VER.name = 'Moving Day';
+WHATS_NEW.unshift(['307 · Moving Day', 'Shelly’s “Moving Day” can be finished: the tin can, the teacup and the traffic cone now show up on Red Crook Docks when she asks for a new shell. Gus no longer trips over his words once the New Yolk story is done, the cannoli job survives a reload, and a gull can no longer knock the box into a subway opening. On touch screens the early lessons name the buttons instead of keys. Park events gather beside the statue instead of inside it, Agnes points the right way to Pages, a returned hat gives you your own back, and loot you carry for a job comes back to your beak after a favour.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
