@@ -349,7 +349,7 @@
   .touchui .tbtn.ready{background:#d8f2ea;border-color:#1f6a58;animation:ready 1s steps(2) infinite}
   @keyframes ready{50%{box-shadow:0 0 0 5px rgba(47,174,143,.5),0 3px 0 rgba(43,26,16,.45)}}
   .touchui.dlgopen .touch,.touchui.dlgopen .prompt,.touchui.dlgopen .goal{display:none}
-  .touchui .dialog{width:calc(100vw - 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);padding:12px 14px}
+  .touchui .dialog{box-sizing:border-box;width:calc(100vw - 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);padding:12px 14px}
   .touchui .choice{min-height:44px;font-size:15px}
   @media (max-height:520px){
     .touchui .stack{width:min(210px,30vw)}
@@ -360,7 +360,7 @@
     .touchui #tCoo{right:72px;bottom:68px}
     .touchui #tDive{right:12px;bottom:88px;width:50px;height:50px}
     .touchui .prompt{bottom:calc(env(safe-area-inset-bottom,0px) + 16px);right:calc(env(safe-area-inset-right,0px) + 192px)}
-    .touchui .toasts{top:calc(env(safe-area-inset-top,0px) + 10px);width:min(320px,calc(100vw - 470px))}
+    .touchui .toasts{top:calc(env(safe-area-inset-top,0px) + 64px);width:min(320px,calc(100vw - 470px))}   /* v311: below the compass */
     .touchui .dialog{max-height:70vh}
   }
 
@@ -23232,7 +23232,7 @@ aroundHook('favourTarget', function(next){ const t = next(); if (t || !settings.
     for (const [id, gm] of Object.entries(giverMarkers)){ if (!gm.m || favState(id) !== 'none' || !gm.m.visible) continue; const d = (gm.m.position.x - P.x)**2 + (gm.m.position.z - P.z)**2; if (d < bd){ bd = d; sug43 = gm.m.position; } } }
   return sug43; });
 /* ---------- a little "saved" note in the corner ---------- */
-{ const st = document.createElement('style'); st.textContent = '#saved43{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);font:700 12px var(--px);color:#fff6dc;text-shadow:1px 1px 0 var(--wood-dark);opacity:0;transition:opacity .6s;pointer-events:none;z-index:30} #saved43.on{opacity:.8}'; document.head.appendChild(st);
+{ const st = document.createElement('style'); st.textContent = '#saved43{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);font:700 12px var(--px);color:#fff6dc;text-shadow:1px 1px 0 var(--wood-dark);opacity:0;transition:opacity .6s;pointer-events:none;z-index:30} #saved43.on{opacity:.8} #hud.touchui ~ #saved43{bottom:auto!important;top:calc(env(safe-area-inset-top,0px) + 146px)}'; document.head.appendChild(st);   // v311: on touch, up the right edge, not across the Flap button
   const d = document.createElement('div'); d.id = 'saved43'; d.textContent = 'saved ✓'; document.getElementById('app').appendChild(d); }
 hook('save', function(){ if (state === 'title') return; const now = performance.now(); if (now - savedT43 > 15000){ savedT43 = now; savedShow43 = 1.6; document.getElementById('saved43').classList.add('on'); } });
 /* ---------- the journal counts the new things too ---------- */
@@ -26262,6 +26262,7 @@ aroundHook('questTarget', function(next){ const T = selTrack49(); if (!T || T.ke
   /* v306: on narrow screens the compass sits in the gap between the left cards and the minimap instead of over them */
   @media (max-width:760px){.cmp49{left:calc(min(236px,100vw - 140px) + 16px);right:112px;transform:none;max-width:none;top:6px;padding:3px 9px 3px 4px;gap:7px}.cmp49 .dial{width:36px;height:36px}.cmp49 .dial svg{width:24px;height:24px;left:3px;top:3px}.cmp49 .d{font-size:15px}.cmp49 .t{font-size:11px}.qt49 .fly{font-size:10px;letter-spacing:0;padding-left:4px;padding-right:4px}.qt49{gap:2px}.qt49 .k{padding-left:5px;padding-right:5px}.qt49 .n{min-width:0}}
   @media (max-width:520px){.cmp49 .txt{display:none}.cmp49{right:auto;padding:3px}}
+  @media (max-width:380px){.cmp49{left:160px}}   /* v311: it sat over the minimap's corner */
   .wmq49{margin:0 0 8px;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
   .wmq49 li{display:flex;align-items:center;gap:6px;font-size:13px}
   .wmq49 li i{width:10px;height:10px;border:2px solid #3d1f0e;transform:rotate(45deg);flex:none}
@@ -47789,6 +47790,13 @@ WHATS_NEW.unshift(['309 · Solid Ground', 'Floors are solid where they’re draw
 GAME_VER.n = 310;
 GAME_VER.name = 'Feet on the Ground';
 WHATS_NEW.unshift(['310 · Feet on the Ground', 'Bangcluck’s pavements are solid right to the kerb: Pidge used to sink into them near the edges. And the city’s crowds, chickens, cats, dogs, pandas, monitor lizards, tuk-tuks and stalls stand on the ground, on the pavement or the street, instead of floating a hand’s width above it.']);
+/* =====================================================================
+   v311 · TIME TO READ: fixes from the UI review
+   ===================================================================== */
+// v311
+GAME_VER.n = 311;
+GAME_VER.name = 'Time to Read';
+WHATS_NEW.unshift(['311 · Time to Read', 'Messages stay up long enough to read, wait for you while a menu is open, and phones show three at a time instead of dropping one. The number keys pick any answer in a dialog, not just the first four (the Métro has eight stations), and on phones the dialog fits the screen. On touch screens the pause menu no longer shows keyboard keys, the compass keeps clear of the minimap, and “saved” no longer sits on the Flap button. “Save now” says so if the browser won’t let the game save.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -47989,11 +47997,19 @@ $('dialog').addEventListener('click', advance);
 
 /* ---------- toasts, floaters, speech ---------- */
 function toast(html, cls='', ms=2600){ return callHooked('toast', toastBase, [html, cls, ms]); }
+const MENUS311 = new Set(['help', 'bag', 'journal', 'tree', 'errands', 'deeds', 'map']);
 function toastBase(html, cls='', ms=2600){
   const el = document.createElement('div'); el.className = 'toast wood ' + cls; el.innerHTML = html;
   const box = $('toasts'); box.appendChild(el);
-  while (box.children.length > (isTouch ? 2 : 3)) box.firstChild.remove();
-  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 450); }, ms);
+  // v311: up for at least as long as it takes to read (a second to notice, about four words a second), three at a time on
+  // touch too (two: a reward, a level-up and a quest line arriving together lost the first at once), and a menu opened over
+  // it holds the countdown, with a moment to read it once the menu closes
+  ms = Math.max(ms, 1000 + el.textContent.trim().split(/\s+/).length*240);
+  while (box.children.length > 3) box.firstChild.remove();
+  let held = false;
+  const end = () => { if (!el.isConnected) return; if (MENUS311.has(state)){ held = true; setTimeout(end, 400); return; } if (held){ held = false; setTimeout(end, 1500); return; }
+    el.classList.add('out'); setTimeout(() => el.remove(), 450); };
+  setTimeout(end, ms);
 }
 const tipsShown = new Set();
 function tip(key, html){ if (tipsShown.has(key)) return; tipsShown.add(key); toast(html, 'tip', 6500); }
@@ -48037,7 +48053,7 @@ addEventListener('keydown', e => {
   if (state === 'help' && (e.code === 'Escape' || e.code === 'KeyP')){ toggleHelp(false); return; }
   if (state === 'journal' && (e.code === 'Escape' || e.code === 'KeyJ')){ toggleJournal(false); return; }
   if (state !== 'play') return;
-  if (dlg && /^Digit[1-4]$/.test(e.code)){ choose(+e.code.slice(5) - 1); return; }
+  if (dlg && /^Digit[1-9]$/.test(e.code)){ choose(+e.code.slice(5) - 1); return; }   // v311: 1-9, as many as a dialog offers (the Métro has 8)
   if (KEYMAP[e.code]){ keys[KEYMAP[e.code]] = true; e.preventDefault(); }
   if (e.code === 'Space'){ e.preventDefault(); if (e.repeat) return; if (dlg){ advance(); return; } keys.flap = true; hop(); }
   if (e.code === 'KeyE' || e.code === 'Enter'){ if (!e.repeat) interact(); }
@@ -49067,14 +49083,15 @@ function organiseMenu302(){
   const play = pane('play', 'Play');
   play.appendChild(el('p', 'mstatus')).id = 'mStatus302';
   const grid = el('div', 'mgrid'); play.appendChild(grid);
-  const act = (label, key, fn) => { const b = el('button', 'btn mact', label + (key ? ` <kbd>${key}</kbd>` : '')); b.type = 'button'; b.addEventListener('click', fn); grid.appendChild(b); return b; };
+  // v311: no keyboard keys on a touch screen
+  const act = (label, key, fn) => { const b = el('button', 'btn mact', label + (key && !isTouch ? ` <kbd>${key}</kbd>` : '')); b.type = 'button'; b.addEventListener('click', fn); grid.appendChild(b); return b; };
   const after = fn => () => { toggleHelp(false); setTimeout(fn, 0); };
   act('Map', 'N', after(() => { const b = $('mapBtn'); if (b) b.click(); }));
   act('Journal', 'J', after(() => { const b = $('journalBtn'); if (b) b.click(); }));
   act('Bag', 'I', after(() => { const b = $('bagBtn'); if (b) b.click(); }));
-  for (const b of extra){ const m = b.textContent.match(/^(.*?)\s*\((\w)\)\s*$/); b.classList.add('mact'); if (m) b.innerHTML = `${m[1]} <kbd>${m[2]}</kbd>`; b.style.margin = ''; grid.appendChild(b); }
+  for (const b of extra){ const m = b.textContent.match(/^(.*?)\s*\((\w)\)\s*$/); b.classList.add('mact'); if (m) b.innerHTML = isTouch ? m[1] : `${m[1]} <kbd>${m[2]}</kbd>`; b.style.margin = ''; grid.appendChild(b); }
   act('Photo mode', 'H', after(() => { if (typeof togglePhoto === 'function') togglePhoto(); }));
-  const sv = act('Save now', '', () => { try { save(); sv.textContent = 'Saved'; setTimeout(() => { sv.textContent = 'Save now'; }, 1500); } catch (e){} });
+  const sv = act('Save now', '', () => { try { const ok = save() !== false; sv.textContent = ok ? 'Saved' : 'Can\'t save'; setTimeout(() => { sv.textContent = 'Save now'; }, ok ? 1500 : 3000); } catch (e){} });   // v311: save() says whether it wrote (v308)
 
   // Travel: the fly-to buttons, grouped by city, with a search box. They stay inside #warpRow (other code looks
   // them up there); headings go in between, and the grouping is redone each time the menu opens (places unlock).

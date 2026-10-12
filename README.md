@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v310 (Bangcluck's pavements are solid to the kerb, and its crowds, chickens and tuk-tuks stand on the ground instead of floating above it).
+Current version: v311 (messages stay up long enough to read and wait while a menu is open, the number keys pick any dialog answer, and the phone layout no longer overlaps the compass, the minimap and the Flap button).
