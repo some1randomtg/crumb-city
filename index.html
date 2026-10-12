@@ -1908,8 +1908,13 @@ function sbEligible(o){
 function sbScan(){
   const B = sbInit(), mine = new Set(); if (player.P && player.P.g) player.P.g.traverse(o => mine.add(o));
   // (only the shown world: a city that's away is looked at once it shows again)
-  B.big.clear(); for (const c of scene.children){ if (c.isMesh || !c.visible) continue; let n = 0; c.traverse(o => { if (o.isMesh) n++; }); if (n >= 300) B.big.add(c); }
+  // v312: each top-level group's mesh count is kept for ten seconds (it was counted, hidden parts and all, every scan)
+  const now = performance.now(); if (!B.count) B.count = new WeakMap();
+  B.big.clear(); for (const c of scene.children){ if (c.isMesh || !c.visible) continue; let k = B.count.get(c); if (!k || now > k.t){ let n = 0; c.traverse(o => { if (o.isMesh) n++; }); k = {n, t: now + 10000}; B.count.set(c, k); } if (k.n >= 300) B.big.add(c); }
+  // v312: the water look and the shadow trim (render/pipeline.js) ride along on this walk, before batching
+  const hd = typeof PIPE !== 'undefined' && PIPE && PIPE.hd; if (hd) PIPE.waterUntil = now + 3;
   scene.traverseVisible(o => {
+    if (o.isMesh){ if (hd) waterOne312(o); trimOne312(o, mine); }
     if (B.src.has(o) || B.moved.has(o) || !sbEligible(o) || mine.has(o) || (o.parent && o.parent.userData.sbLively)) return;
     { const c = B.cool.get(o); if (c !== undefined && performance.now() < c) return; }   // v294: shown again after a hide: it rejoins once its cool-down is over
     const root = sbRoot(o); if (!root || !sbShown(o, root)) return;
@@ -2235,7 +2240,9 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
     scene.matrixWorldAutoUpdate = false; SB_LIGHTS.length = 0; if (SBATCH) sbLeafCheck(SBATCH.frame); sbMatrices(scene, false); sbCheck(); sbFlush(); lights = SB_LIGHTS.slice();
     // v299: by the clock, not every 90 frames (a slow machine waited 3 s and more between scans, so new things took ten
     // seconds and more to be batched): a job every third of a second, the scan once a second
-    { const t = performance.now(); if (t >= (PIPE.jobAt || 0)){ PIPE.jobAt = t + 333; const job = PIPE.scanT = (PIPE.scanT + 1) % 3; if (job === 0) sbScan(); else if (job === 1) trimCasters(); else if (hd) markWater(); } }
+    // v312: one walk a second does all three jobs (sbScan calls waterOne312 and trimOne312 as it goes): it was three
+    // walks of the shown world, one every third of a second
+    { const t = performance.now(); if (t >= (PIPE.jobAt || 0)){ PIPE.jobAt = t + 1000; sbScan(); } }
     for (const L of lights) L.intensity *= PI;   // r128's light units (see core/three-compat.js)
     // see further on high quality: the fog (however a city or the weather set it) and the far plane, a
     // third further out, just for this frame; the cascades split the longer view between them
@@ -2284,29 +2291,30 @@ function waterLook278(m){
   m.needsUpdate = true;
 }
 function mapAvg278(t){ const k = t.userData.avg278; if (k === null || (k && k.isColor)) return k;   /* a cloned texture brings a plain copy: measure again */ let out = null; try { const img = t.image; if (img && img.width){ const cv = document.createElement('canvas'); cv.width = cv.height = 8; const g = cv.getContext('2d'); g.drawImage(img, 0, 0, 8, 8); const d = g.getImageData(0, 0, 8, 8).data; let r = 0, gg = 0, b = 0; for (let i = 0; i < d.length; i += 4){ r += d[i]; gg += d[i + 1]; b += d[i + 2]; } out = new THREE.Color(r/64/255, gg/64/255, b/64/255); } } catch (e){} t.userData.avg278 = out; return out; }
-function markWater(){
-  const b = new THREE.Box3(), s = new THREE.Vector3(), seen = PIPE.scanned;
-  scene.traverseVisible(o => { if (!o.isMesh || seen.has(o)) return; seen.add(o); const m = o.material; if (!m || Array.isArray(m) || !m.color) return;
-    if (m.userData.water === true && !m.userData.look278 && !o.isInstancedMesh){ m.userData.look278 = true; waterLook278(m); return; }   // water a city flagged itself
-    if (m.userData.water !== undefined) return;
-    if (!(m.isMeshToonMaterial || m.isMeshLambertMaterial || m.isMeshPhongMaterial || m.isMeshStandardMaterial)) return;
-    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); b.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); b.getSize(s);
+function markWater(){ PIPE.waterUntil = Infinity; scene.traverseVisible(waterOne312); }
+// v312: one mesh at a time, from sbScan's walk. Each scan spends at most 3 ms on the bounding boxes of meshes it hasn't
+// seen (a new district coming into view took 17-50 ms in one frame); the rest wait for the next scan
+const _wb312 = new THREE.Box3(), _ws312 = new THREE.Vector3();
+function waterOne312(o){ const seen = PIPE.scanned, b = _wb312, s = _ws312;
+  if (!o.isMesh || seen.has(o)) return; const m = o.material; if (!m || Array.isArray(m) || !m.color){ seen.add(o); return; }
+    if (m.userData.water === true && !m.userData.look278 && !o.isInstancedMesh){ seen.add(o); m.userData.look278 = true; waterLook278(m); return; }   // water a city flagged itself
+    if (m.userData.water !== undefined || !(m.isMeshToonMaterial || m.isMeshLambertMaterial || m.isMeshPhongMaterial || m.isMeshStandardMaterial)){ seen.add(o); return; }
+    if (performance.now() > PIPE.waterUntil) return;   // the budget's spent: this one is looked at next scan
+    seen.add(o); if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); b.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); b.getSize(s);
     let c = m.color; if (m.map && c.r > 0.9 && c.g > 0.9 && c.b > 0.9){ const a = mapAvg278(m.map); if (a){ c = a; m.userData.avg278 = a.getHex(); } }   // a white material with a blue texture: judge by the texture
     const blue = c.b > c.r + 0.08 && c.b >= c.g - 0.12 && c.b > 0.35;
     if (s.x < 8 || s.z < 8 || s.y > 1.5 || b.max.y > 2.5 || b.min.y < -3 || !blue) return;
     if (m.userData.water === undefined){ o.material = m.clone(); o.material.userData = Object.assign({}, m.userData, {water: true, look278: true}); waterLook278(o.material); }
-  });
 }
 
 // The WebGPU renderer draws every shadow caster once per cascade, and pays far more per draw than WebGL did. Tiny meshes
 // (under 0.3 m: hands, beaks, cups, bolts) cast shadows nobody sees, so they stop casting. Pidge keeps every one.
-function trimCasters(){
-  if (!PIPE.trimmed) PIPE.trimmed = new WeakSet();
-  const seen = PIPE.trimmed, v = new THREE.Vector3(), mine = new Set(); if (player.P && player.P.g) player.P.g.traverse(o => mine.add(o));
-  scene.traverseVisible(o => { if (!o.isMesh || seen.has(o)) return; seen.add(o); if (!o.castShadow || o.isInstancedMesh || mine.has(o)) return;
-    if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); o.getWorldScale(v);
-    if (o.geometry.boundingSphere.radius*Math.max(v.x, v.y, v.z) < 0.3) o.castShadow = false; });
-}
+function trimCasters(){ const mine = new Set(); if (player.P && player.P.g) player.P.g.traverse(o => mine.add(o)); scene.traverseVisible(o => trimOne312(o, mine)); }
+const _tv312 = new THREE.Vector3();
+function trimOne312(o, mine){ if (!PIPE.trimmed) PIPE.trimmed = new WeakSet(); const seen = PIPE.trimmed, v = _tv312;
+  if (!o.isMesh || seen.has(o)) return; seen.add(o); if (!o.castShadow || o.isInstancedMesh || mine.has(o)) return;
+  if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); o.getWorldScale(v);
+  if (o.geometry.boundingSphere.radius*Math.max(v.x, v.y, v.z) < 0.3) o.castShadow = false; }
 /* ---------- render: post-gl ---------- */
 // The frame where WebGPU is missing: three.js r186's classic WebGL renderer and the game's own full-screen pass
 // (outlines, grade, golden hour, sun rays, the trip, vignette, grain), as it ran on r128, plus 4x MSAA and a cheap
@@ -47797,6 +47805,13 @@ WHATS_NEW.unshift(['310 · Feet on the Ground', 'Bangcluck’s pavements are sol
 GAME_VER.n = 311;
 GAME_VER.name = 'Time to Read';
 WHATS_NEW.unshift(['311 · Time to Read', 'Messages stay up long enough to read, wait for you while a menu is open, and phones show three at a time instead of dropping one. The number keys pick any answer in a dialog, not just the first four (the Métro has eight stations), and on phones the dialog fits the screen. On touch screens the pause menu no longer shows keyboard keys, the compass keeps clear of the minimap, and “saved” no longer sits on the Flap button. “Save now” says so if the browser won’t let the game save.']);
+/* =====================================================================
+   v312 · ONE LOOK ROUND: the renderer's upkeep, from the rendering review
+   ===================================================================== */
+// v312
+GAME_VER.n = 312;
+GAME_VER.name = 'One Look Round';
+WHATS_NEW.unshift(['312 · One Look Round', 'Smoother on slower machines: the new renderer’s upkeep (batching the city’s still objects, finding water, trimming tiny shadows) looks over the scene once a second instead of three times, and spreads the work of a new district coming into view over a few seconds instead of doing it all in one frame.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a

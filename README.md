@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v311 (messages stay up long enough to read and wait while a menu is open, the number keys pick any dialog answer, and the phone layout no longer overlaps the compass, the minimap and the Flap button).
+Current version: v312 (smoother on slower machines: the new renderer's upkeep looks over the scene once a second instead of three times, and no longer stalls when a new district comes into view).
