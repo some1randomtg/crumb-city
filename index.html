@@ -25173,9 +25173,13 @@ function sidewalk48(){ let h, i, j; do { h = rand() < 0.5; i = ri(0, GX48.length
 const STREETCHICK48 = [];
 
 // people on the sidewalks: locals, vendors on the move, sunburnt tourists
-// v309: Bangcluck's pavements are drawn at ground level (0 to 0.04), not on New Yolk's 0.15 slab: people and chickens
-// stood 15 cm up in the air
-const bkFoot309 = (x, z) => floorAt(x, z, 0.6) + 0.02;
+// v309/v310: where things stand in Bangcluck: on a block's raised slab (0.15, floorAt sees all of it since v310) or on the
+// street, which is drawn at 0 to 0.04. Everything used to stand at 0.15, so on the street it hovered
+const bkFoot309 = (x, z) => { const f = floorAt(x, z, 0.35); return f < 0.05 ? 0.02 : f; };
+const _m310 = new THREE.Matrix4(), _l310 = new THREE.Matrix4(), _v310 = new THREE.Vector3();
+// puts an object (placed at the old 0.15) on the ground under it, through its parents (cells, bangG, a local group)
+function bkGround310(o){ _m310.identity(); for (let v = o.parent; v && v !== scene; v = v.parent) _m310.premultiply(_l310.compose(v.position, v.quaternion, v.scale));
+  _v310.copy(o.position).applyMatrix4(_m310); _v310.y = bkFoot309(_v310.x, _v310.z); o.position.copy(_v310.applyMatrix4(_l310.copy(_m310).invert())); return o; }
 const WALK48 = [];
 
 // cluck-tuks, taxis and buses on the left-hand side of the road
@@ -25634,7 +25638,7 @@ addNamedTalker('Buy a mystery item ("anything, 20 crumbs!")', 'Mystery vendor', 
 VOICES['Mystery vendor'] = {kind: 'human', base: 210, range: 0.5, rate: 15, cps: 54};
 VOICES.Masseuse = {kind: 'human', base: 280, range: 0.3, rate: 12, cps: 44};
 VOICES['Shop clerk'] = {kind: 'human', base: 230, range: 0.3, rate: 13, cps: 48};
-{ const H = makeHuman({shirt: 0xffd23a, hat: 0xd8c890}); H.snack.visible = false; scene.remove(H.g); const x = BK.market.cx + 2, z = BK.market.cz; cg48(x, z).add(H.g); H.g.position.set(x, 0.15, z); H.g.rotation.y = -PI/2; H.g.add(boxMesh(1.4, 0.6, 0.05, mat(0xffffff, {map: textTex('ANYTHING 20!', 90, 32, 12)}), 0, 2.6, 0.2)); CARTS49.mystery = H; }
+{ const H = makeHuman({shirt: 0xffd23a, hat: 0xd8c890}); H.snack.visible = false; scene.remove(H.g); const x = BK.market.cx + 2, z = BK.market.cz; cg48(x, z).add(H.g); H.g.position.set(x, 0.15, z); bkGround310(H.g); H.g.rotation.y = -PI/2; H.g.add(boxMesh(1.4, 0.6, 0.05, mat(0xffffff, {map: textTex('ANYTHING 20!', 90, 32, 12)}), 0, 2.6, 0.2)); CARTS49.mystery = H; }
 };
 
 function K49c(x, z){ const c = chunk48(x, z); if (!c.v49){ c.v49 = {K: kit47(), Q: quads48(), wires: []}; CH49.set(c, c.v49); } return c.v49; }
@@ -25661,7 +25665,7 @@ function cart49(x, z, ry, kind){
   if (kind === 'padthai'){ const [wx, wz] = W(0.3, 0); K.box(0.7, 0.16, 0.7, wx, 1.5, wz, 0x2a2a30, {ry}); K.box(0.5, 0.1, 0.5, wx, 1.6, wz, 0xe8c870, {ry}); }
   if (kind === 'satay') for (let k = 0; k < 5; k++){ const [sx, sz] = W(-0.5 + k*0.25, 0); K.box(0.05, 0.05, 0.6, sx, 1.45, sz, 0x8a4a2a, {ry}); }
   if (kind === 'mango' || kind === 'coconut' || kind === 'durian') for (let k = 0; k < 6; k++){ const [fx, fz] = W(-0.6 + (k % 3)*0.6, -0.2 + Math.floor(k/3)*0.35); const fs = kind === 'coconut' ? 0.32 : 0.26; K.box(fs, fs, fs, fx, 1.42 + fs/2, fz, kind === 'mango' ? 0xffc83a : kind === 'coconut' ? 0x7a9a4a : 0x8aa83a, {ry: ry + k}); }
-  const g = new THREE.Group(); g.position.set(x, 0.15, z); g.rotation.y = ry; cg48(x, z).add(g);
+  const g = new THREE.Group(); g.position.set(x, 0.15, z); bkGround310(g); g.rotation.y = ry; cg48(x, z).add(g);
   const V = makeHuman({shirt: pick([0xf4f0e6, 0xe84a9a, 0x2a6ad4, 0xd4483a]), hat: kind === 'mango' ? 0xd8c890 : undefined}); scene.remove(V.g); V.snack.visible = false; g.add(V.g); V.g.position.set(0, 0, -1.0);
   addSolid(x, z, 1.9, 1.9, 0.15, 1.3, 'cart');
   const c = {g, kind, V, pos: V48(x, 0.8, z), ph: rand()*6}; CARTS49.push(c); return c;
@@ -25744,13 +25748,13 @@ VOICES.Bookie = {kind: 'human', base: 160, range: 0.4, rate: 15, cps: 54};
     const head = new THREE.Group(); head.position.set(0, 0.35, 0.85); L_.add(head); head.add(boxMesh(0.32, 0.22, 0.6, skin, 0, 0, 0.25)); const tongue = boxMesh(0.04, 0.02, 0.35, mat(0xd04a8a), 0, -0.04, 0.6); tongue.scale.z = 0.01; head.add(tongue); for (const sx of [-1, 1]) head.add(boxMesh(0.05, 0.05, 0.05, mat(0x1a1a1a), sx*0.16, 0.06, 0.32));
     const tail = []; let par = L_, z = -0.75; for (let t = 0; t < 4; t++){ const seg = new THREE.Group(); seg.position.set(0, t ? 0 : 0.28, z); par.add(seg); seg.add(boxMesh(0.32 - t*0.07, 0.2 - t*0.03, 0.6, skin, 0, 0, -0.3)); tail.push(seg); par = seg; z = -0.6; }
     const legs = []; for (const [lx, lz] of [[-0.35, 0.5], [0.35, 0.5], [-0.35, -0.5], [0.35, -0.5]]){ const l = new THREE.Group(); l.position.set(lx, 0.25, lz); L_.add(l); l.add(boxMesh(0.12, 0.25, 0.12, skin, lx*0.3, -0.12, 0)); legs.push(l); }
-    const a = rand()*PI*2, r = Lp.r + rr(2, 8); L_.position.set(Lp.cx + Math.cos(a)*r, 0.15, Lp.cz + Math.sin(a)*r);
+    const a = rand()*PI*2, r = Lp.r + rr(2, 8); L_.position.set(Lp.cx + Math.cos(a)*r, 0.15, Lp.cz + Math.sin(a)*r); bkGround310(L_);
     LIZ49.push({g: L_, head, tongue, tail, legs, t: rr(1, 5), tgt: null, ph: rand()*6, lunge: 0, cd: 0, s});
   }
   for (let k = 0; k < 4; k++){ const B = new THREE.Group(); g.add(B); B.add(boxMesh(1.8, 0.6, 2.4, mat(0xf8f6f0), 0, 0.3, 0)); const neck = mesh(new THREE.TorusGeometry(0.55, 0.16, 6, 10, PI*1.1), mat(0xf8f6f0), 0, 1.0, 1.0); neck.rotation.y = PI/2; B.add(neck); B.add(boxMesh(0.25, 0.25, 0.45, mat(0xf8f6f0), 0, 1.3, 1.45)); B.add(boxMesh(0.12, 0.1, 0.3, mat(0xff8a2a), 0, 1.25, 1.75)); B.add(boxMesh(1.6, 0.08, 1.1, mat(pick([0xd4483a, 0x2a6ad4, 0xffd23a])), 0, 1.6, -0.2)); for (const sx of [-1, 1]) B.add(boxMesh(0.06, 1.0, 0.06, mat(0xd8d4cc), sx*0.7, 1.1, -0.2));
     const H = makeHuman({}); H.snack.visible = false; scene.remove(H.g); B.add(H.g); H.g.position.set(0, 0.2, -0.3); H.g.scale.setScalar(0.85);
     SWAN49.push({g: B, a: k/4*PI*2, r: rr(10, 20), sp: rr(0.04, 0.07)*(k % 2 ? 1 : -1), ph: rand()*6}); }
-  for (let k = 0; k < 9; k++){ const H = makeHuman({shirt: pick([0xf4f0e6, 0xe8e0d0, 0xd4483a]), pants: 0x2a2a30}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); const x = Lp.cx + Lp.r + 8 + (k % 3)*2.4, z = Lp.cz - 3 + Math.floor(k/3)*2.4; H.g.position.set(x, 0.15, z); H.g.rotation.y = -PI/2; TAICHI49.push({H, ph: k*0.1}); }
+  for (let k = 0; k < 9; k++){ const H = makeHuman({shirt: pick([0xf4f0e6, 0xe8e0d0, 0xd4483a]), pants: 0x2a2a30}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); const x = Lp.cx + Lp.r + 8 + (k % 3)*2.4, z = Lp.cz - 3 + Math.floor(k/3)*2.4; H.g.position.set(x, 0.15, z); bkGround310(H.g); H.g.rotation.y = -PI/2; TAICHI49.push({H, ph: k*0.1}); }
 }
 {
   const F = BK.float, g = cg48(F.x, (F.z0 + F.z1)/2);
@@ -25774,7 +25778,7 @@ addNamedTalker(() => { const B = nearest49(FBOAT49, 4.5); return B ? `Buy ${B.go
 }, 3.2);
 VOICES['Boat vendor'] = {kind: 'human', base: 260, range: 0.4, rate: 14, cps: 50};
 for (let k = 0; k < 12; k++){ const E = sidewalk48(), t = rr(10, E.L - 10), x = E.a[0] + (E.b[0] - E.a[0])*t/E.L + E.nx*E.side*7.2, z = E.a[1] + (E.b[1] - E.a[1])*t/E.L + E.nz*E.side*7.2;
-  const D = makeDog(pick([0xc89a60, 0xd8b890, 0x3a3330, 0xf4f0e6, 0x8a5a34])); scene.remove(D.g); cg48(x, z).add(D.g); D.g.position.set(x, 0.15, z); D.g.rotation.y = rand()*6; D.g.scale.setScalar(rr(0.75, 0.95));
+  const D = makeDog(pick([0xc89a60, 0xd8b890, 0x3a3330, 0xf4f0e6, 0x8a5a34])); scene.remove(D.g); cg48(x, z).add(D.g); D.g.position.set(x, 0.15, z); bkGround310(D.g); D.g.rotation.y = rand()*6; D.g.scale.setScalar(rr(0.75, 0.95));
   DOGS49.push({D, home: V48(x, 0.15, z), state: 'sleep', t: rr(0, 4), ph: rand()*6}); }
 /* ---------- the elephant parade around Sanam Loong, every afternoon; hop on a howdah for a lift ---------- */
 PARADE49 = (() => {
@@ -25798,7 +25802,7 @@ KS49 = (() => {
   const lp = []; for (let i = 0; i + 1 < pos.length; i++) if (i % 9 !== 8) lp.push(...pos[i], ...pos[i + 1]); const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); g.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({color: 0x26262c})));
   const n1 = NODE48(1, 3); cg48(n1[0], n1[1]).add(g);
   const pack = []; const looks = [{shirt: 0xf4f0e6, skin: 0xffb8a0}, {shirt: 0x3f9a5a, skin: 0xffc8a8}, {shirt: 0xff7a5a, skin: 0xffb0a0}, {shirt: 0x2a2a30, skin: 0xffd0b8}, {shirt: 0xffd23a, skin: 0xe8b090}];
-  for (let k = 0; k < 18; k++){ const i = k % 3, a = NODE48(i, 3), b = NODE48(i + 1, 3), t = rr(0.2, 0.8), x = a[0] + (b[0] - a[0])*t + rr(-4, 4), z = a[1] + (b[1] - a[1])*t + rr(-4, 4); const H = makeHuman(pick(looks)); scene.remove(H.g); cg48(x, z).add(H.g); H.g.position.set(x, 0.15, z); H.g.rotation.y = rand()*6; H.snack.visible = false; const bucket = mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.2, 8), mat(pick([0xff4a9a, 0x4ad0ff, 0xffd23a])), 0, -0.72, 0.08); H.arms[1].add(bucket); pack.push({H, ph: rand()*6}); }
+  for (let k = 0; k < 18; k++){ const i = k % 3, a = NODE48(i, 3), b = NODE48(i + 1, 3), t = rr(0.2, 0.8), x = a[0] + (b[0] - a[0])*t + rr(-4, 4), z = a[1] + (b[1] - a[1])*t + rr(-4, 4); const H = makeHuman(pick(looks)); scene.remove(H.g); cg48(x, z).add(H.g); H.g.position.set(x, 0.15, z); bkGround310(H.g); H.g.rotation.y = rand()*6; H.snack.visible = false; const bucket = mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.2, 8), mat(pick([0xff4a9a, 0x4ad0ff, 0xffd23a])), 0, -0.72, 0.08); H.arms[1].add(bucket); pack.push({H, ph: rand()*6}); }
   const bar = V48(n1[0] + 8, 0.8, n1[1] + 7);
   { const K = K49(bar.x, bar.z); K.box(3.2, 1.1, 1.2, bar.x, 0.7, bar.z, 0x2a2a30); K.box(3.4, 0.1, 1.4, bar.x, 1.3, bar.z, 0xff4a9a); const sg = boxMesh(3, 0.8, 0.1, mat(0xffffff, {map: textTex('BUCKETS 5', 128, 32, 16)}), bar.x, 2.4, bar.z); cg48(bar.x, bar.z).add(sg); }
   build49();
@@ -25814,8 +25818,8 @@ DROP49 = []; dropM49 = new THREE.MeshBasicMaterial({color: 0x9fd8ff, transparent
 SONG49 = (() => { const out = [];
   for (let k = 0; k < 16; k++){ const i = k % 3, a = NODE48(i, 3), b = NODE48(i + 1, 3), t = rr(0.12, 0.88), side = k % 2 ? 1 : -1, L = Math.hypot(b[0] - a[0], b[1] - a[1]), nx = (b[1] - a[1])/L, nz = -(b[0] - a[0])/L, x = a[0] + (b[0] - a[0])*t + nx*side*rr(3, 6), z = a[1] + (b[1] - a[1])*t + nz*side*rr(3, 6);
     const gun = new THREE.Group(); gun.add(boxMesh(0.14, 0.16, 0.5, mat(pick([0xff4a9a, 0x4ad0ff, 0xffd23a, 0x8aff6a])), 0, 0, 0.1)); gun.add(boxMesh(0.2, 0.22, 0.2, mat(0xffffff), 0, 0.15, -0.05));
-    let o; if (k % 2){ const H = makeHuman({shirt: pick([0xff7ad0, 0x4ad0ff, 0xffd23a, 0x8aff6a])}); H.snack.visible = false; scene.remove(H.g); cg48(x, z).add(H.g); H.g.position.set(x, 0.15, z); gun.position.set(0, -0.7, 0.15); H.arms[1].add(gun); o = {H, g: H.g, y: 1.4}; }
-    else { const P = makeChicken({breed: pick(['silkie', 'leghorn', 'frizzle', 'polish', 'bantam'])}); scene.remove(P.g); cg48(x, z).add(P.g); P.g.position.set(x, 0.15, z); gun.position.set(0, 0.55, 0.45); gun.scale.setScalar(1.4); P.g.add(gun); o = {P, g: P.g, anim: newAnim(), y: 0.8}; }
+    let o; if (k % 2){ const H = makeHuman({shirt: pick([0xff7ad0, 0x4ad0ff, 0xffd23a, 0x8aff6a])}); H.snack.visible = false; scene.remove(H.g); cg48(x, z).add(H.g); H.g.position.set(x, 0.15, z); bkGround310(H.g); gun.position.set(0, -0.7, 0.15); H.arms[1].add(gun); o = {H, g: H.g, y: 1.4}; }
+    else { const P = makeChicken({breed: pick(['silkie', 'leghorn', 'frizzle', 'polish', 'bantam'])}); scene.remove(P.g); cg48(x, z).add(P.g); P.g.position.set(x, 0.15, z); bkGround310(P.g); gun.position.set(0, 0.55, 0.45); gun.scale.setScalar(1.4); P.g.add(gun); o = {P, g: P.g, anim: newAnim(), y: 0.8}; }
     o.home = V48(x, 0.15, z); o.t = rr(0.5, 3); o.ph = rand()*6; o.wet = 0; out.push(o); }
   return out; })();
 {
@@ -25824,7 +25828,7 @@ SONG49 = (() => { const out = [];
   const lm = new THREE.MeshBasicMaterial({color: 0xffa040, transparent: true, opacity: 0.9});
   for (let k = 0; k < 30; k++){ const m = mesh(new THREE.CylinderGeometry(0.35, 0.28, 0.7, 8), lm.clone()); m.visible = false; bangG.add(m); LANT49.push({m, t: rand()*40, x: 0, z: 0, ph: rand()*6}); }
 }
-KSELL49 = (() => { const c = riverX48(-40), x = BK.x + c + RIVW48 - 2, z = BK.z - 37, H = makeHuman({shirt: 0xf4a0c0}); H.snack.visible = false; scene.remove(H.g); cg48(x, z).add(H.g); H.g.position.set(x, 0.15, z); H.g.rotation.y = -PI/2; const tray = boxMesh(1.2, 0.5, 0.8, mat(0x4a9a3a), x - 0.9, 0.4, z); cg48(x, z).add(tray); return {H, tray, pos: V48(x, 0.8, z)}; })();
+KSELL49 = (() => { const c = riverX48(-40), x = BK.x + c + RIVW48 - 2, z = BK.z - 37, H = makeHuman({shirt: 0xf4a0c0}); H.snack.visible = false; scene.remove(H.g); cg48(x, z).add(H.g); H.g.position.set(x, 0.15, z); bkGround310(H.g); H.g.rotation.y = -PI/2; const tray = boxMesh(1.2, 0.5, 0.8, mat(0x4a9a3a), x - 0.9, 0.4, z); cg48(x, z).add(tray); return {H, tray, pos: V48(x, 0.8, z)}; })();
 addNamedTalker('Float a krathong for luck (2 crumbs)', 'Krathong seller', () => fest49() === 'krathong' ? KSELL49.pos : FAR49, () => {
   if (S.crumbs < 2) return say([L('Krathong seller', 'Two crumbs for a krathong. Banana leaf, flowers, a candle. Float away your bad luck!')]);
   S.crumbs -= 2; const k = KRA49.find(x => !x.mine) || KRA49[0]; k.mine = true; k.lz = -40; k.off = RIVW48 - 8; mineKra49 = k; k.g.visible = true;
@@ -25837,7 +25841,7 @@ addNamedTalker('Buy a water gun (5 crumbs)', 'Water-gun seller', () => { const n
   S.crumbs -= 5; Q49().gun = 1; save(); say([L('Water-gun seller', 'Sawasdee pee mai! Happy New Year! Coo to squirt. Aim at people. They like it. Mostly.')], () => toast('Water gun! <b>Coo</b> during Songkran to squirt.', '', 2600));
 }, 2.6);
 VOICES['Water-gun seller'] = {kind: 'human', base: 230, range: 0.5, rate: 15, cps: 54};
-{ const n = NODE48(0, 3), x = n[0] + 8, z = n[1] + 8.2, g = new THREE.Group(); g.position.set(x, 0.15, z); cg48(x, z).add(g); g.add(boxMesh(2.4, 1, 1, mat(0x4ad0ff), 0, 0.5, 0)); for (let k = 0; k < 5; k++) g.add(boxMesh(0.14, 0.16, 0.5, mat(pick([0xff4a9a, 0xffd23a, 0x8aff6a])), -0.8 + k*0.4, 1.1, 0)); const H = makeHuman({shirt: 0xff7ad0}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); H.g.position.set(0, 0, -0.9); gunStand49 = g; }
+{ const n = NODE48(0, 3), x = n[0] + 8, z = n[1] + 8.2, g = new THREE.Group(); g.position.set(x, 0.15, z); bkGround310(g); cg48(x, z).add(g); g.add(boxMesh(2.4, 1, 1, mat(0x4ad0ff), 0, 0.5, 0)); for (let k = 0; k < 5; k++) g.add(boxMesh(0.14, 0.16, 0.5, mat(pick([0xff4a9a, 0xffd23a, 0x8aff6a])), -0.8 + k*0.4, 1.1, 0)); const H = makeHuman({shirt: 0xff7ad0}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); H.g.position.set(0, 0, -0.9); gunStand49 = g; }
 aroundHook('coo', function(next){ const was = player.anim.cooT; next(); if (was <= 0 && player.anim.cooT > 0 && Q49().gun && fest49() === 'songkran' && inBang()){ const h = player.heading; squirt49(_a49.copy(player.pos).setY(player.pos.y + 0.4), _b49.set(Math.sin(h), 0.15, Math.cos(h)).normalize(), 10, true); } });
 /* ---------- a festival tune ---------- */
 Object.assign(TRACKS, {
@@ -25929,7 +25933,7 @@ function updateParade49(dt, time){
   for (const e of A.els) e.E.g.visible = on && Math.hypot(P.x - e.E.g.position.x, P.z - e.E.g.position.z) < 160;
   if (!on){ for (const e of A.els) e.sol.minY = -9, e.sol.maxY = -8.5; return; }
   A.u += 1.1*dt; if (Math.hypot(P.x - A.els[0].E.g.position.x, P.z - A.els[0].E.g.position.z) > 200 && A.u > 1) return;
-  for (const e of A.els){ const s = A.u - e.d; pathAt47(A.P, s, _a49); pathAt47(A.P, s + 0.5, _b49); const g = e.E.g, ox = g.position.x, oz = g.position.z; g.position.set(_a49.x, 0.15, _a49.z); g.rotation.y = Math.atan2(_b49.x - _a49.x, _b49.z - _a49.z); e.ph += dt;
+  for (const e of A.els){ const s = A.u - e.d; pathAt47(A.P, s, _a49); pathAt47(A.P, s + 0.5, _b49); const g = e.E.g, ox = g.position.x, oz = g.position.z; g.position.set(_a49.x, 0.15, _a49.z); bkGround310(g); g.rotation.y = Math.atan2(_b49.x - _a49.x, _b49.z - _a49.z); e.ph += dt;
     e.E.legs.forEach((l, i) => l.rotation.x = Math.sin(e.ph*2.4 + (i % 2 ? PI : 0) + (i > 1 ? PI/2 : 0))*0.25); e.E.trunk.forEach((t, i) => t.rotation.x = Math.sin(e.ph*1.4 - i*0.5)*0.12); e.E.ears.forEach((ea, i) => ea.rotation.y = (i ? -1 : 1)*(0.15 + Math.sin(e.ph*2.2)*0.15));
     const top = 0.15 + 3.35*e.s; Object.assign(e.sol, {minX: g.position.x - 0.8, maxX: g.position.x + 0.8, minZ: g.position.z - 0.8, maxZ: g.position.z + 0.8, minY: top - 0.3, maxY: top});
     if (state === 'play' && player.grounded && Math.abs(P.x - ox) < 1 && Math.abs(P.z - oz) < 1 && Math.abs(P.y - top) < 0.8){ P.x += g.position.x - ox; P.z += g.position.z - oz; if (!Q49().howdah){ Q49().howdah = 1; addXP(30); toast('You hitched a ride on a <b>parade elephant</b>.', '', 2400); save(); } }
@@ -26009,7 +26013,7 @@ addTalker('Buy a Red Bawk from the machine (3 crumbs)', () => nearest49(VEND49, 
   S.crumbs -= 3; tone(220, 0.08, 'square', 0.04); noise(0.3, 900, 0.05, 0.1); Q49().rb = (Q49().rb || 0) + 1; BK49.rb = 75; BK49.crash = 0; player.stamina = maxStamina(); floatText(player.pos, 'clunk. WIIINGS.', '#ffd23a', 1.4); emit('spark', player.pos, 12, 1, 1.6);
 }, 2.2, () => inBang() && !BK49.rb);
 // the novices have discovered energy drinks
-{ const g = cg48(MON48.yard.x, MON48.yard.z); const crate = new THREE.Group(); crate.position.set(MON48.yard.x - 19, 0.15, MON48.yard.z - 22); g.add(crate); crate.add(boxMesh(1.4, 0.7, 1.0, mat(0x1e2a6a), 0, 0.35, 0)); for (let k = 0; k < 8; k++) can49(crate, -0.5 + (k % 4)*0.33, 0.83, -0.2 + Math.floor(k/4)*0.4); for (let k = 0; k < 14; k++) can49(g, MON48.yard.x + rr(-20, 20), 0.24, MON48.yard.z + rr(-24, 24), PI/2).rotation.y = rand()*6;
+{ const g = cg48(MON48.yard.x, MON48.yard.z); const crate = new THREE.Group(); crate.position.set(MON48.yard.x - 19, 0.15, MON48.yard.z - 22); bkGround310(crate); g.add(crate); crate.add(boxMesh(1.4, 0.7, 1.0, mat(0x1e2a6a), 0, 0.35, 0)); for (let k = 0; k < 8; k++) can49(crate, -0.5 + (k % 4)*0.33, 0.83, -0.2 + Math.floor(k/4)*0.4); for (let k = 0; k < 14; k++) can49(g, MON48.yard.x + rr(-20, 20), 0.24, MON48.yard.z + rr(-24, 24), PI/2).rotation.y = rand()*6;
   sign49('RED BAWK\nMONK PACK x48', 1.4, 0.6, MON48.yard.x - 19, 1.2, MON48.yard.z - 21.48, 0, g, {bg: '#1e2a6a', fg: '#ffd23a', size: 22}); }
 SHAO49 = (() => {
   const Y = MON48.yard, g = cg48(Y.x, Y.z), out = {students: [], cubs: []};
@@ -26018,11 +26022,11 @@ SHAO49 = (() => {
   K.box(3, 0.15, 0.4, Y.x - 18, 1.7, Y.z + 12, 0x6b4a2e); K.box(3, 0.15, 0.4, Y.x - 18, 0.5, Y.z + 12, 0x6b4a2e); for (let k = 0; k < 6; k++) K.box(0.07, 2.2, 0.07, Y.x - 19.2 + k*0.48, 1.2, Y.z + 12.1, 0x8a5a34);
   build49();
   // Shifu Bao, panda master of the Shaolin Coop, visiting from up north
-  const shifu = makePanda49(1.15); g.add(shifu.g); shifu.g.position.set(Y.x + 12, 0.15, Y.z + 4); shifu.g.rotation.y = -PI/2; const staff = boxMesh(0.07, 0.07, 2.6, mat(0x8a5a34), 0, -0.6, 0.1); staff.rotation.x = PI/2; shifu.arms[1].add(staff); out.shifu = shifu; out.shifuPos = V48(Y.x + 12, 1.2, Y.z + 4);
+  const shifu = makePanda49(1.15); g.add(shifu.g); shifu.g.position.set(Y.x + 12, 0.15, Y.z + 4); bkGround310(shifu.g); shifu.g.rotation.y = -PI/2; const staff = boxMesh(0.07, 0.07, 2.6, mat(0x8a5a34), 0, -0.6, 0.1); staff.rotation.x = PI/2; shifu.arms[1].add(staff); out.shifu = shifu; out.shifuPos = V48(Y.x + 12, 1.2, Y.z + 4);
   // four exchange students in grey, doing forms in perfect time
   for (let k = 0; k < 4; k++){ const P = robe48(makeChicken({breed: ['brahma', 'frizzle', 'cemani', 'leghorn'][k]}), 0x8a8a92); g.add(P.g); P.g.position.set(Y.x + 6 - (k % 2)*2.5, 0.2, Y.z + 1 + Math.floor(k/2)*3.2 + (k % 2)*1.6); P.g.rotation.y = PI/2; out.students.push({P, anim: newAnim(), home: P.g.position.clone()}); }
   // and two panda cubs, who are mostly rolling
-  for (let k = 0; k < 2; k++){ const c = makePanda49(0.45); g.add(c.g); c.g.position.set(Y.x + 14 + k*3, 0.15, Y.z + 12); out.cubs.push({c, ph: rand()*6, a: rand()*6}); }
+  for (let k = 0; k < 2; k++){ const c = makePanda49(0.45); g.add(c.g); c.g.position.set(Y.x + 14 + k*3, 0.15, Y.z + 12); bkGround310(c.g); out.cubs.push({c, ph: rand()*6, a: rand()*6}); }
   return out;
 })();
 addNamedTalker('Talk to Shifu Bao', 'Shifu Bao', () => SHAO49.shifuPos, () => {
@@ -26041,7 +26045,7 @@ KPOP49 = (() => {
   for (let k = 0; k < 5; k++){ const P = makeChicken({breed: k === 2 ? 'silkie' : k === 4 ? 'polish' : 'leghorn', col: k % 2 ? 0x2a2a30 : 0xf4f0e6}); g.add(P.g); P.g.position.set(x - 5 + k*2.5, 1.65, z - 0.5); P.g.rotation.y = 0;
     const tuft = mesh(SPHERE, mat(hair[k]), 0, 0.42, 0.05); tuft.scale.set(0.22, 0.16, 0.24); P.neckP.add(tuft); P.bp.add(boxMesh(0.64, 0.34, 0.62, mat(k % 2 ? 0xf4f0e6 : 0x2a2a30), 0, 0.02, 0)); const mic = boxMesh(0.04, 0.04, 0.2, mat(0x2a2a30), 0.16, 0.1, 0.3); P.neckP.add(mic);
     out.idols.push({P, anim: newAnim(), hx: x - 5 + k*2.5, k}); }
-  const L_ = BK.lumpini; for (let k = 0; k < 26; k++){ const H = makeHuman({shirt: pick([0xff9ad5, 0xf4f0e6, 0x2a2a30, 0xd8b8ff, 0x9ad5ff])}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); const fx = x + rr(-9, 9), fz = z + 6 + rr(1, 9); H.g.position.set(fx, 0.15, fz); H.g.rotation.y = PI;
+  const L_ = BK.lumpini; for (let k = 0; k < 26; k++){ const H = makeHuman({shirt: pick([0xff9ad5, 0xf4f0e6, 0x2a2a30, 0xd8b8ff, 0x9ad5ff])}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); const fx = x + rr(-9, 9), fz = z + 6 + rr(1, 9); H.g.position.set(fx, 0.15, fz); bkGround310(H.g); H.g.rotation.y = PI;
     const stick = boxMesh(0.07, 0.07, 0.35, new THREE.MeshBasicMaterial({color: pick([0xff6ad5, 0xffffff, 0x6ad5ff])}), 0, -0.7, 0.2); H.arms[1].add(stick); out.fans.push({H, ph: rand()*6, stick}); }
   return out;
 })();
@@ -26050,7 +26054,7 @@ VOICES.Fan = {kind: 'human', base: 300, range: 0.5, rate: 16, cps: 58};
 /* ---------- Olive Yolk: K-beauty for birds ---------- */
 OLIVE49 = (() => { const {r} = rect48(2, 2, 4, 5), x = r.x1 - 12, z = r.z1 - 14, g = cg48(x, z), K = K49(x, z); K.box(4.4, 2.6, 2.2, x, 1.45, z, 0xf4f0e8); K.box(4.6, 0.3, 2.4, x, 2.9, z, 0x8ac83a); for (let k = 0; k < 8; k++) K.box(0.18, 0.3, 0.18, x - 1.6 + k*0.45, 1.85, z + 1.12, pick([0xff9ad5, 0xb8f0c8, 0xf4f0e6, 0x9ad5ff])); addSolid(x, z, 4.4, 2.2, 0, 2.9, 'kiosk'); build49();
   sign49('OLIVE YOLK\nK-BEAUTY', 4, 1.2, x, 3.7, z + 1.15, 0, g, {bg: '#f4f0e8', fg: '#5a9a2a', size: 28}); sign49('GLASS BEAK\nIN 10 STEPS', 1.6, 1.0, x + 2.6, 1.6, z + 1.13, 0, g, {bg: '#ffd8ec', fg: '#c8306a', size: 22, pw: 160, ph: 100});
-  const H = makeHuman({shirt: 0x8ac83a}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); H.g.position.set(x - 0.6, 0.15, z + 1.9); H.g.rotation.y = PI; return {pos: V48(x, 0.85, z + 2.2), H}; })();
+  const H = makeHuman({shirt: 0x8ac83a}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); H.g.position.set(x - 0.6, 0.15, z + 1.9); bkGround310(H.g); H.g.rotation.y = PI; return {pos: V48(x, 0.85, z + 2.2), H}; })();
 addNamedTalker('Buy a sheet mask at Olive Yolk (6 crumbs)', 'Olive Yolk', () => OLIVE49.pos, () => {
   if (S.crumbs < 6) return say([L('Olive Yolk', 'Sheet mask, six crumbs. Snail essence, rice water and a little ginseng. For you, also beak serum. ...Six crumbs.')]);
   say([L('Olive Yolk', 'Step one, cleanse. Step two, cleanse again. Step three, toner. Step four, essence. Step five... you know what, I just put the mask on you.'), L('Olive Yolk', 'Glass skin! Glass beak! Very charming. Everyone will give you snacks.')], () => {
@@ -26076,7 +26080,7 @@ F1_49 = (() => {
   // the garage on the lawn by the east straight, with the team in navy
   const gx = r.x1 - 10, gz = r.z0 + 20, K = K49(gx, gz); K.box(8, 0.2, 10, gx, 4, gz, 0x1e2a5a); for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) K.box(0.2, 3.9, 0.2, gx + a*3.9, 2.05, gz + b*4.9, 0x8a8f94); K.box(0.1, 3.8, 10, gx - 3.95, 2.05, gz, 0x1e2a5a); K.box(6, 0.04, 9, gx, 0.17, gz, 0x3a3a42); for (let k = 0; k < 4; k++) K.box(0.7, 0.5, 0.7, gx - 3 + k*0.9, 0.42, gz - 4, 0x1a1a20); build49();
   sign49('RED BAWK RACING', 6, 1, gx + 3.95, 3.3, gz, PI/2, cg48(gx, gz), {bg: '#1e2a5a', fg: '#ffd23a', size: 30, pw: 384});
-  const crew = []; for (let k = 0; k < 6; k++){ const H = makeHuman({shirt: 0x1e2a5a, pants: 0x1e2a5a}); H.snack.visible = false; scene.remove(H.g); cg48(gx, gz).add(H.g); H.g.position.set(gx - 1 + (k % 3)*1.2, 0.15, gz - 2 + Math.floor(k/3)*3); H.g.rotation.y = PI/2; crew.push({H, ph: rand()*6, home: H.g.position.clone()}); }
+  const crew = []; for (let k = 0; k < 6; k++){ const H = makeHuman({shirt: 0x1e2a5a, pants: 0x1e2a5a}); H.snack.visible = false; scene.remove(H.g); cg48(gx, gz).add(H.g); H.g.position.set(gx - 1 + (k % 3)*1.2, 0.15, gz - 2 + Math.floor(k/3)*3); bkGround310(H.g); H.g.rotation.y = PI/2; crew.push({H, ph: rand()*6, home: H.g.position.clone()}); }
   // the pit box: the point on the east straight closest to the garage
   let pit = 0, bd = 1e9; for (let s = 0; s < P.L; s += 0.5){ pathAt47(P, s, _a49); const d = (_a49.x - gx)**2 + (_a49.z - gz)**2; if (d < bd){ bd = d; pit = s; } }
   return {P, car, crew, gx, gz, pit, s: pit + 1, v: 0, laps: 0, stop: 0, sol: addSolid(BK.x + 100, BK.z, 1.4, 4, -9, -8.5, 'f1')};
@@ -26191,7 +26195,7 @@ function updateF1_49(dt, time){
   if (d < 140 && F.v > 2 && rand() < dt*12) tone(70 + F.v*9, 0.09, 'sawtooth', clamp(0.035*(1 - d/140), 0, 0.035), 60 + F.v*8);
   if (F.v > 20 && rand() < dt*8) emit('wisp', _c49.copy(g.position).add(_b49.set(-Math.sin(g.rotation.y)*2.6, 0.5, -Math.cos(g.rotation.y)*2.6)), 1, 0.2, 0.3);
   // the crew: wheel guns during the stop, waving otherwise
-  F.crew.forEach((c, i) => { c.ph += dt; if (F.stop > 0){ const wpos = [[-1.2, 1.7], [1.2, 1.7], [-1.2, -1.5], [1.2, -1.5], [0, 3.6], [0, -3.4]][i], cs = Math.cos(g.rotation.y), sn = Math.sin(g.rotation.y); c.H.g.position.set(g.position.x + wpos[0]*cs + wpos[1]*sn, 0.15, g.position.z - wpos[0]*sn + wpos[1]*cs); c.H.g.rotation.y = Math.atan2(g.position.x - c.H.g.position.x, g.position.z - c.H.g.position.z); c.H.arms[1].rotation.x = -1.2 + Math.sin(c.ph*30)*0.2; if (i < 4 && rand() < dt*6) noise(0.05, 4000, 0.02); } else { c.H.g.position.copy(c.home); c.H.arms[0].rotation.x = F.v > 25 && d < 60 ? -2.6 : -0.2; } });
+  F.crew.forEach((c, i) => { c.ph += dt; if (F.stop > 0){ const wpos = [[-1.2, 1.7], [1.2, 1.7], [-1.2, -1.5], [1.2, -1.5], [0, 3.6], [0, -3.4]][i], cs = Math.cos(g.rotation.y), sn = Math.sin(g.rotation.y); c.H.g.position.set(g.position.x + wpos[0]*cs + wpos[1]*sn, 0.15, g.position.z - wpos[0]*sn + wpos[1]*cs); bkGround310(c.H.g); c.H.g.rotation.y = Math.atan2(g.position.x - c.H.g.position.x, g.position.z - c.H.g.position.z); c.H.arms[1].rotation.x = -1.2 + Math.sin(c.ph*30)*0.2; if (i < 4 && rand() < dt*6) noise(0.05, 4000, 0.02); } else { c.H.g.position.copy(c.home); c.H.arms[0].rotation.x = F.v > 25 && d < 60 ? -2.6 : -0.2; } });
   // ride the engine cover, if you dare
   const c_ = Math.abs(Math.cos(g.rotation.y)), s_ = Math.abs(Math.sin(g.rotation.y)); Object.assign(F.sol, {minX: g.position.x - (c_*0.6 + s_*1.4), maxX: g.position.x + (c_*0.6 + s_*1.4), minZ: g.position.z - (s_*0.6 + c_*1.4), maxZ: g.position.z + (s_*0.6 + c_*1.4), minY: 0.6, maxY: 1.0});
   if (state === 'play' && player.grounded && Math.abs(P.x - ox) < 1.6 && Math.abs(P.z - oz) < 1.6 && P.y > 0.8 && P.y < 1.6){ P.x += g.position.x - ox; P.z += g.position.z - oz; if (!Q49().f1ride && F.v > 20){ Q49().f1ride = 1; addXP(40); toast('You rode a <b>Red Bawk Racing</b> car round Sanam Loong. The team principal is pretending not to see.', '', 3200); save(); } }
@@ -26444,7 +26448,7 @@ addNamedTalker(() => WARST48() === 9 ? (TR50().started ? (trialsDone50() ? 'Repo
   }; }
 }
 /* ---------- 11 · Dave from Leeds, by the bucket bar ---------- */
-DAVE50 = (() => { const x = KS49.bar.x - 3, z = KS49.bar.z + 1.2, H = makeHuman({shirt: 0xf4f0e6, skin: 0xffa08a, pants: 0x3f6b8a}); H.snack.visible = false; scene.remove(H.g); cg48(x, z).add(H.g); H.g.position.set(x, 0.15, z); H.g.rotation.y = PI/2;
+DAVE50 = (() => { const x = KS49.bar.x - 3, z = KS49.bar.z + 1.2, H = makeHuman({shirt: 0xf4f0e6, skin: 0xffa08a, pants: 0x3f6b8a}); H.snack.visible = false; scene.remove(H.g); cg48(x, z).add(H.g); H.g.position.set(x, 0.15, z); bkGround310(H.g); H.g.rotation.y = PI/2;
   H.g.add(boxMesh(0.5, 0.1, 0.12, mat(0x2a2a30), 0, 1.86, 0.2)); const bag = boxMesh(0.55, 0.8, 0.35, mat(0x3f8a5a), 0, 1.2, -0.3); H.g.add(bag); return {H, pos: V48(x, 0.9, z)}; })();
 addNamedTalker('Talk to Dave', 'Dave', () => DAVE50.pos, () => {
   const st = WARST48();
@@ -26467,7 +26471,7 @@ addNamedTalker(() => WARST48() === 12 ? 'Ask Madame Goldfeather about the monocl
     return say([GF50('Thirty crumbs. Lovely. Here. Do not drop it, it bounces.'), GF50('Heavy little thing. And warm, darling. Monocles are not usually warm. Perhaps he wore it in the sauna.'), GF50('And since you paid in cash, a gift: he did not pay me in cash. He paid for a gold chain with these. Chips. Golden chips with a little prawn on them.'), GF50('From The Golden Prawn. A floating casino on the Chao Fryer. Very exclusive. Very silly. Its bouncer is a mantis shrimp, Sergeant Mantis. He fights Muay Thigh at the stadium for fun.'), GF50('If anyone knows the password to the Golden Prawn, darling, it is the one who punches people at the door.')], () => { S.crumbs -= 30; Q50().monocle = 1; setWar48(13); addXP(40); toast('You have <b>Boris\'s monocle</b>. Now find <b>Sergeant Mantis</b> at the Muay Thigh Stadium.', '', 3400); }); }
   say([GF50(mpick(['Gold never goes out of fashion, darling. Unlike that grey.', 'If you find treasure, I buy. Fair prices. My prices. Same thing.', 'The cabaret girls are my best customers. Tiaras, darling. So many tiaras.']))], () => { if ((S.hoard || []).length) fence('Madame Goldfeather', 1.25); });
 }, 2.6, () => inBang());
-MANTIS50 = (() => { const S0 = BK.stadium, R = BK.stadiumR, M = makeMantis50(1.1), g = cg48(S0.x, S0.z); g.add(M.g); M.g.position.set(S0.x + 5.5, 0.15, S0.z + 3); M.g.rotation.y = -PI/2; return {M, home: M.g.position.clone(), pos: V48(S0.x + 5.5, 1, S0.z + 3)}; })();
+MANTIS50 = (() => { const S0 = BK.stadium, R = BK.stadiumR, M = makeMantis50(1.1), g = cg48(S0.x, S0.z); g.add(M.g); M.g.position.set(S0.x + 5.5, 0.15, S0.z + 3); bkGround310(M.g); M.g.rotation.y = -PI/2; return {M, home: M.g.position.clone(), pos: V48(S0.x + 5.5, 1, S0.z + 3)}; })();
 M50 = {on: false, won: false, hp: 5, taken: 0, state: 'stalk', t: 0, g: MANTIS50.M.g, v: V48()};
 addNamedTalker(() => WARST48() === 13 ? 'Challenge Sergeant Mantis' : 'Talk to Sergeant Mantis', 'Sergeant Mantis', () => M50.on ? FAR49 : MANTIS50.pos, () => {
   const st = WARST48();
@@ -26489,7 +26493,7 @@ SKYSPY50 = (() => { const c = BK.skyperch, x = c.x + 11.5, z = c.z - 2, g = cg48
 hawaii50 = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); g.fillStyle = '#e84a6a'; g.fillRect(0, 0, 32, 32); for (let k = 0; k < 7; k++){ g.fillStyle = k % 2 ? '#ffd23a' : '#f4f0e6'; const x = (k*11) % 32, y = (k*17) % 32; g.beginPath(); g.arc(x, y, 4, 0, PI*2); g.fill(); g.fillStyle = '#3f9a4a'; g.fillRect(x + 3, y - 1, 5, 2); } const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; return mat(0xffffff, {map: t}); })();
 PIER50 = (() => { const lz = -150, c = riverX48(lz); return {x: BK.x + c + RIVW48 + 4, z: BK.z + lz}; })();
 FAM50 = (() => { const g = new THREE.Group(); bangG.add(g); const birds = [];
-  for (let k = 0; k < 5; k++){ const P = bling(makeMagpie(k ? 1.1 : 1.2), 1); hatOn(P, k ? 'fedora' : 'fedora', k ? 0xd8c890 : 0x3a3a42); P.bp.add(boxMesh(0.64, 0.36, 0.62, hawaii50, 0, 0.02, 0)); g.add(P.g); P.g.position.set(PIER50.x + 2 + (k % 3)*1.4, 0.15, PIER50.z - 2 + Math.floor(k/3)*2.2 + (k ? 0 : 1)); P.g.rotation.y = -PI/2; birds.push({P, anim: newAnim(), home: P.g.position.clone()}); }
+  for (let k = 0; k < 5; k++){ const P = bling(makeMagpie(k ? 1.1 : 1.2), 1); hatOn(P, k ? 'fedora' : 'fedora', k ? 0xd8c890 : 0x3a3a42); P.bp.add(boxMesh(0.64, 0.36, 0.62, hawaii50, 0, 0.02, 0)); g.add(P.g); P.g.position.set(PIER50.x + 2 + (k % 3)*1.4, 0.15, PIER50.z - 2 + Math.floor(k/3)*2.2 + (k ? 0 : 1)); bkGround310(P.g); P.g.rotation.y = -PI/2; birds.push({P, anim: newAnim(), home: P.g.position.clone()}); }
   // a cool box of Red Bawk and a beach umbrella; they are on holiday, technically
   const box = boxMesh(0.9, 0.5, 0.6, mat(0x2a6ad4), PIER50.x + 4, 0.4, PIER50.z + 2.6); g.add(box); const um = mesh(new THREE.ConeGeometry(1.6, 0.6, 8), mat(0xffd23a), PIER50.x + 5, 2.6, PIER50.z + 1); g.add(um); g.add(boxMesh(0.05, 2.4, 0.05, mat(0xd8d4cc), PIER50.x + 5, 1.35, PIER50.z + 1));
   g.visible = false; return {g, birds, tony: birds[0]}; })();
@@ -26526,7 +26530,7 @@ TOP50 = (() => { const g = new THREE.Group(); bangG.add(g); g.visible = false; c
   const sol = addSolid(BK.x + 100, BK.z, 4.2, 4.2, -9, -8.5, 'top');
   return {g, B, fl, sol, place(){ g.position.set(t.x, t.y + 0.3, t.z); g.visible = true; Object.assign(sol, {minX: t.x - 2.1, maxX: t.x + 2.1, minZ: t.z - 2.1, maxZ: t.z + 2.1, minY: t.y, maxY: t.y + 0.3}); KHUN48.P.g.visible = true; this.kkHome = this.kkHome || KHUN48.P.g.position.clone(); this.kkParent = this.kkParent || KHUN48.P.g.parent; g.add(KHUN48.P.g); KHUN48.P.g.position.set(-0.9, 0.05, -0.4); KHUN48.P.g.rotation.y = 0.7; }, home(){ if (this.kkParent){ this.kkParent.add(KHUN48.P.g); KHUN48.P.g.position.copy(this.kkHome); KHUN48.P.g.rotation.y = PI/2; } g.visible = false; sol.minY = -9; sol.maxY = -8.5; }}; })();
 /* ---------- Brother Boris, ever after ---------- */
-BROBORIS50 = (() => { const Y = MON48.yard, g = new THREE.Group(), x = MON48.cx - 2, z = MON48.cz + 22; cg48(x, z).add(g); g.position.set(x, 0.15, z);
+BROBORIS50 = (() => { const Y = MON48.yard, g = new THREE.Group(), x = MON48.cx - 2, z = MON48.cz + 22; cg48(x, z).add(g); g.position.set(x, 0.15, z); bkGround310(g);
   const B = makeBoris(0.95); g.add(B); const robe = mesh(new THREE.ConeGeometry(0.42, 1.1, 10), mat(0xf0962a), 0, 0.75, 0); g.add(robe); const sash = boxMesh(0.1, 0.9, 0.5, mat(0xd8761a), 0.15, 0.95, 0); sash.rotation.z = 0.5; g.add(sash);
   const broom = new THREE.Group(); broom.position.set(0.35, 0.9, 0.3); g.add(broom); broom.add(boxMesh(0.04, 1.3, 0.04, mat(0x8a5a34), 0, -0.2, 0)); broom.add(mesh(new THREE.ConeGeometry(0.16, 0.35, 6), mat(0xc8a050), 0, -0.9, 0));
   const bowl = mesh(new THREE.CylinderGeometry(0.3, 0.22, 0.2, 12), mat(0x9fd8ff, {transparent: true, opacity: 0.6}), -0.8, 0.1, 0.4); g.add(bowl); const fl = makeFluffy50(1); fl.position.set(-0.8, 0.22, 0.4); g.add(fl);
@@ -26955,7 +26959,7 @@ function plant51(K, x, z, y = 0.15, s = 1){ K.box(0.6*s, 0.7*s, 0.6*s, x, y + 0.
 
 function windows51(F, b, y, skip){ const wm = new THREE.MeshBasicMaterial({color: 0xbfe2f0}); for (const sd of ['n', 's', 'e', 'w']){ if (skip && skip.includes(sd)) continue; const along = sd === 'n' || sd === 's', a0 = along ? b.x0 : b.z0, a1 = along ? b.x1 : b.z1; for (let u = a0 + 2.5; u < a1 - 2; u += 3.4){ if (along) F.box(2.2, 1.9, 0.05, u, y + 1.7, sd === 'n' ? b.z0 + 0.43 : b.z1 - 0.43, wm); else F.box(0.05, 1.9, 2.2, sd === 'w' ? b.x0 + 0.43 : b.x1 - 0.43, y + 1.7, u, wm); } } }
 
-function hotelStaff51(g, x, z, ry, shirt = 0xf4f0e6, hat){ const H = makeHuman({shirt, pants: 0x2a2a30, hat}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); H.g.position.set(x, 0.15, z); H.g.rotation.y = ry; return H; }
+function hotelStaff51(g, x, z, ry, shirt = 0xf4f0e6, hat){ const H = makeHuman({shirt, pants: 0x2a2a30, hat}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); H.g.position.set(x, 0.15, z); bkGround310(H.g); H.g.rotation.y = ry; return H; }
 
 // a lift: gold doors, a "ding", a fade, and you're on another floor
 const LIFTS51 = [];
@@ -27045,8 +27049,8 @@ addTalker('Search the potted palm', () => Q51().dur === 1 ? DUR51.pos : FAR49, (
 addNamedTalker('Ask Dave about the durian', 'Dave', () => Q51().dur === 3 ? DAVE50.pos : FAR49, () => say([DV50('The durian? In the Kempinski? ...Yeah. That was me. Look, it was a present for my mum.'), DV50('She\'s flying in Tuesday and she\'s staying there and I wanted it to be a surprise.'), DV50('...She\'s going to be very surprised. Tell the hotel I\'m sorry. Tell my mum nothing.')], () => { Q51().dur = 4; save(); renderQuest(); addXP(100); S.crumbs += 25; toast('<b>The Durian Smuggler</b>: case closed. The clerk sends 25 crumbs and a very long sigh.', '', 3200); }), 2.6);
 /* ---------- more Bangcluck life: Sanam Loong's pigeons and their corn seller, motorbike taxis, the morning alms walk, fortune sticks ---------- */
 SANAMP51 = (() => { const c = BK.sanam, g = cg48(c.x, c.z), birds = [];
-  for (let k = 0; k < 18; k++){ const P = makePigeon({scale: 0.95}); scene.remove(P.g); g.add(P.g); P.g.position.set(c.x - 10 + rr(-5, 5), 0.15, c.z - 14 + rr(-5, 5)); P.g.rotation.y = rand()*6; birds.push({P, anim: newAnim(), home: P.g.position.clone(), t: rr(0, 3), fly: 0}); }
-  const H = makeHuman({shirt: 0x3f8a5a, hat: 0xd8c890}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); H.g.position.set(c.x - 10, 0.15, c.z - 20); g.add(boxMesh(1.2, 0.8, 0.7, mat(0xffd23a), c.x - 8.8, 0.55, c.z - 20));
+  for (let k = 0; k < 18; k++){ const P = makePigeon({scale: 0.95}); scene.remove(P.g); g.add(P.g); P.g.position.set(c.x - 10 + rr(-5, 5), 0.15, c.z - 14 + rr(-5, 5)); bkGround310(P.g); P.g.rotation.y = rand()*6; birds.push({P, anim: newAnim(), home: P.g.position.clone(), t: rr(0, 3), fly: 0}); }
+  const H = makeHuman({shirt: 0x3f8a5a, hat: 0xd8c890}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); H.g.position.set(c.x - 10, 0.15, c.z - 20); bkGround310(H.g); g.add(boxMesh(1.2, 0.8, 0.7, mat(0xffd23a), c.x - 8.8, 0.55, c.z - 20));
   return {birds, H, pos: V48(c.x - 9, 0.9, c.z - 19)}; })();
 addNamedTalker('Buy a bag of corn (1 crumb)', 'Corn seller', () => SANAMP51.pos, () => { if (S.crumbs < 1) return say([L('Corn seller', 'One crumb for the corn. For the pigeons. ...You ARE a pigeon. Okay. For you.')]); S.crumbs -= 1; for (let k = 0; k < 5; k++) spawnFood(player.pos.x + rr(-1.2, 1.2), 0.17, player.pos.z + rr(-1.2, 1.2), 'seed', null); say([L('Corn seller', mpick(['A pigeon buying corn for pigeons. In thirty years I have never seen this.', 'Share with your cousins, yes? They are very hungry. They are always very hungry.']))]); }, 2.6);
 VOICES['Corn seller'] = {kind: 'human', base: 220, range: 0.4, rate: 13, cps: 48};
@@ -28011,7 +28015,7 @@ AR56 = new Map(); area56 = (x, z) => { const k = Math.floor(x/128) + ',' + Math.
   sign49("JB'S LODGE\nJUSTICE NEVER SLEEPS", 3.4, 1.1, bx + 1.62, 3.0, z, PI/2, bangG, {bg: '#2a1440', fg: '#d8a0ff', size: 24});
   sign49("JB'S LODGE\nJUSTICE NEVER SLEEPS", 3.4, 1.1, bx + 1.58, 3.0, z, -PI/2, bangG, {bg: '#2a1440', fg: '#d8a0ff', size: 24});
   A.bulbs.push([[bx + 1.6, 3.5, z - 1.6], 0xd8a0ff, 3], [[bx + 1.6, 3.5, z + 1.6], 0xd8a0ff, 3]);
-  const B = makeBeaver56(); bangG.add(B.g); B.g.position.set(bx + 5, 0.15, z); B.g.rotation.y = PI/2; BK56.jb = B; BK56.jbHome = V48(bx + 5, 0.15, z); BK56.jbPos = V48(bx + 6, 0.9, z);
+  const B = makeBeaver56(); bangG.add(B.g); B.g.position.set(bx + 5, 0.15, z); bkGround310(B.g); B.g.rotation.y = PI/2; BK56.jb = B; BK56.jbHome = V48(bx + 5, 0.15, z); BK56.jbPos = V48(bx + 6, 0.9, z);
   BK56.fans = []; for (let k = 0; k < 6; k++){ const fx = bx + 9.5 + (k % 2)*1.2, fz = z - 3.5 + k*1.4, H = human56({shirt: pick([0x9a4ad4, 0xd8a0ff, 0xff7ab8]), hair: pick([0xe8c070, 0x3a2a1a, 0xd4302a])}, bangG, fx, fz, -PI/2); if (k % 2 === 0){ const t = boxMesh(0.6, 0.4, 0.03, mat(0xf4f0e6), 0, -0.1, 0.3); H.arms[0].add(t); H.arms[0].rotation.x = -2.6; } BK56.fans.push({H, ph: r52()*6}); }
   sign49('BEAV-LIEVERS\nFAN CLUB · EST. YESTERDAY', 2.2, 0.7, bx + 12.6, 1.9, z + 5.6, PI/2, bangG, {bg: '#f4f0e6', fg: '#7a3aaa', size: 20}); K.box(0.1, 1.8, 0.1, bx + 12.6, 0.9, z + 5.6, 0x8a8f94);
 }
@@ -28032,10 +28036,10 @@ RANGE56 = (() => { const lz = -262, bx = bank56(lz), z0 = BK.z + lz, A = area56(
   K.box(1.6, 1.6, 22, bx + 8, 0.8, z0, 0xb8a878); for (let k = 0; k < 22; k++) K.box(0.9, 0.35, 0.5, bx + 8.9, 0.3 + (k % 4)*0.36, z0 - 10.5 + k, 0xa89868); addSolid(bx + 8, z0, 1.6, 22, 0, 1.6, 'berm');
   K.box(4.4, 0.2, 18, bx + 30, 2.9, z0, 0x5a6a3a); for (const [u, v] of [[-2, -8.8], [2, -8.8], [-2, 8.8], [2, 8.8]]) K.box(0.18, 2.8, 0.18, bx + 30 + u, 1.5, z0 + v, 0x3a3a2a); addSolid(bx + 30, z0, 4.4, 18, 2.8, 3.0, 'roof');
   for (let k = 0; k < 4; k++){ const z = z0 - 6 + k*4; K.box(0.2, 1.1, 3.6, bx + 28.4, 0.7, z + 2, 0x6a5a3a); K.box(0.9, 0.06, 1.6, bx + 28.3, 1.1, z, 0x8a7a5a);
-    const g = new THREE.Group(); g.position.set(bx + 12, 0.15, z); bangG.add(g); g.add(boxMesh(0.1, 1.6, 0.1, mat(0x5a4a2a), 0, 0.8, -0.55)); g.add(boxMesh(0.1, 1.6, 0.1, mat(0x5a4a2a), 0, 0.8, 0.55)); const board = sign49('LAND\nSHARK', 1.1, 1.3, 0, 2.0, 0, PI/2, g, {bg: '#f4f0e6', fg: '#d4302a', size: 30, pw: 128, ph: 152}); const fin = boxMesh(0.04, 0.4, 0.4, mat(0x7a8a9a), 0, 2.8, 0); fin.rotation.x = PI/4; g.add(fin); R.targets.push({g, board, jig: 0});
+    const g = new THREE.Group(); g.position.set(bx + 12, 0.15, z); bkGround310(g); bangG.add(g); g.add(boxMesh(0.1, 1.6, 0.1, mat(0x5a4a2a), 0, 0.8, -0.55)); g.add(boxMesh(0.1, 1.6, 0.1, mat(0x5a4a2a), 0, 0.8, 0.55)); const board = sign49('LAND\nSHARK', 1.1, 1.3, 0, 2.0, 0, PI/2, g, {bg: '#f4f0e6', fg: '#d4302a', size: 30, pw: 128, ph: 152}); const fin = boxMesh(0.04, 0.4, 0.4, mat(0x7a8a9a), 0, 2.8, 0); fin.rotation.x = PI/4; g.add(fin); R.targets.push({g, board, jig: 0});
     if (k !== 1){ const H = human56({shirt: pick([0xff7a5a, 0xf4f0e6, 0x2a6ad4, 0xffd23a]), skin: pick([0xffc8a8, 0xffb8a0, 0xe0a87a]), hat: k === 3 ? 0xd8c890 : undefined}, bangG, bx + 29.4, z, -PI/2); const gun = mgun56(); gun.position.set(0, -0.62, 0.22); gun.rotation.x = 1.45; H.arms[1].add(gun); H.arms[1].rotation.x = -1.45; H.arms[0].rotation.x = -1.3; H.arms[0].rotation.z = -0.3; R.shooters.push({H, gun, t: rr(1, 4), burst: 0, tgt: R.targets[k]}); } }
   // the watchtower: a log pole with a flag, which will not be standing for long
-  const pole = new THREE.Group(); pole.position.set(bx + 18, 0.15, z0 - 11); bangG.add(pole); pole.add(boxMesh(0.4, 8, 0.4, mat(0x6a4a2a), 0, 4, 0)); const fl = boxMesh(0.04, 1.0, 1.6, mat(0xd4302a), 0, 7.3, 0.82); pole.add(fl); R.pole = pole; R.poleSolid = addSolid(bx + 18, z0 - 11, 0.4, 0.4, 0, 8, 'pole');
+  const pole = new THREE.Group(); pole.position.set(bx + 18, 0.15, z0 - 11); bkGround310(pole); bangG.add(pole); pole.add(boxMesh(0.4, 8, 0.4, mat(0x6a4a2a), 0, 4, 0)); const fl = boxMesh(0.04, 1.0, 1.6, mat(0xd4302a), 0, 7.3, 0.82); pole.add(fl); R.pole = pole; R.poleSolid = addSolid(bx + 18, z0 - 11, 0.4, 0.4, 0, 8, 'pole');
   for (const s of [-1, 1]) K.box(0.2, 4.4, 0.2, bx + 34, 2.2, z0 + s*2.6, 0x3a3a2a);
   sign49("RAMBOO'S SHOOTING RANGE\nFIRST BREAD · 10 CRUMBS A GO", 5.4, 1.4, bx + 34.12, 3.7, z0, PI/2, bangG, {bg: '#3a4a2a', fg: '#ffd23a', size: 24, pw: 384, ph: 100});
   sign49("RAMBOO'S SHOOTING RANGE\nFIRST BREAD · 10 CRUMBS A GO", 5.4, 1.4, bx + 33.88, 3.7, z0, -PI/2, bangG, {bg: '#3a4a2a', fg: '#ffd23a', size: 24, pw: 384, ph: 100});
@@ -28094,13 +28098,13 @@ addNamedTalker('Talk to Cheep & Chong', 'Cheep', () => BK56.cheepPos, () => say(
 /* ---------- a fire skipping rope on the riverbank (it is a real thing; nobody knows why) ---------- */
 ROPE56 = (() => { const lz = -186, bx = bank56(lz) + 12, z = BK.z + lz, p0 = V48(bx, 1.1, z - 2.2), p1 = V48(bx, 1.1, z + 2.2), S0 = human56({shirt: 0x2a2a30}, bangG, bx, z - 2.6, 0), S1 = human56({shirt: 0x2a2a30}, bangG, bx, z + 2.6, PI), J = human56({shirt: pick([0xff7a5a, 0xf4f0e6]), skin: 0xffc8a8}, bangG, bx, z, PI/2);
   const bits = [], m = new THREE.MeshBasicMaterial({color: 0xff8a2a}); for (let k = 0; k < 15; k++){ const b = mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), m, 0, 0, 0); bangG.add(b); bits.push(b); } return {p0, p1, S0, S1, J, bits, a: 0, fail: 0, x: bx, z}; })();
-LIZ56 = (() => { const L_ = BK.lumpini, Z = makeMonitor56(4.2); bangG.add(Z.g); Z.g.position.set(L_.cx + 38, 0.15, L_.cz); const small = []; for (let k = 0; k < 6; k++){ const m = makeMonitor56(rr(0.9, 1.3)); bangG.add(m.g); const a = rand()*PI*2, r = rr(32, 48); m.g.position.set(L_.cx + Math.cos(a)*r, 0.15, L_.cz + Math.sin(a)*r); small.push({M: m, t: rr(0, 4), tgt: null}); }
+LIZ56 = (() => { const L_ = BK.lumpini, Z = makeMonitor56(4.2); bangG.add(Z.g); Z.g.position.set(L_.cx + 38, 0.15, L_.cz); bkGround310(Z.g); const small = []; for (let k = 0; k < 6; k++){ const m = makeMonitor56(rr(0.9, 1.3)); bangG.add(m.g); const a = rand()*PI*2, r = rr(32, 48); m.g.position.set(L_.cx + Math.cos(a)*r, 0.15, L_.cz + Math.sin(a)*r); bkGround310(m.g); small.push({M: m, t: rr(0, 4), tgt: null}); }
   const rx = L_.cx + 44, rz = L_.cz - 46, H = human56({shirt: 0x5a6a3a, pants: 0x3a4a2a, hat: 0x8a7a4a}, bangG, rx, rz, -PI*0.75); const A = area56(rx, rz); A.K.box(0.1, 2.2, 0.1, rx + 1.4, 1.1, rz, 0x6a4a2a);
   sign49('PLEASE DO NOT FEED THE\nMONITOR LIZARDS\n(OR BE FED TO THEM)', 1.8, 1.1, rx + 1.4, 2.2, rz + 0.06, -PI*0.75, bangG, {bg: '#3a6a3a', fg: '#f4f0e6', size: 18, pw: 256, ph: 152});
   return {Z, small, a: 0, R: 38, ranger: V48(rx - 1, 0.9, rz + 1), roarT: 8}; })();
 addNamedTalker('Talk to the Lumpini ranger', 'Lumpini ranger', () => LIZ56.ranger, () => say([L('Lumpini ranger', mpick(['That one? Lizzilla. Came out of the pond in \'54. Ate a pedal boat. We don\'t talk about the pedal boat.', 'Monitor lizards. Four hundred of them in this park. Three hundred and ninety-nine normal ones. And her.', 'Somebody said she swam here from Japan. People say that about anything big.', 'Do not run. Do not scream. Do not wear anything that looks like a pedal boat.']))]), 2.6, () => inBang());
 /* ---------- the palace gate: the oldest scam in the book ---------- */
-{ const G = BK.palaceGate, x = G.x + 7, z = G.z + 7, T = makeTuk48(0x2a6ad4); bangG.add(T); T.position.set(x, 0.15, z); T.rotation.y = PI/2; human56({shirt: 0xffd23a, pants: 0x2a2a30}, bangG, x - 1.6, z - 1.2, -PI/2 - 0.4); BK56.tuk = V48(x - 2.4, 0.9, z - 1.2); }
+{ const G = BK.palaceGate, x = G.x + 7, z = G.z + 7, T = makeTuk48(0x2a6ad4); bangG.add(T); T.position.set(x, 0.15, z); bkGround310(T); T.rotation.y = PI/2; human56({shirt: 0xffd23a, pants: 0x2a2a30}, bangG, x - 1.6, z - 1.2, -PI/2 - 0.4); BK56.tuk = V48(x - 2.4, 0.9, z - 1.2); }
 addNamedTalker('Talk to the friendly tuk-tuk driver', 'Tuk-tuk driver', () => BK56.tuk, () => say([L('Tuk-tuk driver', 'My friend! Where you go? Grand Perch Palace? Oh no no no. Palace closed today. Buddha holiday.'), L('Pidge', '(The palace is right behind him. It is very open. There is a queue. A man is selling tickets.)'), L('Tuk-tuk driver', 'I take you! Lucky Buddha, very big, then my cousin\'s gem shop, very cheap, then tailor. Suit in one hour. Ten crumbs. All day.'), L('Pidge', '(You are a pigeon. You do not need a suit.)'), L('Pidge', '(...You would look incredible in a suit.)'), L('Tuk-tuk driver', 'Tomorrow also closed. Every day closed. Ten crumbs!')]), 2.6, () => inBang());
 buildAreasIn53(AR56, bangG);
 if (typeof SYS52 !== 'undefined') SYS52.push(['bang56', updateBang56]);
@@ -28121,7 +28125,7 @@ const at56 = (e, t, side, off) => [e.a[0] + e.ux*t + e.nx*side*off, e.a[1] + e.u
 const face56 = (e, side) => e.ry + (side > 0 ? -PI/2 : PI/2);
 
  // a sign on that side, facing the road
-function human56(o, parent, x, z, ry, y = 0.15){ const H = makeHuman(o); H.snack.visible = false; scene.remove(H.g); (parent || cg48(x, z)).add(H.g); H.g.position.set(x, y, z); H.g.rotation.y = ry || 0; return H; }
+function human56(o, parent, x, z, ry, y){ const H = makeHuman(o); H.snack.visible = false; scene.remove(H.g); (parent || cg48(x, z)).add(H.g); H.g.position.set(x, y ?? 0.15, z); if (y === undefined) bkGround310(H.g); H.g.rotation.y = ry || 0; return H; }   // v310: on the ground unless told where (bangcluck/people.js)
 
 /* ---------- props: a chainsaw, a machine gun, a flamethrower ---------- */
 function chainsaw56(){ const g = new THREE.Group(); g.add(boxMesh(0.2, 0.22, 0.38, mat(0xf07a1a), 0, 0, 0)); g.add(boxMesh(0.06, 0.2, 0.2, mat(0x2a2a30), 0, 0.14, -0.08)); const bar = new THREE.Group(); bar.add(boxMesh(0.04, 0.1, 0.72, mat(0xb8bcc4), 0, 0, 0.5)); bar.add(boxMesh(0.06, 0.13, 0.74, mat(0x3a3a42), 0, 0, 0.5)); g.add(bar); g.userData.bar = bar; return g; }
@@ -28236,7 +28240,7 @@ function updateRange56(dt, time){ const R = RANGE56, near = player.pos.distanceT
 const FIN56 = {on: false, t: 0, ev: 0};
 
 function finale56(){ const R = RANGE56, sj = R.sj.g.position, B = BK56.jb; FIN56.on = true; FIN56.t = 0; FIN56.ev = 0; FIN56.done = false;
-  B.g.position.set(R.x + 20, 0.15, R.z - 6); B.g.rotation.y = -PI/2; if (!BK56.scoot){ BK56.scoot = makeScooter51({col: 0x7a3aaa}); bangG.add(BK56.scoot); } BK56.scoot.visible = true;
+  B.g.position.set(R.x + 20, 0.15, R.z - 6); bkGround310(B.g); B.g.rotation.y = -PI/2; if (!BK56.scoot){ BK56.scoot = makeScooter51({col: 0x7a3aaa}); bangG.add(BK56.scoot); } BK56.scoot.visible = true;
   shot([{p: V48(sj.x + 7, 2.6, sj.z + 5), l: V48(sj.x, 1.8, sj.z)}, {p: V48(sj.x + 5, 2.2, sj.z + 4), l: V48(sj.x, 1.9, sj.z), d: 2.6}, {p: V48(sj.x + 12, 2.4, sj.z + 6), l: V48(sj.x + 8, 1.2, sj.z), d: 1.6}, {p: V48(sj.x + 9, 2.0, sj.z + 4.5), l: V48(sj.x + 5, 1.3, sj.z), d: 2.2},
     {p: V48(sj.x + 6, 2.4, sj.z + 6), l: V48(sj.x + 2, 1.4, sj.z - 2), d: 2.0}, {p: V48(sj.x + 9, 4, sj.z + 9), l: V48(sj.x + 2, 2.5, sj.z - 3), d: 2.4}, {p: V48(sj.x + 7, 3, sj.z + 7), l: V48(sj.x + 1, 0.8, sj.z), d: 1.5}],
     {freeze: true, caption: 'STEEL JAW', sub: 'Seven foot two. Steel teeth. Once ate a tuk-tuk. Most of it.', hold: () => !FIN56.done});
@@ -28246,12 +28250,12 @@ function updateFinale56(dt, time){ if (!FIN56.on) return; const F = FIN56, R = R
   if (F.t < 2.6){ SJ.g.rotation.y = PI/2; SJ.arms[0].rotation.x = SJ.arms[1].rotation.x = -1.2; }
   ev(1.2, () => { speak(SJ.g, 'CHOMP!'); const T = R.targets[0]; T.board.visible = false; emit('bit', T.g.position.clone().setY(2), 10, 1, 1.5); tone(140, 0.2, 'square', 0.05, 60); });
   // Justice Beaver arrives on a purple scooter
-  if (F.t > 2.4 && F.t < 4.6){ const k = Math.min(1, (F.t - 2.4)/1.8), x = R.x + 20 - k*(R.x + 20 - (sj.x + 6)); B.g.position.set(x, 0.55, sj.z); sc.position.set(x, 0.15, sj.z); sc.rotation.y = -PI/2; if (Math.floor(F.t*8) !== Math.floor((F.t - dt)*8)) tone(140 + k*60, 0.12, 'sawtooth', 0.02, 180); }
-  ev(4.6, () => { B.g.position.set(sj.x + 5, 0.15, sj.z + 0.6); sc.position.x = sj.x + 7; speak(B.g, 'JUSTICE... BEAVER!'); flick56(); saw56(0.9, 0.04); SJ.g.rotation.y = PI/2; });
+  if (F.t > 2.4 && F.t < 4.6){ const k = Math.min(1, (F.t - 2.4)/1.8), x = R.x + 20 - k*(R.x + 20 - (sj.x + 6)); B.g.position.set(x, 0.55, sj.z); sc.position.set(x, 0.15, sj.z); bkGround310(sc); sc.rotation.y = -PI/2; if (Math.floor(F.t*8) !== Math.floor((F.t - dt)*8)) tone(140 + k*60, 0.12, 'sawtooth', 0.02, 180); }
+  ev(4.6, () => { B.g.position.set(sj.x + 5, 0.15, sj.z + 0.6); bkGround310(B.g); sc.position.x = sj.x + 7; speak(B.g, 'JUSTICE... BEAVER!'); flick56(); saw56(0.9, 0.04); SJ.g.rotation.y = PI/2; });
   ev(6.4, () => { B.arms[1].rotation.x = -1.6; B.g.position.x = sj.x + 1.6; speak(SJ.g, 'CHOMP!'); emit('spark', _a56.copy(sj).setY(2.2), 30, 1.6, 2); tone(1200, 0.4, 'square', 0.05, 300); B.saw.userData.bar.visible = false; });
   ev(7.6, () => speak(B.g, '...It was for the look anyway.'));
   // he gnaws through the watchtower
-  ev(8.8, () => { B.g.position.set(R.pole.position.x + 0.6, 0.15, R.pole.position.z - 0.2); B.g.rotation.y = -PI/2; speak(B.g, 'GNAW GNAW GNAW'); });
+  ev(8.8, () => { B.g.position.set(R.pole.position.x + 0.6, 0.15, R.pole.position.z - 0.2); bkGround310(B.g); B.g.rotation.y = -PI/2; speak(B.g, 'GNAW GNAW GNAW'); });
   if (F.t > 8.8 && F.t < 10.6 && Math.floor(F.t*10) !== Math.floor((F.t - dt)*10)){ emit('bit', _a56.copy(R.pole.position).setY(1), 3, 0.8, 1.2); noise(0.06, 1800, 0.04); }
   ev(10.6, () => { speak(B.g, 'TIMBERRR!'); });
   if (F.t > 10.6){ R.pole.rotation.x = Math.min(PI/2, (F.t - 10.6)*(F.t - 10.6)*2.2); if (R.pole.rotation.x >= PI/2) fallPole56(); }
@@ -28281,7 +28285,7 @@ function makeMonitor56(s = 1){ const g = new THREE.Group(), skin = mat(0x4a5a3a)
   return {g, head, tongue, tail, legs, bodyG}; }
 
 function updateLiz56(dt, time){ const Z = LIZ56, P = player.pos, L_ = BK.lumpini; if ((P.x - L_.cx)**2 + (P.z - L_.cz)**2 > 160*160) return;
-  const M = Z.Z, near = M.g.position.distanceTo(P), slow = near < 7 ? 0.25 : 1; Z.a += dt*0.022*slow; const x = L_.cx + Math.cos(Z.a)*Z.R, z = L_.cz + Math.sin(Z.a)*Z.R; M.g.position.set(x, 0.15, z); M.g.rotation.y = Math.atan2(-Math.sin(Z.a), Math.cos(Z.a));
+  const M = Z.Z, near = M.g.position.distanceTo(P), slow = near < 7 ? 0.25 : 1; Z.a += dt*0.022*slow; const x = L_.cx + Math.cos(Z.a)*Z.R, z = L_.cz + Math.sin(Z.a)*Z.R; M.g.position.set(x, 0.15, z); bkGround310(M.g); M.g.rotation.y = Math.atan2(-Math.sin(Z.a), Math.cos(Z.a));
   const ph = time*2.4*slow; M.tail.forEach((t, k) => t.rotation.y = Math.sin(ph - k*0.7)*0.22); M.legs.forEach((l, k) => l.rotation.y = Math.sin(ph*1.5 + (k === 0 || k === 3 ? 0 : PI))*0.4); M.bodyG.rotation.y = Math.sin(ph*1.5)*0.06; M.tongue.visible = Math.sin(time*3.1) > 0.7;
   Z.bumpCd = (Z.bumpCd || 0) - dt; if (near < 4.5 && state === 'play' && !SHOT && Z.bumpCd <= 0){ Z.bumpCd = 2; knock(x, z, 6, 4); floatText(P, 'Lizzilla is unbothered.', '#c8b84a', 1.6); }
   Z.roarT -= dt; if (Z.roarT <= 0 && near < 40){ Z.roarT = rr(14, 24); tone(55, 1.4, 'sawtooth', 0.05, 38); noise(1.0, 300, 0.03); floatText(M.g.position, 'HSSSSSSSSS', '#c8b84a', 1.8, {yoff: 4}); M.head.rotation.x = -0.3; setTimeout(() => { M.head.rotation.x = 0; }, 1400); }
@@ -33866,16 +33870,16 @@ CL118 = (() => { const out = {}; const [cx, cz] = freeBK118(218, 192, 4); out.cx
   const doc = makeChicken({breed: 'brahma'}); scene.remove(doc.g); bangG.add(doc.g); doc.g.scale.setScalar(2.4); doc.g.position.set(cx - 1.2, 0.2, cz - 0.3); doc.g.rotation.y = 0; doc.bp.add(boxMesh(0.62, 0.5, 0.55, mat(0xf8f8f8), 0, 0.0, 0)); const dm = mask118(doc); dm.visible = true;
   out.kev = kev; out.doc = doc; out.bub = bub; out.spot = {doc: V48(cx - 1.2, 1, cz + 1.0), kev: V48(cx + 2, 1, cz + 0.4), jab: V48(cx + 3.6, 1, cz + 3.6)};
   // the patients: six spotty chickens round Yolkowarat, waiting for masks
-  out.pats = [[20, 130], [44, 150], [10, 160], [52, 120], [28, 108], [60, 165]].map(([lx, lz], k) => { const [x, z] = freeBK118(lx, lz, 0.6), C = makeChicken({breed: pick(['leghorn', 'silkie', 'brahma', 'frizzle'])}); scene.remove(C.g); bangG.add(C.g); C.g.scale.setScalar(1.8); C.g.position.set(x, 0.15, z); C.g.rotation.y = rand()*6; const sp = spots118(C), mk = mask118(C); return {C, sp, mk, pos: V48(x, 1, z), k}; });
+  out.pats = [[20, 130], [44, 150], [10, 160], [52, 120], [28, 108], [60, 165]].map(([lx, lz], k) => { const [x, z] = freeBK118(lx, lz, 0.6), C = makeChicken({breed: pick(['leghorn', 'silkie', 'brahma', 'frizzle'])}); scene.remove(C.g); bangG.add(C.g); C.g.scale.setScalar(1.8); C.g.position.set(x, 0.15, z); bkGround310(C.g); C.g.rotation.y = rand()*6; const sp = spots118(C), mk = mask118(C); return {C, sp, mk, pos: V48(x, 1, z), k}; });
   // the vaccination queue
-  out.queue = [0, 1, 2, 3, 4, 5, 6, 7].map(k => { const C = makeChicken({breed: pick(['leghorn', 'silkie', 'brahma', 'frizzle', 'polish', 'cemani'])}); scene.remove(C.g); bangG.add(C.g); C.g.scale.setScalar(1.7); C.g.position.set(cx + 4 + k*1.6, 0.15, cz + 3.6); C.g.rotation.y = -PI/2; C.g.visible = false; return {C, sp: spots118(C)}; });
+  out.queue = [0, 1, 2, 3, 4, 5, 6, 7].map(k => { const C = makeChicken({breed: pick(['leghorn', 'silkie', 'brahma', 'frizzle', 'polish', 'cemani'])}); scene.remove(C.g); bangG.add(C.g); C.g.scale.setScalar(1.7); C.g.position.set(cx + 4 + k*1.6, 0.15, cz + 3.6); bkGround310(C.g); C.g.rotation.y = -PI/2; C.g.visible = false; return {C, sp: spots118(C)}; });
   // Uncle Somsak and his bread mountain (Chatu-chuck Market); the influencer (Siam Squawk)
   { const [x, z] = freeBK118(225, -300, 2.5), K2 = kit47(); for (let k = 0; k < 40; k++){ const a = rand()*PI*2, r = rr(0, 1.6), h = Math.max(0, 1.6 - r)*0.9; K2.box(0.5, 0.3, 0.3, x + Math.cos(a)*r, 0.3 + rr(0, h), z + Math.sin(a)*r, pick([0xe8c890, 0xd8a868, 0xf4e0b0, 0xd8302a, 0xffd23a]), {ry: rand()*3}); } addSolid(x, z, 3, 3, 0, 1.6, 'breadmtn'); const g2 = new THREE.Group(); bangG.add(g2); K2.build(g2);
     const H = makeHuman({shirt: 0xf4f0e6, pants: 0x3a3a42}); scene.remove(H.g); H.snack.visible = false; bangG.add(H.g); H.g.position.set(x, 1.55, z); sitPose(H); H.g.position.y = 1.3; out.somsak = H; out.spot.somsak = V48(x + 2.3, 1, z + 0.5); out.bread = V48(x, 0, z); }
-  { const [x, z] = freeBK118(80, -50, 1.2), H = makeHuman({shirt: 0xff9ac8, pants: 0xf4f0e6, hair: 0xe8c878}); scene.remove(H.g); H.snack.visible = false; bangG.add(H.g); H.g.position.set(x, 0.15, z); H.arms[1].rotation.x = -1.5; H.arms[1].add(boxMesh(0.08, 0.16, 0.02, mat(0x1a1a1e), 0, -0.62, 0.1)); out.krys = H; out.spot.krys = V48(x, 1, z + 1.2);
+  { const [x, z] = freeBK118(80, -50, 1.2), H = makeHuman({shirt: 0xff9ac8, pants: 0xf4f0e6, hair: 0xe8c878}); scene.remove(H.g); H.snack.visible = false; bangG.add(H.g); H.g.position.set(x, 0.15, z); bkGround310(H.g); H.arms[1].rotation.x = -1.5; H.arms[1].add(boxMesh(0.08, 0.16, 0.02, mat(0x1a1a1e), 0, -0.62, 0.1)); out.krys = H; out.spot.krys = V48(x, 1, z + 1.2);
     const K3 = kit47(); K3.box(1.2, 0.8, 0.6, x + 1.2, 0.55, z, 0xc8a8ff); for (let k = 0; k < 6; k++) K3.box(0.12, 0.2, 0.12, x + 0.8 + (k % 3)*0.3, 1.05, z - 0.1 + Math.floor(k/3)*0.2, pick([0xc8a8ff, 0x9be5ff, 0xff9ac8])); const g3 = new THREE.Group(); bangG.add(g3); K3.build(g3); sign49('✨ CRYSTAL FEATHER THERAPY ✨\nAs seen on my channel', 1.6, 0.45, x + 1.2, 1.4, z + 0.32, 0, bangG, {bg: '#c8a8ff', fg: '#ffffff', size: 20, pw: 384, ph: 108}); }
   // contact tracing: three chickens Kevin met
-  out.contacts = [[110, -80, 'Muay Thigh Stadium'], [-43, 50, 'Temple of the Golden Rooster'], [-86, 220, 'Mandarin Orientail']].map(([lx, lz, place], k) => { const [x, z] = freeBK118(lx, lz, 0.8), C = makeChicken({breed: ['frizzle', 'polish', 'phoenix'][k]}); scene.remove(C.g); bangG.add(C.g); C.g.scale.setScalar(1.9); C.g.position.set(x, 0.15, z); C.g.rotation.y = rand()*6; const sp = spots118(C, 5); return {C, sp, place, pos: V48(x, 1, z)}; });
+  out.contacts = [[110, -80, 'Muay Thigh Stadium'], [-43, 50, 'Temple of the Golden Rooster'], [-86, 220, 'Mandarin Orientail']].map(([lx, lz, place], k) => { const [x, z] = freeBK118(lx, lz, 0.8), C = makeChicken({breed: ['frizzle', 'polish', 'phoenix'][k]}); scene.remove(C.g); bangG.add(C.g); C.g.scale.setScalar(1.9); C.g.position.set(x, 0.15, z); bkGround310(C.g); C.g.rotation.y = rand()*6; const sp = spots118(C, 5); return {C, sp, place, pos: V48(x, 1, z)}; });
   // distance circles painted round the clinic
   { const m = new THREE.MeshBasicMaterial({color: 0xffd23a, transparent: true, opacity: 0.6, depthWrite: false}); for (let k = 0; k < 10; k++){ const a = k/10*PI*2, c = mesh(new THREE.RingGeometry(0.6, 0.7, 20), m, cx + Math.cos(a)*7, 0.18, cz + Math.sin(a)*7); c.rotation.x = -PI/2; bangG.add(c); } }
   // masks for the street walkers, while it lasts
@@ -33928,17 +33932,17 @@ PLUS118 = (() => { const out = {}, white = mat(0xf8f8f4), core = mat(0xc8a878);
   { const K = kit47(), b = CL118.bread; for (let k = 0; k < 60; k++){ const lvl = Math.floor(k/12), a = (k % 12)/12*PI*2, r = 0.9 - lvl*0.17; roll(K, b.x + Math.cos(a)*r, 1.75 + lvl*0.25, b.z + Math.sin(a)*r, a); } const g = new THREE.Group(); bangG.add(g); K.build(g); }
   // the toilet-roll fight: two hens, one last pack
   { const [x, z] = freeBK118(212, -300, 1.5), K = kit47(); for (let k = 0; k < 4; k++) roll(K, x + (k % 2)*0.24 - 0.12, 0.3 + Math.floor(k/2)*0.25, z, 0); const g = new THREE.Group(); bangG.add(g); K.build(g);
-    out.hens = [-1, 1].map(s => { const C = makeChicken({breed: s < 0 ? 'leghorn' : 'brahma'}); scene.remove(C.g); bangG.add(C.g); C.g.scale.setScalar(1.8); C.g.position.set(x + s*0.9, 0.15, z); C.g.rotation.y = s < 0 ? PI/2 : -PI/2; return C; }); out.fight = V48(x, 1, z + 1.4); out.pack = V48(x, 0.5, z); }
+    out.hens = [-1, 1].map(s => { const C = makeChicken({breed: s < 0 ? 'leghorn' : 'brahma'}); scene.remove(C.g); bangG.add(C.g); C.g.scale.setScalar(1.8); C.g.position.set(x + s*0.9, 0.15, z); bkGround310(C.g); C.g.rotation.y = s < 0 ? PI/2 : -PI/2; return C; }); out.fight = V48(x, 1, z + 1.4); out.pack = V48(x, 0.5, z); }
   // the Freedom Flock, protesting at the clinic, at a very safe distance (they are not stupid; they are just wrong)
   { const cx = CL118.cx, cz = CL118.cz; out.flock = []; const signs = ['MY BEAK, MY CHOICE', 'DO YOUR OWN RESEARCH', 'NO CHIPS IN MY CHICKEN', 'I AM NOT A LAB RAT', 'THE POX IS A HOAX (I HAVE THE POX)'];
-    for (let k = 0; k < 5; k++){ const [x, z] = freeBK118(CL118.cx - BK.x - 9 - (k % 3)*1.8, CL118.cz - BK.z + 4 + Math.floor(k/3)*1.8, 0.6), C = makeChicken({breed: pick(['frizzle', 'polish', 'cemani', 'leghorn'])}); scene.remove(C.g); bangG.add(C.g); C.g.scale.setScalar(1.8); C.g.position.set(x, 0.15, z); C.g.rotation.y = Math.atan2(cx - x, cz - z);
+    for (let k = 0; k < 5; k++){ const [x, z] = freeBK118(CL118.cx - BK.x - 9 - (k % 3)*1.8, CL118.cz - BK.z + 4 + Math.floor(k/3)*1.8, 0.6), C = makeChicken({breed: pick(['frizzle', 'polish', 'cemani', 'leghorn'])}); scene.remove(C.g); bangG.add(C.g); C.g.scale.setScalar(1.8); C.g.position.set(x, 0.15, z); bkGround310(C.g); C.g.rotation.y = Math.atan2(cx - x, cz - z);
       const post = boxMesh(0.04, 1.0, 0.04, mat(0x8a6a4a), 0, 1.0, 0.1); C.g.add(post); sign49(signs[k], 1.0, 0.36, x, 1.25*1.8, z, C.g.rotation.y, bangG, {bg: '#f4f0e6', fg: '#1a1a1e', size: 18, pw: 384, ph: 128}); out.flock.push({C, sp: spots118(C, 4)}); }
     const lead = out.flock[0]; out.prasert = V48(lead.C.g.position.x + 1.2, 1, lead.C.g.position.z + 1.2); }
   // Cluck Exotic's big cat sanctuary (the big cats are house cats, painted with stripes)
   { const [x, z] = freeBK118(260, -240, 5), K = kit47(); for (let k = 0; k <= 16; k++){ const a = k/16*PI*2; K.box(0.08, 1.4, 0.08, x + Math.cos(a)*4, 0.85, z + Math.sin(a)*4, 0x8a8a92); } for (let k = 0; k < 16; k++){ const a = (k + 0.5)/16*PI*2; K.box(1.6, 0.04, 0.04, x + Math.cos(a)*3.92, 1.4, z + Math.sin(a)*3.92, 0x8a8a92, {ry: -a + PI/2}); K.box(1.6, 0.04, 0.04, x + Math.cos(a)*3.92, 0.5, z + Math.sin(a)*3.92, 0x8a8a92, {ry: -a + PI/2}); }
     const g = new THREE.Group(); bangG.add(g); K.build(g); addSolid(x, z, 7, 7, 0, 1.5, 'zoo'); sign49('THE C.L. ZOO · BIG CATS · ENTRY 5 CRUMBS\n"I\'m not a pigeon person. I\'m a cat person."', 4.2, 0.7, x, 2.2, z + 4.2, 0, bangG, {bg: '#1a1a1e', fg: '#ffd23a', size: 20, pw: 640, ph: 104});
-    out.cats = []; for (let k = 0; k < 5; k++){ const Cc = makeCat([0xe89a3a, 0xf4f0e6]); scene.remove(Cc.g); bangG.add(Cc.g); Cc.g.scale.setScalar(1.7); const a = rand()*PI*2, r = rr(0.8, 2.8); Cc.g.position.set(x + Math.cos(a)*r, 0.15, z + Math.sin(a)*r); Cc.g.rotation.y = rand()*6; out.cats.push(Cc); }
-    const ex = makeChicken({breed: 'leghorn', col: 0xe8b860}); scene.remove(ex.g); bangG.add(ex.g); ex.g.scale.setScalar(2.2); ex.g.position.set(x + 4.6, 0.15, z + 4.6); ex.g.rotation.y = PI*1.2; const mul = mesh(SPHERE, mat(0xf0d070), 0, 0.12, -0.12); mul.scale.set(0.16, 0.22, 0.2); ex.neckP.add(mul); ex.bp.add(boxMesh(0.44, 0.26, 0.36, mat(0xd8a038), 0, 0.02, 0.06)); for (let s = 0; s < 8; s++) ex.bp.add(boxMesh(0.05, 0.05, 0.02, mat(0x3a2a1a), rr(-0.18, 0.18), rr(-0.08, 0.12), 0.25));
+    out.cats = []; for (let k = 0; k < 5; k++){ const Cc = makeCat([0xe89a3a, 0xf4f0e6]); scene.remove(Cc.g); bangG.add(Cc.g); Cc.g.scale.setScalar(1.7); const a = rand()*PI*2, r = rr(0.8, 2.8); Cc.g.position.set(x + Math.cos(a)*r, 0.15, z + Math.sin(a)*r); bkGround310(Cc.g); Cc.g.rotation.y = rand()*6; out.cats.push(Cc); }
+    const ex = makeChicken({breed: 'leghorn', col: 0xe8b860}); scene.remove(ex.g); bangG.add(ex.g); ex.g.scale.setScalar(2.2); ex.g.position.set(x + 4.6, 0.15, z + 4.6); bkGround310(ex.g); ex.g.rotation.y = PI*1.2; const mul = mesh(SPHERE, mat(0xf0d070), 0, 0.12, -0.12); mul.scale.set(0.16, 0.22, 0.2); ex.neckP.add(mul); ex.bp.add(boxMesh(0.44, 0.26, 0.36, mat(0xd8a038), 0, 0.02, 0.06)); for (let s = 0; s < 8; s++) ex.bp.add(boxMesh(0.05, 0.05, 0.02, mat(0x3a2a1a), rr(-0.18, 0.18), rr(-0.08, 0.12), 0.25));
     out.exotic = V48(x + 5.6, 1, z + 5.4); out.zoo = V48(x, 0, z); }
   return out; })();
 VOICES['Uncle Prasert'] = VOICES['Uncle Prasert'] || {kind: 'chatter', base: 140, range: 0.3, rate: 12, cps: 44};
@@ -38726,11 +38730,23 @@ function slabPoly48(poly, top = paveB48, y = 0.15){
   // both windings for the top so either order of corners shows from above
   const tri = []; for (let k = 1; k < n - 1; k++) tri.push(0, k, k + 1, 0, k + 1, k); geo.setIndex([...tri, ...g1]); geo.addGroup(0, tri.length, 0); geo.addGroup(tri.length, g1.length, 1); geo.computeBoundingSphere();
   const m = new THREE.Mesh(geo, [top, slabSideMat]); m.receiveShadow = true; const cx = poly.reduce((a, p) => a + p[0], 0)/n, cz = poly.reduce((a, p) => a + p[1], 0)/n; ex48(cx, cz, m);
-  const minX = Math.min(...poly.map(p => p[0])), maxX = Math.max(...poly.map(p => p[0])), minZ = Math.min(...poly.map(p => p[1])), maxZ = Math.max(...poly.map(p => p[1])), st = 6;
-  for (let x = minX + st/2; x < maxX; x += st) for (let z = minZ + st/2; z < maxZ; z += st) if (pin48(poly, x, z)) addSolid(x, z, st + 0.2, st + 0.2, 0, y, 'slab');
+  const minX = Math.min(...poly.map(p => p[0])), maxX = Math.max(...poly.map(p => p[0])), minZ = Math.min(...poly.map(p => p[1])), maxZ = Math.max(...poly.map(p => p[1]));
+  slab310(poly, y, minX, maxX, minZ, maxZ);   // v310: the outline, not 6 m squares (see slab310)
   bmapP48(poly, top === lawn47 ? '#7fbf5a' : '#cbbba1', top === lawn47 ? 'park' : 'slab');
   return m;
 }
+
+// v310: the slab was solid as 6 m squares wherever a square's middle was inside it. Along every edge that left a strip up
+// to 3 m wide with no solid (the pavements: Pidge walked 15 cm down inside them, and whatever floorAt stood there sank
+// too), and squares that stuck out past the edge made an invisible step over 3% of the street. The slabs' outlines are
+// kept here instead, and floorAt and the collision stand on exactly the outline (11,000 fewer solids in the city, too)
+const SLABS310 = new Map();
+function slab310(poly, y, x0, x1, z0, z1){ const s = {poly, y}; for (let gx = Math.floor(x0/64); gx <= Math.floor(x1/64); gx++) for (let gz = Math.floor(z0/64); gz <= Math.floor(z1/64); gz++){ const k = gx*65536 + gz; let L = SLABS310.get(k); if (!L) SLABS310.set(k, L = []); L.push(s); } }
+function slabAt310(x, z){ const L = SLABS310.get(Math.floor(x/64)*65536 + Math.floor(z/64)); if (L) for (const s of L) if (pin48(s.poly, x, z)) return s.y; return -1; }
+const SLABSOLID310 = {tag: 'slab', minX: 0, maxX: 0, minZ: 0, maxZ: 0, minY: 0, maxY: 0.15};
+aroundHook('floorAt', function(next, x, z, y){ const f = next(x, z, y); if (x > -3000 || f >= 0.14) return f; const h = slabAt310(x, z); return h > f && y + 0.05 >= h ? h : f; });
+aroundHook('collide', function(next, p, vel, prevY){ const r = next(p, vel, prevY); if (p.x > -3000 || (r && r !== true && r.maxY >= 0.14) || vel.y > 0.01) return r;
+  const h = slabAt310(p.x, p.z); if (h < 0 || p.y > h + 0.001 || Math.max(p.y, prevY) + STEP < h) return r; p.y = h; vel.y = 0; return SLABSOLID310; });
 
 // a whole block: the slab, a terrace on each side, a soi (lane) through one side, a spirit house, a tree or two
 function block48(q, opt = {}){
@@ -47766,6 +47782,13 @@ WHATS_NEW.unshift(['308 · Out of Sight', 'The people New Yolk keeps out of sigh
 GAME_VER.n = 309;
 GAME_VER.name = 'Solid Ground';
 WHATS_NEW.unshift(['309 · Solid Ground', 'Floors are solid where they’re drawn: in the Shrimp Shack, the airport, the aquarium, New Yolk Central, the Louvre, the Opéra, Galeries Lafayette and most of St. Petersbird’s rooms Pidge no longer walks with its feet in the floorboards. Paree’s bicycles ride over the hill instead of through it, and Bangcluck’s walkers and chickens stand on the pavement instead of hovering above it. And the town events’ rides work again: you can ride the Great Cheese, the hot-air balloon, the royal limo, the tour bus, the kites, the stilt walker’s hat and the window cleaner’s cradle (Pidge fell straight through them).']);
+/* =====================================================================
+   v310 · FEET ON THE GROUND: Bangcluck's pavements and crowds
+   ===================================================================== */
+// v310
+GAME_VER.n = 310;
+GAME_VER.name = 'Feet on the Ground';
+WHATS_NEW.unshift(['310 · Feet on the Ground', 'Bangcluck’s pavements are solid right to the kerb: Pidge used to sink into them near the edges. And the city’s crowds, chickens, cats, dogs, pandas, monitor lizards, tuk-tuks and stalls stand on the ground, on the pavement or the street, instead of floating a hand’s width above it.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
