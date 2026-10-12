@@ -6241,6 +6241,9 @@ function hollow(o){
   addSolid(cx, cz, w + 0.5, d + 0.5, top, top + 0.35, 'roof').ceil = true;
   const ft = plankTex.clone(); ft.needsUpdate = true; ft.repeat.set((w - 2*T)/2, (d - 2*T)/2);
   const floor = mesh(new THREE.PlaneGeometry(w - 2*T, d - 2*T), mat(0xffffff, {map: ft}), cx, base + 0.012, cz); floor.rotation.x = -PI/2; floor.receiveShadow = true; scene.add(floor);
+  // v309: the floor is solid at the height it's drawn. It was drawn on the 0.15 pavement slab that most of New Yolk stands
+  // on; away from it (the docks, the airport, Paree, St. Petersbird) Pidge walked at 0 with its feet in the boards
+  addSolid(cx, cz, w - 2*T, d - 2*T, 0, base, 'floor');
   let light = null; if (!o.noLight){ light = new THREE.PointLight(o.light || 0xffd8a0, 0.9, Math.max(w, d)*1.3, 1.5); light.position.set(cx, top - 0.7, cz); roomPool294(); }   // v294: the room keeps its light's settings (code may still dim or flicker it); a shared pool does the lighting
   mapRects.push({x0: cx - w/2, z0: cz - d/2, x1: cx + w/2, z1: cz + d/2, color: STYLES[style].base, kind:'bld'});
   buildings.push({cx, cz, w, d, top: top + 0.35, hollow: true});
@@ -9911,6 +9914,10 @@ function placeMover(o, x, z, h, bob = 0){
     P.pos.x = x + ox*c + oz*s; P.pos.z = z - ox*s + oz*c;
     P.heading += dh; P.prevHeading += dh; cam.yaw += dh; o.carrying = true;
   }
+  // v309: solids are filed by city where they stood when last filed (solidsAt48, bangcluck/claws-out.js). The town events'
+  // rides wait at 9999, on St. Petersbird's side; brought into New Yolk they stayed filed there and nothing could stand
+  // on them (the cheese, the balloon, the limo, the tour bus, the kites). A move into another city's area refiles them
+  { const reg = (px, pz) => px > 2500 ? 'pb' : px < -3000 ? 'bk' : pz > 1500 ? 'vil' : pz < -3000 ? 'tk' : 'ny'; if (SDIRTY48 === false && reg(o.x, o.z) !== reg(x, z)) SDIRTY48 = true; }
   o.x = x; o.z = z; o.h = h;
   o.g.position.set(x, o.y + bob, z); o.g.rotation.y = h;
   const c = Math.cos(h), s = Math.sin(h), ac = Math.abs(c), as = Math.abs(s);
@@ -11119,6 +11126,7 @@ function stationHall(o){
   addSolid(cx, cz, w + 0.6, d + 0.6, top, top + 0.4, 'roof').ceil = true;
   const ft = ugTerrazzo.clone(); ft.needsUpdate = true; ft.repeat.set((w - 2*T)/2, (d - 2*T)/2);
   const floor = mesh(new THREE.PlaneGeometry(w - 2*T, d - 2*T), mat(0xe8e0d0, {map: ft}), cx, base + 0.012, cz); floor.rotation.x = -PI/2; floor.receiveShadow = true; scene.add(floor);
+  addSolid(cx, cz, w - 2*T, d - 2*T, 0, base, 'floor');   // v309: solid where it's drawn (as hollow() in new-yolk/shops.js)
   mapRects.push({x0: cx - w/2, z0: cz - d/2, x1: cx + w/2, z1: cz + d/2, color: STYLES[style].base, kind: 'bld'});
   buildings.push({cx, cz, w, d, top: top + 0.4, hollow: true});
   const room = {name, minX: cx - w/2 + T, maxX: cx + w/2 - T, minZ: cz - d/2 + T, maxZ: cz + d/2 - T, top, camD: 3.6};
@@ -25137,14 +25145,14 @@ SOMCHAI48 = namedChicken48('Somchai', {col: 0x8a4a2a, scale: 1.1}, 'Somchai driv
 }
 for (let k = 0; k < 36; k++){
   const E = sidewalk48(), t = rr(8, E.L - 8), x = E.a[0] + (E.b[0] - E.a[0])*t/E.L + E.nx*E.side*6.6, z = E.a[1] + (E.b[1] - E.a[1])*t/E.L + E.nz*E.side*6.6;
-  const P = makeChicken({lite: true, breed: rand() < 0.75 ? undefined : pick(['silkie', 'bantam', 'cemani', 'frizzle'])}); const g = cg48(x, z); g.add(P.g); P.g.position.set(x, 0.15, z); P.g.scale.multiplyScalar(rr(0.8, 1.0));
+  const P = makeChicken({lite: true, breed: rand() < 0.75 ? undefined : pick(['silkie', 'bantam', 'cemani', 'frizzle'])}); const g = cg48(x, z); g.add(P.g); P.g.position.set(x, bkFoot309(x, z), z); P.g.scale.multiplyScalar(rr(0.8, 1.0));
   STREETCHICK48.push({P, anim: newAnim(), pos: P.g.position, tgt: null, t: rr(0, 4), home: V48(x, 0.15, z)});
 }
 {
   const looks = [{shirt: 0xf4f0e6}, {shirt: 0x2a6ad4}, {shirt: 0xe84a9a}, {shirt: 0xffd23a, hat: 0xd8c890}, {shirt: 0xff7a5a, skin: 0xffc8a8}, {shirt: 0x3f9a5a}, {shirt: 0x8a5fc7}, {shirt: 0xf4f0e6, pants: 0x2a2a30}];
   for (let k = 0; k < 44; k++){
     const H = makeHuman(pick(looks)); H.snack.visible = rand() < 0.3; scene.remove(H.g);
-    const E = sidewalk48(), u = rr(6, E.L - 6), x = E.a[0] + (E.b[0] - E.a[0])*u/E.L + E.nx*E.side*6.6, z = E.a[1] + (E.b[1] - E.a[1])*u/E.L + E.nz*E.side*6.6, g = cg48(x, z); g.add(H.g); H.g.position.set(x, 0.15, z);
+    const E = sidewalk48(), u = rr(6, E.L - 6), x = E.a[0] + (E.b[0] - E.a[0])*u/E.L + E.nx*E.side*6.6, z = E.a[1] + (E.b[1] - E.a[1])*u/E.L + E.nz*E.side*6.6, g = cg48(x, z); g.add(H.g); H.g.position.set(x, bkFoot309(x, z), z);
     WALK48.push({H, E, u, dir: rand() < 0.5 ? 1 : -1, sp: rr(0.9, 1.4), ph: rand()*6, wait: 0, lo: 6, hi: E.L - 6});
   }
 }
@@ -25165,6 +25173,9 @@ function sidewalk48(){ let h, i, j; do { h = rand() < 0.5; i = ri(0, GX48.length
 const STREETCHICK48 = [];
 
 // people on the sidewalks: locals, vendors on the move, sunburnt tourists
+// v309: Bangcluck's pavements are drawn at ground level (0 to 0.04), not on New Yolk's 0.15 slab: people and chickens
+// stood 15 cm up in the air
+const bkFoot309 = (x, z) => floorAt(x, z, 0.6) + 0.02;
 const WALK48 = [];
 
 // cluck-tuks, taxis and buses on the left-hand side of the road
@@ -25233,7 +25244,7 @@ function updateBangLife48(dt, time){
   for (const W of WALK48){ const g = W.H.g; if (!g.parent.visible) continue; const wd2 = (g.position.x - P.x)**2 + (g.position.z - P.z)**2; if (wd2 > 48*48){ g.visible = false; continue; } g.visible = true; { const sh = wd2 < 30*30; if (sh !== W.sh293){ W.sh293 = sh; W.H.torso.castShadow = W.H.head.castShadow = sh; } }   /* v293: drawn to 48 m (was 70), shadows only within 30 m */
     if (W.wait > 0){ W.wait -= dt; for (const l of W.H.legs) l.rotation.x *= 0.85; continue; }
     W.u += W.dir*W.sp*dt; if (W.u > W.hi || W.u < W.lo){ W.dir *= -1; W.u = clamp(W.u, W.lo, W.hi); } if (rand() < dt*0.05) W.wait = rr(1, 4);
-    const E = W.E, dx = (E.b[0] - E.a[0])/E.L, dz = (E.b[1] - E.a[1])/E.L, x = E.a[0] + dx*W.u + E.nx*E.side*6.6, z = E.a[1] + dz*W.u + E.nz*E.side*6.6; g.position.set(x, 0.15, z); g.rotation.y = Math.atan2(dx*W.dir, dz*W.dir);
+    const E = W.E, dx = (E.b[0] - E.a[0])/E.L, dz = (E.b[1] - E.a[1])/E.L, x = E.a[0] + dx*W.u + E.nx*E.side*6.6, z = E.a[1] + dz*W.u + E.nz*E.side*6.6; g.position.set(x, bkFoot309(x, z), z); g.rotation.y = Math.atan2(dx*W.dir, dz*W.dir);
     W.ph += dt*W.sp*4.2; const sw = Math.sin(W.ph)*0.55; W.H.legs[0].rotation.x = sw; W.H.legs[1].rotation.x = -sw; W.H.arms[0].rotation.x = -sw*0.5; }
   // traffic: drive on the left, turn at the junctions, beep at pigeons
   for (const v of TRAFFIC48){
@@ -37439,7 +37450,7 @@ function updateBikes175(dt, time){ const inP = inParis124(), P = player.pos, pla
     if (!B.on || B.rem <= 0 || Math.hypot(B.x - P.x, B.z - P.z) > 110){ B.on = false; B.g.visible = false; if (rand() < dt*0.8) placeBike175(B, P); continue; }
     const px = P.x - B.x, pz = P.z - B.z, fwd = px*B.dx + pz*B.dz, side = Math.abs(px*B.dz - pz*B.dx), block = P.y < 2 && fwd > 0 && fwd < 4 && side < 0.9;
     const red = B.kind === 'cargo' && typeof redAhead172 === 'function' && redAhead172(B, B.rem); // only the cargo bike stops at red lights
-    B.v = block || red ? Math.max(0, B.v - 10*dt) : Math.min(B.sp, B.v + 3*dt); B.x += B.dx*B.v*dt; B.z += B.dz*B.v*dt; B.rem -= B.v*dt; B.g.position.set(B.x, B.pave ? 0.15 : 0.05, B.z); B.g.rotation.y = Math.atan2(B.dx, B.dz); B.g.rotation.z = B.kind === 'velo' ? Math.sin(time*2 + B.t)*0.05 : 0;
+    B.v = block || red ? Math.max(0, B.v - 10*dt) : Math.min(B.sp, B.v + 3*dt); B.x += B.dx*B.v*dt; B.z += B.dz*B.v*dt; B.rem -= B.v*dt; B.g.position.set(B.x, Math.max(0, hill125(B.x - PAR.x, B.z - PAR.z)) + (B.pave ? 0.15 : 0.05), B.z);   /* v309: up and over the Quartier Latin hill, not through it */ B.g.rotation.y = Math.atan2(B.dx, B.dz); B.g.rotation.z = B.kind === 'velo' ? Math.sin(time*2 + B.t)*0.05 : 0;
     const spin = B.v*dt/0.32; B.wheels.forEach(w => w.rotation.x += spin); B.t += B.v*dt*1.6; const pd = Math.sin(B.t*2.4); B.H.legs[0].rotation.x = -1.15 + pd*0.45; B.H.legs[1].rotation.x = -1.15 - pd*0.45; B.H.knees[0].rotation.x = 1.0 - pd*0.5; B.H.knees[1].rotation.x = 1.0 + pd*0.5; B.kids.forEach((k, i) => k.position.y = 1.0 + Math.abs(Math.sin(time*6 + i*2))*0.05);
     B.cd -= dt; const d = Math.hypot(B.x - P.x, B.z - P.z); if (B.cd <= 0 && d < (block ? 8 : 5) && play){ B.cd = rr(6, 10); if (block || rand() < 0.6){ tone(2600, 0.08, 'sine', 0.03); tone(2600, 0.08, 'sine', 0.03, null, 0.14); } floatText(_c132.set(B.x, 2.4, B.z), B.pave ? mpick(['Pardon! PARDON! ...It is a shortcut.', 'The pavement is faster. Everyone knows.', '*rings at you, on the pavement, as if YOU are in the wrong*']) : mpick(BIKEB175[B.kind]), '#fff6dc', 1.6); } } }
 /* ---------- world: paree/smokers ---------- */
@@ -47748,6 +47759,13 @@ WHATS_NEW.unshift(['307 · Moving Day', 'Shelly’s “Moving Day” can be fini
 GAME_VER.n = 308;
 GAME_VER.name = 'Out of Sight';
 WHATS_NEW.unshift(['308 · Out of Sight', 'The people New Yolk keeps out of sight at the start of the story are really gone now: they no longer bump into you, talk from thin air or hand out pretzels from nowhere, and the gold beam in “Charm Offensive” points at someone you can actually see. After clicking a button on screen, Space flies again instead of pressing the button a second time. If your browser won’t let the game save, it tells you instead of showing “Saved”. And if something goes wrong in a frame, the game keeps drawing instead of freezing.']);
+/* =====================================================================
+   v309 · SOLID GROUND: fixes from the world review
+   ===================================================================== */
+// v309
+GAME_VER.n = 309;
+GAME_VER.name = 'Solid Ground';
+WHATS_NEW.unshift(['309 · Solid Ground', 'Floors are solid where they’re drawn: in the Shrimp Shack, the airport, the aquarium, New Yolk Central, the Louvre, the Opéra, Galeries Lafayette and most of St. Petersbird’s rooms Pidge no longer walks with its feet in the floorboards. Paree’s bicycles ride over the hill instead of through it, and Bangcluck’s walkers and chickens stand on the pavement instead of hovering above it. And the town events’ rides work again: you can ride the Great Cheese, the hot-air balloon, the royal limo, the tour bus, the kites, the stilt walker’s hat and the window cleaner’s cradle (Pidge fell straight through them).']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
