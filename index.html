@@ -2206,6 +2206,7 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
   // pipeline's output never reaches the screen in Chrome (three r186), and the page showed only its background
   const prime = () => { renderer.setRenderTarget(null); renderer.render(o.primeScene || (o.primeScene = new THREE.Scene()), camera); };
   o.resize = () => { renderer.getDrawingBufferSize(v); U.res.value.copy(v); renderer.getSize(v); POINTS_VIEW.value.copy(v); prime(); };
+  o.prime = () => { o.primeNext = true; };   // v305.1: and again after a picture drawn off screen (renderPortrait), or the canvas keeps its last frame
   let lights = [], n = 0;
   o.render = () => {
     U.night.value = nightF; if (WATER278.night) WATER278.night.value = nightF; U.outline.value = settings.outline === false ? 0 : 1; U.tilt.value = 1;
@@ -2229,6 +2230,7 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
     // shadows are drawn every frame: r186 loses track of a shadow map that skips frames ("destroyed texture"), so instead
     // of skipping frames the WebGPU frame draws fewer casters (see trimCasters)
     if (camera.parent === null) camera.updateMatrixWorld(); camera.matrixWorldInverse.copy(camera.matrixWorld).invert(); sbCullBundles(camera);   // whole static bundles out of view stay out
+    if (o.primeNext){ o.primeNext = false; prime(); }   // v305.1: after a picture drawn off screen
     pipe.render();
     // shaders that finished compiling in the background (shell.html): the recorded static bundles left out whatever wasn't
     // ready yet, so they record again once nothing is pending
@@ -6522,25 +6524,66 @@ for (const c of cyclists){ const road = c.fixed - c.dir*3.3; if (c.axis === 'z' 
 // From 031-portraits. The bs_* steps are run by boot/base.js, in load order.
 
 /* ---------- portraits ---------- */
-const PORTRAITS = {};
+// v305.1: WebGPU reads a picture back only later (readRenderTargetPixelsAsync; the old readRenderTargetPixels call threw, so
+// every portrait was blank, and the renderer was left drawing into the portrait, which froze the screen). There
+// renderPortrait answers a placeholder at once (a see-through pixel, tagged) and PORTRAITS hands out the finished picture
+// for it once it is in, wherever the placeholder was copied to.
+const PORTRAIT_DONE = new Map();
+const PORTRAITS = new Proxy({}, {get: (o, k) => { const v = o[k]; return PORTRAIT_DONE.get(v) ?? v; }});
+const PORTRAIT_BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+let portraitN = 0;
+// one at a time: dozens are asked for while a city loads, and all at once they held up the screen for seconds
+const PORTRAIT_Q = [];
+let portraitBusy = false;
+function portraitNext(){ if (portraitBusy || !PORTRAIT_Q.length) return; portraitBusy = true; PORTRAIT_Q.shift()().catch(() => {}).finally(() => { portraitBusy = false; portraitNext(); }); }
+const portraitWait = (ok, ms) => new Promise(done => { const t0 = performance.now(), f = () => ok() || performance.now() - t0 > ms ? done() : setTimeout(f, 30); f(); });
+
+// rows of N RGBA pixels (WebGL's bottom first, WebGPU's top first and padded to 256 bytes) into a data URL
+function portraitURL(buf, N, flip){
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const ctx = c.getContext('2d'), img = ctx.createImageData(N, N), row = buf.length === N*N*4 ? N*4 : Math.ceil(N*4/256)*256;   // (the last row isn't padded)
+  for (let y = 0; y < N; y++){ const at = (flip ? N - 1 - y : y)*row; img.data.set(buf.subarray(at, at + N*4), y*N*4); }
+  ctx.putImageData(img, 0, 0);
+  return c.toDataURL();
+}
 
 function renderPortrait(obj, camPos, look){
+  const gpu = !!window.__GPU, N = 48;
+  let rt = null;
   try {
-    const N = 48, rt = new THREE.WebGLRenderTarget(N, N);
+    rt = new THREE.WebGLRenderTarget(N, N);
     const ps = new THREE.Scene(); ps.background = new THREE.Color(0xf3cf8e);
-    ps.add(new THREE.HemisphereLight(0xfff3d9, 0x7a6a4a, 0.85));
+    const hl = new THREE.HemisphereLight(0xfff3d9, 0x7a6a4a, 0.85); ps.add(hl);
     const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(2, 3, 4); ps.add(dl);
-    ps.add(obj);
     const pc = new THREE.PerspectiveCamera(30, 1, 0.05, 20); pc.position.copy(camPos); pc.lookAt(look);
+    if (gpu){
+      // drawn once its shaders are compiled (until then the renderer skips it), from a copy: the caller may put the
+      // original back in the world first
+      hl.intensity *= PI; dl.intensity *= PI;   // r128's light units, as post.render does
+      let copy = obj; try { copy = obj.clone(); } catch(e) {}   // (clone copies userData as JSON, which can fail)
+      ps.add(copy);
+      const tag = PORTRAIT_BLANK + '#portrait' + (++portraitN), r = rt; rt = null;
+      const draw = () => { try { renderer.setRenderTarget(r); renderer.render(ps, pc); } finally { renderer.setRenderTarget(null); if (post && post.prime) post.prime(); } };
+      PORTRAIT_Q.push(async () => {
+        try {
+          await renderer.compileAsync(ps, pc).catch(() => {});
+          // a draw can still ask for shaders compileAsync didn't make (the mirrored wings): then it waits for those and draws again
+          const P = window.__PIPE, asked0 = P ? P.pending + P.done : 0, done0 = P ? P.done : 0;
+          draw();
+          const asked = P ? P.pending + P.done - asked0 : 0;
+          if (asked > 0){ await portraitWait(() => P.done - done0 >= asked, 3000); draw(); }
+          PORTRAIT_DONE.set(tag, portraitURL(await renderer.readRenderTargetPixelsAsync(r, 0, 0, N, N), N, false));
+        } finally { r.dispose(); }
+      });
+      portraitNext();
+      return tag;
+    }
+    ps.add(obj);
     renderer.setRenderTarget(rt); renderer.render(ps, pc);
     const buf = new Uint8Array(N*N*4); renderer.readRenderTargetPixels(rt, 0, 0, N, N, buf);
-    renderer.setRenderTarget(null); rt.dispose();
-    const c = document.createElement('canvas'); c.width = c.height = N;
-    const ctx = c.getContext('2d'), img = ctx.createImageData(N, N);
-    for (let y = 0; y < N; y++) img.data.set(buf.subarray((N - 1 - y)*N*4, (N - y)*N*4), y*N*4);
-    ctx.putImageData(img, 0, 0);
-    return c.toDataURL();
+    return portraitURL(buf, N, true);
   } catch(e) { return ''; }
+  finally { try { renderer.setRenderTarget(null); if (rt) rt.dispose(); } catch(e) {} }
 }
 
 const bs_uiPortraits_1 = () => {
@@ -8687,7 +8730,7 @@ for (const z of [-30, 30]){
   lhLamp = mesh(new THREE.CylinderGeometry(1.3, 1.3, 2, 10), mat(0xfff0b0, {emissive: 0xffe080, emissiveIntensity: 0.4, transparent: true, opacity: 0.8}), x, 17.9, z); scene.add(lhLamp);
   scene.add(mesh(new THREE.ConeGeometry(1.7, 1.6, 10), mat(0xd4483a), x, 19.7, z, true)); addSolid(x, z, 2.6, 2.6, 16.85, 20.5, 'lamproom');
   lhBeam = mesh(new THREE.CylinderGeometry(0.4, 4, 60, 8, 1, true), new THREE.MeshBasicMaterial({color: 0xfff0b0, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide}), 0, 0, 0);
-  const pivot = new THREE.Group(); pivot.position.set(x, 17.9, z); pivot.add(lhBeam); lhBeam.rotation.z = PI/2; lhBeam.position.x = 30; scene.add(pivot); lhBeam.pivot = pivot;
+  const pivot = new THREE.Group(); pivot.position.set(x, 17.9, z); pivot.add(lhBeam); lhBeam.rotation.z = PI/2; lhBeam.position.x = 30; scene.add(pivot); lhBeam.userData.pivot = pivot;   // v305.1: not lhBeam.pivot, which three r186 reads as the mesh's own pivot point (a NaN matrix: the beam was never drawn)
 }
 harbourGulls = Array.from({length: 5}, (_, k) => {
   const P = makePigeon({body: 0xf6f6f2, head: 0xfafaf6, wing: 0xb9c0c6, bar: 0xb9c0c6, tip: 0x2b2d31, neckPlain: 0xf4f4ef, beak: 0xf2c43a, eye: 0xf2e6a0, legs: 0xe8b84a, scale: 1.4, noCere: true, beakDot: true, noBars: true});
@@ -20939,7 +20982,7 @@ function updateDistricts(dt, time){
     if (Math.random() < dt*0.15 && playing) sfx.skree();
   }
   lhLamp.material.emissiveIntensity = 0.4 + nightF*1.6;
-  lhBeam.material.opacity = nightF*0.18; lhBeam.pivot.rotation.y = time*0.6;
+  lhBeam.material.opacity = nightF*0.18; lhBeam.userData.pivot.rotation.y = time*0.6;
   // Westfield lake ducks
   if (dist2(P.pos, LAKE) < 80) lakeDucks.forEach((d, i) => { const a = time*0.15*(i % 2 ? 1 : -1) + i*2.1, r = 2.5 + i*1.3; d.position.set(LAKE.x + Math.cos(a)*r, 0.12 + Math.sin(time*3 + i)*0.015, LAKE.z + Math.sin(a)*r); d.rotation.y = Math.atan2(-Math.sin(a)*(i % 2 ? 1 : -1), Math.cos(a)*(i % 2 ? 1 : -1)); });
   // church: rafter pigeons and the bells on the hour
@@ -26831,6 +26874,7 @@ function lift51(label, pos, dest, opts = {}){ LIFTS51.push({pos, dest}); addTalk
 const HOTELSEEN51 = {};
 
 function updateHotels51(dt, time){
+  if (!KEMP51) return;   // v305.1: the hotels are built with Bangcluck (v305), this runs from the start
   const P = player.pos, r = roomAt(P);
   if (state === 'play' && r && (r === MAND51.lobbyRoom || r === KEMP51.lobbyRoom) && !(Q51().seen || {})[r.name]){ const seen = Q51().seen = Q51().seen || {}; seen[r.name] = 1; save(); const L = r === MAND51.lobbyRoom ? MAND51.L : KEMP51.A, c = V48((L.x0 + L.x1)/2, 1.6, (L.z0 + L.z1)/2), H = r === MAND51.lobbyRoom ? 7.2 : 9;
     shot([{p: V48(L.x0 + 2, H - 1, L.z0 + 2), l: c}, {p: V48(L.x1 - 2, H - 2.5, L.z1 - 2), l: c, d: 5, ease: 'lin'}], {freeze: true, skippable: true, caption: r === MAND51.lobbyRoom ? 'THE MANDARIN ORIENTAIL' : 'THE KEMPINSKI BANGCLUCK', sub: r === MAND51.lobbyRoom ? 'Teak, orchids and a hundred and fifty years of very good manners.' : 'Black marble, gold leaf, and a very large shrimp.'}); addXP(20); }
