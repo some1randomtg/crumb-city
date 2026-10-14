@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v321 (menus pause the game, it remembers where you left off in every city, Grandpa Coo's lessons can be finished again, and many fixes from Tokyoo and Paree to the moon).
+Current version: v322 (smoother on WebGPU: 8 to 25% more frames a second in the big cities with exactly the same picture, no more stutter after arriving in a city, and a new Frame rate setting for fast screens).

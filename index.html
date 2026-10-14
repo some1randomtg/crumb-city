@@ -543,6 +543,7 @@
         <label class="set"><span>Town events</span><select id="setEvents"><option value="often">Often</option><option value="sometimes">Sometimes</option><option value="off">Off</option></select><button class="warp" id="evNow" type="button">Start one now</button></label>
         <label class="set"><span>HUD size</span><select id="setHud"><option value="auto">Auto</option><option value="small">Small</option><option value="normal">Normal</option><option value="large">Large</option></select></label>
         <label class="set"><span>Graphics</span><select id="setQuality"><option value="auto">Auto</option><option value="high">High</option><option value="low">Low (faster)</option></select></label>
+        <label class="set"><span>Frame rate</span><select id="setFps"><option value="auto">Steady (auto)</option><option value="off">As fast as it can</option><option value="60">60 a second</option><option value="30">30 a second</option></select></label>
         <label class="set"><span>Keyboard</span><select id="setKeys"><option value="turn">A/D turn (classic)</option><option value="camera">Move relative to the camera</option></select></label>
         <label class="set"><span>Touch stick</span><select id="setSteer"><option value="point">Point where to go</option><option value="tank">Turn and go (classic)</option></select></label>
         <label class="set chk"><input type="checkbox" id="setNorth"><span>Minimap: north always up</span></label>
@@ -667,7 +668,7 @@ window.__THREE_READY = (async () => {
   if (!gpu){ window.THREE = Object.assign({}, await import('https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.min.js')); window.__GPU = null; return; }
   const [T, TSL, csm, gtao, ssr, bloom, blur, smaa] = await Promise.all(['three/webgpu', 'three/tsl', 'three/addons/csm/CSMShadowNode.js', 'three/addons/tsl/display/GTAONode.js', 'three/addons/tsl/display/SSRNode.js', 'three/addons/tsl/display/BloomNode.js', 'three/addons/tsl/display/GaussianBlurNode.js', 'three/addons/tsl/display/SMAANode.js'].map(m => import(m)));
   window.THREE = Object.assign({}, T, {TSL, ADDONS: {CSMShadowNode: csm.CSMShadowNode, ao: gtao.ao, ssr: ssr.ssr, bloom: bloom.bloom, gaussianBlur: blur.gaussianBlur, smaa: smaa.smaa}, WebGLRenderTarget: T.RenderTarget});
-  window.__GPU = new T.WebGPURenderer({canvas: document.getElementById('game'), antialias: false, alpha: false, powerPreference: 'high-performance',   /* v299: the fast GPU on a two-GPU laptop */ trackTimestamp: q.has('ts')});   // alpha: false: an opaque canvas (the post pass's output carries no alpha, and a see-through canvas showed nothing in Chrome)   // ?ts=1: GPU timings, for tests
+  window.__GPU = new T.WebGPURenderer({canvas: document.getElementById('game'), antialias: false, alpha: false, powerPreference: 'high-performance',   /* v299: the fast GPU on a two-GPU laptop */ trackTimestamp: q.has('ts') || q.has('perf')});   // alpha: false: an opaque canvas (the post pass's output carries no alpha, and a see-through canvas showed nothing in Chrome)   // ?ts=1 (or ?perf=1, ui/perf-overlay.js): GPU timings, for tests
   await window.__GPU.init();
   // every render pipeline compiles in the background (createRenderPipelineAsync): on a real GPU the ~300 shaders took
   // minutes to compile one after another and froze the page with nothing drawn. An object now simply appears a moment
@@ -805,7 +806,7 @@ THREE.PointsMaterial = PointsMaterialGPU;
 // a hooked function is `function f(a){ return callHooked('f', fBase, [a]); }`, and when all its hooks are of one kind
 // the shorter runHooks (after) or askHooks (answers) does the same job.
 const HOOKS = {};
-const addHook = (name, kind, fn) => { (HOOKS[name] || (HOOKS[name] = [])).push({kind, fn}); return fn; };
+const addHook = (name, kind, fn) => { (HOOKS[name] || (HOOKS[name] = [])).push({kind, fn}); HOOKV321++; return fn; };
 function hook(name, fn){ return addHook(name, 'after', fn); }
 function answerHook(name, fn){ return addHook(name, 'answer', fn); }
 function aroundHook(name, fn){ return addHook(name, 'around', fn); }
@@ -813,6 +814,24 @@ function runHooks(name, ...a){ const L = HOOKS[name]; if (L) for (let i = 0; i <
 function askHooks(name, ...a){ const L = HOOKS[name]; if (L) for (let i = L.length - 1; i >= 0; i--){ const r = L[i].fn(...a); if (r) return r; } return null; }
 function callHooked(name, base, args){
   const L = HOOKS[name]; if (!L) return base(...args);
+  if (window.__noHookC321 === true) return callHookedOld321(L, base, args);
+  let c = L.c321; if (c === undefined || c.v !== HOOKV321 || c.base !== base) c = L.c321 = compileHooks321(L, base);
+  return c.f(args);
+}
+// v321: a hooked function's hooks, nested once into one function per hook list (made again whenever hooks are added or
+// a region puts them back in load order: HOOKV321), instead of a new closure for every hook at every call. Only an
+// around-hook still gets a fresh next() each call. Same order and the same answers as before
+// (window.__noHookC321 = true: the old way, live, for A/B).
+let HOOKV321 = 0;
+function compileHooks321(L, base){
+  let f = a => base(...a);
+  for (let i = 0; i < L.length; i++){ const h = L[i], fn = h.fn, inner = f;
+    if (h.kind === 'after') f = a => { const r = inner(a); fn(...a); return r; };
+    else if (h.kind === 'answer') f = a => { const r = fn(...a); return r ? r.answer : inner(a); };
+    else f = a => fn((...b) => inner(b.length ? b : a), ...a); }
+  return {f, v: HOOKV321, base};
+}
+function callHookedOld321(L, base, args){
   const go = (i, a) => {
     if (i < 0) return base(...a);
     const h = L[i];
@@ -821,6 +840,89 @@ function callHooked(name, base, args){
     return h.fn((...b) => go(i - 1, b.length ? b : a), ...a);
   };
   return go(L.length - 1, args);
+}
+/* ---------- ui: perf-overlay ---------- */
+// v321: ?perf=1 shows where a frame's time goes (WebGPU). A frame is split into the game's update (the frame's start to
+// post.render), the renderer's upkeep (matrices, batches, the scan: post.render up to the passes) and the submit (the
+// passes). The submit is split by pass: the main view, each shadow cascade, the post chain and anything else (portraits),
+// each with its CPU ms (its own, not counting a pass inside it), draws, triangles, objects walked and, from the GPU's
+// timestamps (?perf=1 turns them on, shell.html), its GPU ms. A panel in the corner shows the averages over the last
+// second; window.__perfLog keeps the last 600 frames for tools/route.mjs. Without ?perf=1, PERF is null and each mark in
+// the frame is one test.
+const PERF = /[?&]perf=1/.test(location.search) ? {frames: [], rec: null, stack: [], uid: new Map(), gpu: {}, gpuFrames: [], el: null, shown: 0, vis: null, info: ''} : null;
+
+// the passes, by camera: the game's camera on the scene is the main view, a shadow camera is its cascade (sh0 near, sh1 far)
+function perfLabel(scene0, cam){
+  if (cam === camera && scene0 === scene) return 'main';
+  if (cam && cam.userData && cam.userData.sbShadow === true){ const C = sun.shadow.shadowNode; if (C && C.lights) for (let i = 0; i < C.lights.length; i++) if (C.lights[i].shadow.camera === cam) return 'sh' + i; return 'sh'; }
+  return scene0 && scene0.isQuadMesh || (scene0 && scene0.isMesh) ? 'post' : 'other';
+}
+// the renderer tells its inspector when each pass starts and ends, with the pass's timestamp id (three r186 InspectorBase)
+function perfInit(){
+  if (!PERF || !window.__GPU || !THREE.InspectorBase) return;
+  class PerfInspector extends THREE.InspectorBase {
+    beginRender(uid, scene0, cam){ const R = renderer.info.render, l = perfLabel(scene0, cam);
+      PERF.stack.push({l, t: performance.now(), d: R.drawCalls, tr: R.triangles, kid: 0, kd: 0, ktr: 0, v: 0}); PERF.vis = PERF.stack[PERF.stack.length - 1];
+      if (uid) PERF.uid.set(uid, l); }
+    finishRender(){ const s = PERF.stack.pop(); if (!s) return; const R = renderer.info.render, ms = performance.now() - s.t, d = R.drawCalls - s.d, tr = R.triangles - s.tr;
+      const top = PERF.stack[PERF.stack.length - 1]; if (top){ top.kid += ms; top.kd += d; top.ktr += tr; } PERF.vis = top || null;
+      const r = PERF.rec; if (!r) return; const p = r.pass[s.l] || (r.pass[s.l] = {cpu: 0, draws: 0, tri: 0, vis: 0, n: 0});
+      p.cpu += ms - s.kid; p.draws += d - s.kd; p.tri += tr - s.ktr; p.vis += s.v; p.n++; }
+  }
+  renderer.inspector = new PerfInspector();
+  try { navigator.gpu.requestAdapter({powerPreference: 'high-performance'}).then(a => { const i = a && a.info; if (i) PERF.info = [i.vendor, i.architecture, i.description || i.device].filter(Boolean).join(' '); }); } catch (e){}
+  PERF.el = document.createElement('pre');
+  PERF.el.style.cssText = 'position:fixed;left:6px;top:6px;z-index:99999;margin:0;padding:6px 8px;font:11px/1.35 monospace;color:#e8ffe8;background:rgba(0,0,0,.66);pointer-events:none;white-space:pre;border-radius:4px';
+  document.body.appendChild(PERF.el);
+  window.__perfLog = PERF; PERF.summary = perfSummary;
+}
+// a frame starts (core/loop.js): the last one is closed and kept. t0 is the frame's time as requestAnimationFrame gives it
+// (the intervals); ts is when its callback started running (the CPU times: the callback can start well after t0)
+function perfFrame(now){
+  if (!PERF) return; const r = PERF.rec;
+  if (r){ r.end = r.end || r.ts; PERF.frames.push(r); if (PERF.frames.length > 600) PERF.frames.shift(); }
+  if (window.__GPU && renderer.info) renderer.info.reset();   // (the game draws from its own requestAnimationFrame, so nothing else resets the per-frame counts)
+  PERF.rec = {t0: now, ts: performance.now(), dt: r ? now - r.t0 : 0, upd: 0, upk: 0, sub: 0, end: 0, pass: {}, gov: window.GOV295 ? GOV295.lvl : 0};
+  if (window.__GPU && renderer.backend.trackTimestamp && !PERF.busy){ PERF.busy = true;
+    renderer.resolveTimestampsAsync('render').then(() => { PERF.busy = false; perfGpu(); }, () => { PERF.busy = false; }); }
+  if (now - PERF.shown > 500){ PERF.shown = now; perfShow(); }
+}
+// the marks inside a frame: 'upd' as post.render starts, 'upk' as the passes start, 'sub' when they're done
+function perfMark(k){ const r = PERF && PERF.rec; if (!r) return; const t = performance.now(); if (k === 'upd') r.upd = t - r.ts; else if (k === 'upk') r.upk = t - r.ts - r.upd; else { r.sub = t - r.ts - r.upd - r.upk; r.end = t; } }
+// the GPU times of the frames just resolved, by pass
+function perfGpu(){
+  const pool = renderer.backend.timestampQueryPool && renderer.backend.timestampQueryPool.render; if (!pool || !pool.timestamps) return;
+  const by = {}, fr = new Map();
+  for (const [uid, ms] of pool.timestamps){ const l = PERF.uid.get(uid) || 'other', f = uid.slice(uid.lastIndexOf(':f') + 2); by[l] = (by[l] || 0) + ms; fr.set(f, (fr.get(f) || 0) + ms); }
+  const n = Math.max(1, fr.size); PERF.gpu = {}; for (const l in by) PERF.gpu[l] = by[l]/n;
+  for (const ms of fr.values()){ PERF.gpuFrames.push(ms); if (PERF.gpuFrames.length > 600) PERF.gpuFrames.shift(); }
+  if (PERF.uid.size > 20000) PERF.uid.clear();
+}
+// the last n frames: frame intervals, CPU split and passes (median and percentiles), GPU ms
+const perfQ = (a, q) => { if (!a.length) return 0; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q*s.length))]; };
+function perfSummary(n = 120){
+  const F = PERF.frames.slice(-n), dts = F.map(f => f.dt).filter(x => x > 0), cpu = F.map(f => f.end - f.ts), out = {frames: F.length, gpuName: PERF.info, dpr: window.devicePixelRatio, buffer: (() => { const v = new THREE.Vector2(); renderer.getDrawingBufferSize(v); return [v.x, v.y]; })()};
+  out.fps = dts.length ? 1000/(dts.reduce((a, b) => a + b, 0)/dts.length) : 0;
+  out.dt = {p50: perfQ(dts, 0.5), p95: perfQ(dts, 0.95), p99: perfQ(dts, 0.99)};
+  // a dropped frame: an interval over 1.5 times the refresh (the shortest steady interval seen, about one refresh)
+  const ref = Math.max(6.9, perfQ(dts, 0.05)); out.refresh = ref; out.dropped = dts.filter(x => x > ref*1.5).length/Math.max(1, dts.length);
+  out.cpu = {p50: perfQ(cpu, 0.5), p95: perfQ(cpu, 0.95), p99: perfQ(cpu, 0.99), upd: perfQ(F.map(f => f.upd), 0.5), upk: perfQ(F.map(f => f.upk), 0.5), sub: perfQ(F.map(f => f.sub), 0.5)};
+  const G = PERF.gpuFrames.slice(-n); out.gpu = {p50: perfQ(G, 0.5), p95: perfQ(G, 0.95), p99: perfQ(G, 0.99), pass: Object.assign({}, PERF.gpu)};
+  // work time: the CPU's frame and the GPU's, whichever is longer, frame by frame where both are known
+  out.work = {p99: Math.max(out.cpu.p99, out.gpu.p99), p95: Math.max(out.cpu.p95, out.gpu.p95)};
+  const pass = {}; for (const f of F) for (const k in f.pass){ const p = f.pass[k], q = pass[k] || (pass[k] = {cpu: [], draws: [], tri: [], vis: [], n: []}); q.cpu.push(p.cpu); q.draws.push(p.draws); q.tri.push(p.tri); q.vis.push(p.vis); q.n.push(p.n); }
+  out.pass = {}; for (const k in pass){ const q = pass[k]; out.pass[k] = {cpu: perfQ(q.cpu, 0.5), draws: perfQ(q.draws, 0.5), tri: perfQ(q.tri, 0.5), vis: perfQ(q.vis, 0.5), n: perfQ(q.n, 0.5), frames: q.cpu.length}; }
+  out.draws = Object.values(out.pass).reduce((a, p) => a + p.draws, 0); out.tri = Object.values(out.pass).reduce((a, p) => a + p.tri, 0);
+  out.gov = F.length ? Math.max(...F.map(f => f.gov)) : 0;
+  return out;
+}
+function perfShow(){
+  if (!PERF.el) return; const s = perfSummary(60), f = x => x.toFixed(1).padStart(5);
+  const L = [`${s.fps.toFixed(1)} fps  dt p50 ${f(s.dt.p50)} p99 ${f(s.dt.p99)}  dropped ${(s.dropped*100).toFixed(0)}%  gov ${s.gov}`,
+    `cpu ${f(s.cpu.p50)} (upd ${f(s.cpu.upd)} upk ${f(s.cpu.upk)} sub ${f(s.cpu.sub)})  p99 ${f(s.cpu.p99)}`,
+    `gpu ${f(s.gpu.p50)}  p99 ${f(s.gpu.p99)}  ${PERF.info}`, 'pass    cpu  draws    tris  walked   gpu'];
+  for (const k of Object.keys(s.pass).sort()){ const p = s.pass[k]; L.push(`${k.padEnd(5)} ${f(p.cpu)} ${String(p.draws).padStart(6)} ${String(Math.round(p.tri/1000) + 'k').padStart(7)} ${String(p.vis).padStart(7)} ${f(s.gpu.pass[k] || 0)}`); }
+  PERF.el.textContent = L.join('\n');
 }
 /* ---------- core: regions ---------- */
 // Load steps and regions. Every load step in boot/ runs as step(fn, seed): seed is the random state the step
@@ -865,6 +967,7 @@ function regionStep(R){
       let i = L.findIndex(x => (LOADKEY.get(x) ?? Infinity) > st.key); if (i < 0) i = L.length;
       L.splice(i, 0, e);
     }
+    HOOKV321++;   // v321: hook lists may have been reordered (core/hooks.js)
     RAND = keep; R.ms += performance.now() - t0; }
   if (R.i >= R.steps.length){ R.built = true; if (R.onBuilt) R.onBuilt(); }
   return R.built;
@@ -1649,7 +1752,7 @@ const GROUND = {
 // (001-settings)
 const SET_KEY = 'crumb-city-settings-v1';
 
-const settings = {mapNorth:false, steer:'point', keys:'turn', sens:1, pixel:1, recenter:true, invertY:false, music:0.6, sfx:0.8, outline:true, weather:'auto', quality:'auto'};
+const settings = {mapNorth:false, steer:'point', keys:'turn', sens:1, pixel:1, recenter:true, invertY:false, music:0.6, sfx:0.8, outline:true, weather:'auto', quality:'auto', fps:'auto'};
 
 const bs_coreSettings_1 = () => {
 try { const st = JSON.parse(localStorage.getItem(SET_KEY) || '{}'); if (st.v !== 4) delete st.pixel; delete st.v; Object.assign(settings, st); } catch(e) {}
@@ -1810,7 +1913,7 @@ function sbInit(){
   // and one added (or moved to another parent) gets its world matrix redone, though its own transform didn't change
   const add = THREE.Object3D.prototype.add;
   // (v319: and its new parents are walked again from the next frame: a quiet one is walked one frame in four, sbMatrices)
-  THREE.Object3D.prototype.add = function(...objs){ for (const o of objs) if (o && o.isObject3D) o.matrixWorldNeedsUpdate = true; for (let q = this; q; q = q.parent) q.__sbQ = 0; return add.apply(this, objs); };
+  THREE.Object3D.prototype.add = function(...objs){ for (const o of objs) if (o && o.isObject3D) o.matrixWorldNeedsUpdate = true; for (let q = this; q; q = q.parent){ q.__sbQ = 0; q.__sbV = (q.__sbV | 0) + 1; if (q.__lod317 !== undefined) q.__lod317 = undefined; } return add.apply(this, objs); };
   camera.layers.enable(SB_LAYER);
   sun.shadow.camera.layers.enable(SB_PROXY);
   // the renderer walks the whole visible scene for every pass; batched originals are skipped outright (their children,
@@ -1819,11 +1922,26 @@ function sbInit(){
   if (P && !P.__sb261){ const orig = P._projectObject; P.__sb261 = true;
     P._projectObject = function(object, camera, groupOrder, renderList, clippingContext){
       const u = object.userData;
+      // v321: a group whose sphere (sbGroupSphere321) is outside this pass's view is skipped whole (three tests each mesh,
+      // never a group, so every pass walked the whole shown world, the city behind the camera included)
+      if (object.parent === null){ const F = camera.__gf321 || (camera.__gf321 = new THREE.Frustum()); _sbGM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); F.setFromProjectionMatrix(_sbGM, camera.coordinateSystem, camera.reversedDepth); }
+      else if (object.__gs !== undefined && object.isMesh !== true){ const g = object.__gs;
+        if (g.v === object.__sbV && g.big === false && SB_FR - g.f < 900 && window.__noGc321 !== true && (g.s === null || (camera.__gf321 !== undefined && !camera.__gf321.intersectsSphere(g.s)))) return; }
+      if (PERF !== null && PERF.vis !== null) PERF.vis.v++;   // v321: objects walked, by pass (?perf=1)
       if (object.__sbS !== undefined){ if (object.visible === false) return; const ch = object.children; for (let i = 0; i < ch.length; i++) this._projectObject(ch[i], camera, groupOrder, renderList, clippingContext); return; }
+      // v321: a person in the middle distance or far (cast/lod.js setLOD317): the parts are on layers 4 and 2, which no
+      // camera draws, so a camera without those layers sees only the one-mesh body, if any
+      if (object.__lod317 !== undefined && (camera.layers.mask & 20) === 0 && window.__noLodWalk321 !== true){ if (object.visible === false) return;
+        const fb = object.__fb317; if (fb !== undefined && fb.parent === object) this._projectObject(fb, camera, groupOrder, renderList, clippingContext); return; }
       if (camera.userData.sbShadow === true){
         if (u.sbNoCast === true || (object.isMesh === true && object.castShadow === false && object.children.length === 0)) return;
         // the far cascade only draws the merged static shadows: people and cars that far out are a few pixels
         if (camera.userData.sbFar === true && u.sbOwn !== true && u.sbRoot !== true && object !== scene && !(object.parent === scene && SBATCH.big.has(object))) return; }
+      // v321: an additive glow faded right out (opacity 0: a lamp's pool of light or a doorway's glow by day) adds nothing
+      // to any pixel and writes no depth, so it isn't drawn (what's inside it still is). (window.__noOp0321: drawn, live)
+      else if (object.castShadow === false && (object.isMesh === true || object.isSprite === true)){ const m = object.material;
+        if (m && m.opacity === 0 && m.blending === THREE.AdditiveBlending && m.transparent === true && m.depthWrite === false && m.premultipliedAlpha === false && !m.opacityNode && !m.outputNode && window.__noOp0321 !== true){
+          if (object.visible === false) return; const ch = object.children; for (let i = 0; i < ch.length; i++) this._projectObject(ch[i], camera, groupOrder, renderList, clippingContext); return; } }
       return orig.call(this, object, camera, groupOrder, renderList, clippingContext); }; }
   return SBATCH;
 }
@@ -1857,11 +1975,11 @@ function sbMatrices(o, force){
   for (let i = 0; i < ch.length; i++){ const c = ch[i];
     if (c.visible === false){ if (c.__sbStale !== true){ c.__sbStale = true; changed = true; if (SBATCH) sbHide(c); } continue; }   // hidden: whatever of it was batched elsewhere leaves the batch
     if (c.__sbL === true && force === false && c.children.length === 0) continue;   // a batched leaf: watched below
-    if (c.__sbStale === true){ c.__sbStale = false; sbMatrices(c, true); c.__sbQ = 0; changed = true; continue; }
+    if (c.__sbStale === true){ c.__sbStale = false; sbMatrices(c, true); c.__sbQ = 0; c.__sbV = (c.__sbV | 0) + 1; changed = true; continue; }
     const kids = c.children.length;
     if (force === false && kids !== 0 && c.__sbQ > 60 && !all && ((SB_FR + c.id) & 3) !== 0){ const L = c.__sbLt; if (L !== undefined) for (let k = 0; k < L.length; k++) SB_LIGHTS.push(L[k]); continue; }
     const n0 = SB_LIGHTS.length, cc = sbMatrices(c, force);
-    if (kids !== 0){ if (cc){ c.__sbQ = 0; changed = true; } else c.__sbQ = (c.__sbQ | 0) + 1; c.__sbLt = SB_LIGHTS.length > n0 ? SB_LIGHTS.slice(n0) : undefined; }
+    if (kids !== 0){ if (cc){ c.__sbQ = 0; c.__sbV = (c.__sbV | 0) + 1; changed = true; } else c.__sbQ = (c.__sbQ | 0) + 1; c.__sbLt = SB_LIGHTS.length > n0 ? SB_LIGHTS.slice(n0) : undefined; }
     else if (cc) changed = true; }
   return changed;
 }
@@ -1950,6 +2068,7 @@ function sbScan(){
   // which groups have no shadow caster anywhere inside (the shadow passes skip them)
   const walk = o => { let has = false; for (const c of o.children){ if (c.visible && walk(c)) has = true; } if (o.isMesh && o.castShadow && o.__sbS === undefined) has = true; if (o !== scene && !o.isMesh) o.userData.sbNoCast = !has; return has; };
   walk(scene);
+  sbGroupSphere321(scene, performance.now() + 3);
 }
 
 function sbAdd(o, root){
@@ -2001,6 +2120,7 @@ function sbFlush(budget = 3){
 // a batched mesh changed: it draws itself again at once (its triangles in the batch collapse), the batch is rebuilt later
 function sbRelease(o, moved){
   const B = SBATCH, s = B.src.get(o); if (!s) return; B.src.delete(o); o.__sbS = undefined;
+  for (let q = o.parent; q; q = q.parent) q.__sbV = (q.__sbV | 0) + 1;   // v321: it draws itself again: its groups' spheres (sbGroupSphere321) are made again
   if (o.__sbL === true) sbUnleaf(o);
   for (const p of s.anc){ const set = B.anc.get(p); if (set) set.delete(o); }
   if (!moved){ const h = (B.hid.get(o) || 0) + 1; B.hid.set(o, h); if (h >= 2) B.cool.set(o, performance.now() + Math.min(64000, 2000*2**Math.min(5, h - 1))); }   // v294: hidden and shown again (distance culling): it may rejoin, after a wait that doubles each time (4 s .. 64 s), instead of drawing alone for good
@@ -2120,6 +2240,10 @@ function sbCullBundles(cam){
   for (const u of B.bundles.values()){ const g = u.g;
     if (u.dirty){ u.dirty = false; let first = true; for (const m of g.children){ const bs = m.geometry.boundingSphere; if (first){ u.local.copy(bs); first = false; } else u.local.union(bs); } if (first) u.local.makeEmpty(); }
     u.sphere.copy(u.local).applyMatrix4(u.root.matrixWorld);
+    // v321: three never refreshes what's in a static bundle (its objects keep the matrices they were recorded with), so a
+    // bundle whose group moves (a person's, a bench being carried) stops being static the first time it does: its batches
+    // are checked like any object then, and follow it
+    { const e = u.root.matrixWorld.elements; if (u.rw === undefined) u.rw = e.slice(); else if (g.static === true && !sbSame(u.rw, e)){ g.static = false; sbBundleChanged(g); } }
     g.visible = g.children.length > 0 && SB_FRUSTUM.intersectsSphere(u.sphere);
     // v313: a bundle inside a group of its own (a person, a bench: userData.sbRoot) kept the identity world matrix for
     // its batches, so they drew at the world origin, inside the park's statue plinth: people lost their heads
@@ -2129,6 +2253,38 @@ function sbBundleWorld(u){
   const g = u.g, rw = u.root.matrixWorld; g.matrixWorld.multiplyMatrices(rw, g.matrix); g.matrixWorldNeedsUpdate = false;
   for (const m of g.children){ m.matrixWorld.multiplyMatrices(g.matrixWorld, m.matrix); m.matrixWorldNeedsUpdate = false; }
   u.wOk = true; g.needsUpdate = true;
+}
+
+
+// v321: each group's sphere: around everything in it that a pass could draw (batched meshes don't count: their batches
+// do the drawing), kept until anything in the group changes (moves, is added, is shown again, leaves its batch: __sbV,
+// sbMatrices) and made again at most every 900 frames regardless. A group holding a light, a level of detail, a
+// skinned or never-culled mesh, points or a bundle is never skipped. Made during sbScan, 3 ms a scan
+// at most (unfinished groups wait for the next scan, and aren't skipped meanwhile). (window.__noGc321 = true: none)
+const _sbGM = new THREE.Matrix4(), _sbGT = new THREE.Sphere(), _sbGV = new THREE.Vector3(), _sbGQ = new THREE.Quaternion(), _sbGS = new THREE.Vector3(), SB_GINC = {};
+// returns the subtree's sphere, null (nothing to draw), true (never skipped) or SB_GINC (out of time, not finished)
+function sbGroupSphere321(o, until){
+  if (o.visible === false) return null;
+  const g0 = o.__gs; if (g0 !== undefined && g0.v === (o.__sbV | 0) && SB_FR - g0.f < 900) return g0.big ? true : g0.s;
+  if (performance.now() > until) return SB_GINC;
+  let s = null, big = false;
+  for (const c of o.children){
+    // what it holds first (the temporary sphere below is used again inside)
+    const k = c.children.length ? sbGroupSphere321(c, until) : null; if (k === SB_GINC) return SB_GINC;
+    let t = k;
+    if (c.visible === false) t = null;
+    else if (c.isLight === true || c.isLOD === true || c.isSkinnedMesh === true || c.isBundleGroup === true || c.isPoints === true || c.isPointsGPU === true) t = true;
+    else if ((c.isMesh === true || c.isLine === true || c.isSprite === true) && c.__sbS === undefined && k !== true){
+      let own = null;
+      if (c.frustumCulled === false) t = true;
+      else if (c.isSprite === true){ c.matrixWorld.decompose(_sbGV, _sbGQ, _sbGS); _sbGT.center.copy(_sbGV); _sbGT.radius = Math.max(Math.abs(_sbGS.x), Math.abs(_sbGS.y))*0.75; own = _sbGT; }
+      else { const bs = c.isInstancedMesh === true ? (c.boundingSphere || (c.computeBoundingSphere(), c.boundingSphere)) : c.geometry && (c.geometry.boundingSphere || (c.geometry.computeBoundingSphere(), c.geometry.boundingSphere)); if (bs) own = _sbGT.copy(bs).applyMatrix4(c.matrixWorld); else t = true; }
+      if (own !== null){ if (s === null) s = own.clone(); else s.union(own); } }
+    if (t === true){ big = true; continue; }
+    if (t){ if (s === null) s = t.clone(); else s.union(t); } }
+  if (o === scene) return null;
+  o.__gs = {s: big ? null : s, big, v: o.__sbV | 0, f: SB_FR};
+  return big ? true : s;
 }
 /* ---------- render: pipeline ---------- */
 // The frame on r186's WebGPU renderer, built from nodes (TSL). One scene pass writes colour, normals and a water mask;
@@ -2170,8 +2326,50 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
       const v = texture(DT, q.div(4.5)).r.mul(0.5).add(texture(DT, q.div(1.1)).r.mul(0.3)).add(texture(DT, q.div(0.3)).r.mul(0.2));
       return float(1).add(v.sub(0.5).mul(0.42)); })();
     const water = mrt({normal: T.vec4(directionToColor(normalView), 1)});   // water: the normal's alpha is 1
+    // v321: three refreshes every object of a material with a node in it in full, every frame and every pass (static
+    // bundles too), in case a node changed on its own: the cheaper check (the object's matrix, its material's and
+    // geometry's properties) is only used for materials without one. The detail texture changes with nothing but the
+    // object's scale, which that check sees through the matrix, and the shadow passes' material is one fixed colour:
+    // nodes marked __still321 don't count. (window.__noFull321 = true: three's own test again, live, for A/B)
+    if (THREE.NodeMaterialObserver){ const OP = THREE.NodeMaterialObserver.prototype, cn = OP.containsNode, nr = OP.needsRefresh;
+      OP.containsNode = function(builder){ const full = cn.call(this, builder); let mine = false; const m = builder.material;
+        for (const k in m){ const v = m[k]; if (v && v.isNode && v.__still321 !== true){ mine = true; break; } }
+        const c = builder.context; if (c.modelViewMatrix || c.modelNormalViewMatrix || c.getAO || c.getShadow) mine = true;
+        this.still321 = full && !mine; return full; };
+      OP.needsRefresh = function(ro, frame){ if (this.still321 !== true || window.__noFull321 === true) return nr.call(this, ro, frame);
+        this.hasNode = false; try { return nr.call(this, ro, frame); } finally { this.hasNode = true; } };
+      // (that check reads past the end of its lights when a shadow-casting light was added since the object last drew)
+      const eq = OP.equals; OP.equals = function(ro, lightsData, renderId){ const d = this.getRenderObjectData(ro);
+        if (d.lights && d.lights.length !== lightsData.length){ d.lights = lightsData.map(l => Object.assign({}, l)); return false; } return eq.call(this, ro, lightsData, renderId); };
+      // a pass drawn while a static bundle is being recorded (the first batch in it to need the shadows has the cascades
+      // drawn, from inside the recording) put its own objects in that bundle: the bundle then refreshed them every frame
+      // it was replayed, and they took its static flag, so a moving caster's shadow would have stayed where it was. A
+      // pass inside another records into no bundle
+      { const rs = renderer._renderScene; renderer._renderScene = function(){ const b = this._currentRenderBundle; if (window.__noFull321 !== true) this._currentRenderBundle = null; try { return rs.apply(this, arguments); } finally { this._currentRenderBundle = b; } }; }
+      // the shadow material: its colour is never seen (the maps are depth only), so it isn't written either, and a
+      // see-through double-sided caster is drawn once, not front and back (the same depth either way)
+      const SP = THREE.ShadowBaseNode.prototype, gsm = SP.getShadowMaterial;
+      SP.getShadowMaterial = function(){ const sm = gsm.call(this); if (!sm.__still321){ sm.__still321 = true; if (sm.colorNode) sm.colorNode.__still321 = true; sm.colorWrite = false; sm.forceSinglePass = true; } return sm; }; }
+    // v321: lights that can't reach a pixel skip it. Every lit pixel worked out all of the scene's lights, the five pooled
+    // room lights included, parked at intensity 0 when no room is near (world/new-yolk/shops.js). A point light now
+    // lights a pixel only when its colour isn't black and the pixel is inside its range (where three's own falloff is
+    // exactly 0 anyway), and a directional light without shadows (the moon's earthshine) only when its colour isn't black:
+    // the same picture, the same lights (no shader is rebuilt when one dims). (?noGate321 before the load: three's own)
+    if (THREE.PointLightNode && !/[?&]noGate321/.test(location.search)){
+      const gated = (Base, withRange) => class extends Base {
+        setup(builder){
+          if (!withRange && this.light.castShadow) return super.setup(builder);
+          this.colorNode = this.baseColorNode || this.colorNode;
+          if (this.light.castShadow){ if (builder.object.receiveShadow) this.setupShadow(builder); }
+          else if (this.shadowNode !== null){ this.shadowNode.dispose(); this.shadowNode = null; this.shadowColorNode = null; }
+          const c = this.baseColorNode || this.colorNode; let on = max(c.r, max(c.g, c.b)).greaterThan(0);
+          if (withRange){ const v = this.getLightVector(builder), r = this.cutoffDistanceNode; on = on.and(r.equal(0).or(dot(v, v).lessThan(r.mul(r)))); }
+          const R = builder.context.reflectedLight; R.directDiffuse.toStack(); R.directSpecular.toStack();
+          Fn(() => { If(on, () => { const d = this.setupDirect(builder); if (d) builder.lightsNode.setupDirectLight(builder, this, d); }); }, 'void')(); } };
+      lib.lightNodes.delete(THREE.PointLight); lib.addLight(gated(THREE.PointLightNode, true), THREE.PointLight);
+      lib.lightNodes.delete(THREE.DirectionalLight); lib.addLight(gated(THREE.DirectionalLightNode, false), THREE.DirectionalLight); }
     lib.fromMaterial = m => { const n = from(m); if (n && n !== m && LIT.has(m.type)){
-        if (PIPE.hd && !n.colorNode) n.colorNode = materialColor.mul(detail);
+        if (PIPE.hd && !n.colorNode){ n.colorNode = materialColor.mul(detail); n.colorNode.__still321 = true; }
         if (m.userData && m.userData.water) n.mrtNode = water; }
       return n; };
     PIPE = {lib, scanned: new WeakSet(), scanT: 2};
@@ -2277,6 +2475,7 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
   o.prime = () => { o.primeNext = true; };   // v306.1: and again after a picture drawn off screen (renderPortrait), or the canvas keeps its last frame
   let lights = [], n = 0;
   o.render = () => {
+    if (PERF) perfMark('upd');   // v321: ?perf=1 (ui/perf-overlay.js)
     U.night.value = nightF; if (WATER278.night) WATER278.night.value = nightF; U.outline.value = settings.outline === false ? 0 : 1; U.tilt.value = 1;
     if (hd && o.tilt !== (settings.tilt === true)){ o.rebuild(); return; }   // the blur pass is built only when tilt-shift is on
     if (bloomNode){ bloomNode.strength.value = 0.2 + nightF*0.6; bloomNode.threshold.value = 0.35; }   // lamps, windows, neon (not faint tints): a halo, much more at night (the glow pass already softens bright surfaces)
@@ -2312,10 +2511,13 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
         const farDue = n % 4 === 1 && (window.__noShCache317 || K.p.distanceToSquared(camera.position) > 9 || K.d.dot(_shd317) < 0.995 || K.s.distanceToSquared(sun.position.clone().sub(sun.target.position).normalize()) > 1e-5 || now - K.t > 1000);
         if (farDue){ K.p.copy(camera.position); K.d.copy(_shd317); K.s.copy(sun.position).sub(sun.target.position).normalize(); K.t = now; }
         C.lights.forEach((l, i) => { l.shadow.autoUpdate = !half; if (half) l.shadow.needsUpdate = i === 0 ? n % 2 === 0 : farDue; }); } }
+    if (PERF) perfMark('upk');
     pipe.render();
+    if (PERF) perfMark('sub');
     // shaders that finished compiling in the background (shell.html): the recorded static bundles left out whatever wasn't
     // ready yet, so they record again once nothing is pending
-    { const W = window.__PIPE; if (W && W.pending === 0 && W.done !== o.pipeDone){ o.pipeDone = W.done; if (typeof SBATCH !== 'undefined' && SBATCH && SBATCH.bundles) for (const u of SBATCH.bundles.values()) sbBundleChanged(u.g); } }
+    // (v321: at most once a second: shaders finishing one after another had every bundle recorded again each time)
+    { const W = window.__PIPE, t = performance.now(); if (W && W.pending === 0 && W.done !== o.pipeDone && (window.__noCoalesce321 || t >= (o.reRecAt || 0))){ o.pipeDone = W.done; o.reRecAt = t + 1000; if (typeof SBATCH !== 'undefined' && SBATCH && SBATCH.bundles) for (const u of SBATCH.bundles.values()) sbBundleChanged(u.g); } }
     if (deep){ F.near = n0; F.far = f0; camera.far = far0; camera.updateProjectionMatrix(); }
     for (const L of lights) L.intensity /= PI;
   };
@@ -5221,14 +5423,18 @@ function emit(kind, pos, n, spread=1, up=1, mats){ return callHooked('emit', emi
 function emitBase(kind, pos, n, spread=1, up=1, mats){
   const k = PK[kind];
   for (let i = 0; i < n && particles.length < PCAP; i++){
-    const m = new THREE.Object3D(); m.geometry = k.geo; m.material = (mats || k.mats)[Math.floor(Math.random()*(mats || k.mats).length)];   // v295: drawn through a shared instanced mesh (flushParticles295)
+    // v321: a spent particle's record, object and vectors are used again (the same random numbers, in the same order)
+    const q = PFREE321.pop(), m = q ? q.m : new THREE.Object3D(); if (q) m.scale.set(1, 1, 1);
+    m.geometry = k.geo; m.material = (mats || k.mats)[Math.floor(Math.random()*(mats || k.mats).length)];   // v295: drawn through a shared instanced mesh (flushParticles295)
     m.position.set(pos.x + (Math.random()-.5)*0.2, pos.y + Math.random()*0.2, pos.z + (Math.random()-.5)*0.2);
     m.rotation.set(Math.random()*6, Math.random()*6, Math.random()*6);
-    particles.push({m, k, t:0, life: lerp(k.life[0], k.life[1], Math.random()), ph: Math.random()*6,
-      vel: new THREE.Vector3((Math.random()-.5)*2*spread, Math.random()*up + up*0.3, (Math.random()-.5)*2*spread),
-      spin: new THREE.Vector3((Math.random()-.5), (Math.random()-.5), (Math.random()-.5)).multiplyScalar(k.spin || 0)});
+    const p = q || {}; p.m = m; p.k = k; p.t = 0; p.life = lerp(k.life[0], k.life[1], Math.random()); p.ph = Math.random()*6;
+    p.vel = (q ? q.vel : new THREE.Vector3()).set((Math.random()-.5)*2*spread, Math.random()*up + up*0.3, (Math.random()-.5)*2*spread);
+    p.spin = (q ? q.spin : new THREE.Vector3()).set((Math.random()-.5), (Math.random()-.5), (Math.random()-.5)).multiplyScalar(k.spin || 0);
+    particles.push(p);
   }
 }
+const PFREE321 = [];
 
 function updateParticles(dt){ const r = callHooked('updateParticles', updateParticlesBase, [dt]); flushParticles295(); return r; }
 
@@ -5248,7 +5454,7 @@ function updateParticlesBase(dt){
   for (let i = particles.length - 1; i >= 0; i--){
     const p = particles[i]; p.t += dt;
     const f = p.t / p.life;
-    if (f >= 1){ particles.splice(i, 1); continue; }
+    if (f >= 1){ particles.splice(i, 1); if (PFREE321.length < 512) PFREE321.push(p); continue; }
     p.vel.y -= p.k.g*dt;
     p.vel.multiplyScalar(Math.exp(-p.k.drag*dt));
     if (p.k.drag > 1.5 || p.k.g < 0){ const wk = dt*Math.min(p.k.drag, 3)*0.45; p.vel.x += WIND.vx*wk; p.vel.z += WIND.vz*wk; }
@@ -6645,24 +6851,30 @@ function portraitURL(buf, N, flip, blob){
   return c.toDataURL();
 }
 
+// v321: on WebGPU one portrait scene, with its lights and camera, for every portrait: a new scene and new lights each
+// time had every material's shaders built again for each portrait (13 to 40 ms a portrait, five a second for a minute
+// after a city was built). The same light and the same camera place, so the same pictures
+let PORTRAIT_PS321 = null;
+function portraitScene321(){
+  if (PORTRAIT_PS321) return PORTRAIT_PS321;
+  const ps = new THREE.Scene(); ps.background = new THREE.Color(0xf3cf8e);
+  const hl = new THREE.HemisphereLight(0xfff3d9, 0x7a6a4a, 0.85*PI); ps.add(hl);   // (r128's light units, as post.render does)
+  const dl = new THREE.DirectionalLight(0xffffff, 0.8*PI); dl.position.set(2, 3, 4); ps.add(dl);
+  return (PORTRAIT_PS321 = {ps, pc: new THREE.PerspectiveCamera(30, 1, 0.05, 20)});
+}
 function renderPortrait(obj, camPos, look){
   const gpu = !!window.__GPU, N = 48;
   let rt = null;
   try {
     rt = new THREE.WebGLRenderTarget(N, N);
-    const ps = new THREE.Scene(); ps.background = new THREE.Color(0xf3cf8e);
-    const hl = new THREE.HemisphereLight(0xfff3d9, 0x7a6a4a, 0.85); ps.add(hl);
-    const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(2, 3, 4); ps.add(dl);
-    const pc = new THREE.PerspectiveCamera(30, 1, 0.05, 20); pc.position.copy(camPos); pc.lookAt(look);
     if (gpu){
       // drawn once its shaders are compiled (until then the renderer skips it), from a copy: the caller may put the
       // original back in the world first
-      hl.intensity *= PI; dl.intensity *= PI;   // r128's light units, as post.render does
       let copy = obj; try { copy = obj.clone(); } catch(e) {}   // (clone copies userData as JSON, which can fail)
-      ps.add(copy);
-      const tag = PORTRAIT_BLANK + '#portrait' + (++portraitN), r = rt; rt = null;
-      const draw = () => { try { renderer.setRenderTarget(r); renderer.render(ps, pc); } finally { renderer.setRenderTarget(null); if (post && post.prime) post.prime(); } };
+      const tag = PORTRAIT_BLANK + '#portrait' + (++portraitN), r = rt, cp = camPos.clone(), lk = look.clone(); rt = null;
       PORTRAIT_Q.push(async () => {
+        const {ps, pc} = portraitScene321(); pc.position.copy(cp); pc.lookAt(lk); pc.updateMatrixWorld(); ps.add(copy);
+        const draw = () => { try { renderer.setRenderTarget(r); renderer.render(ps, pc); } finally { renderer.setRenderTarget(null); if (post && post.prime) post.prime(); } };
         try {
           await renderer.compileAsync(ps, pc).catch(() => {});
           // a draw can still ask for shaders compileAsync didn't make (the mirrored wings): then it waits for those and draws again
@@ -6671,11 +6883,15 @@ function renderPortrait(obj, camPos, look){
           const asked = P ? P.pending + P.done - asked0 : 0;
           if (asked > 0){ await portraitWait(() => P.done - done0 >= asked, 3000); draw(); }
           PORTRAIT_DONE.set(tag, await portraitURL(await renderer.readRenderTargetPixelsAsync(r, 0, 0, N, N), N, false, true));
-        } finally { r.dispose(); }
+        } finally { ps.remove(copy); r.dispose(); }
       });
       portraitNext();
       return tag;
     }
+    const ps = new THREE.Scene(); ps.background = new THREE.Color(0xf3cf8e);
+    const hl = new THREE.HemisphereLight(0xfff3d9, 0x7a6a4a, 0.85); ps.add(hl);
+    const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(2, 3, 4); ps.add(dl);
+    const pc = new THREE.PerspectiveCamera(30, 1, 0.05, 20); pc.position.copy(camPos); pc.lookAt(look);
     ps.add(obj);
     renderer.setRenderTarget(rt); renderer.render(ps, pc);
     const buf = new Uint8Array(N*N*4); renderer.readRenderTargetPixels(rt, 0, 0, N, N, buf);
@@ -11555,6 +11771,7 @@ function camShow308(o){ o._camHide308 = false; if (ownVis308(o)) o.visible = tru
 
 const _chv = new THREE.Vector3();
 
+const NEAR321 = {list: [], at: 0, n: -1, x: 1e9, z: 1e9};
 function hideNearCam(c){
   for (const o of camHidden) camShow308(o); camHidden = [];
   if (state !== 'play') return;
@@ -11563,7 +11780,12 @@ function hideNearCam(c){
     const s = o.scale.y || 1, dx = c.x - o.position.x, dz = c.z - o.position.z, dy = c.y - o.position.y;
     if (dx*dx + dz*dz < 0.85*0.85*Math.max(1, s) && dy > -0.4 && dy < 2.5*s){ camHide308(o); camHidden.push(o); }
   };
-  for (const o of scene.children) if (o.isGroup && Math.abs(o.position.x - c.x) < 3 && Math.abs(o.position.z - c.z) < 3) test(o);
+  // v321: the scene's top-level groups (thousands) are looked through every 8 frames for those within 30 m (sooner when the
+  // camera has moved 8 m or groups were added or removed); every frame tests just those
+  { const N = NEAR321, ch = scene.children;
+    if (window.__noNear321 || ++N.at >= 8 || ch.length !== N.n || Math.abs(c.x - N.x) > 8 || Math.abs(c.z - N.z) > 8){ N.at = 0; N.n = ch.length; N.x = c.x; N.z = c.z; N.list.length = 0;
+      for (const o of ch) if (o.isGroup && Math.abs(o.position.x - c.x) < 30 && Math.abs(o.position.z - c.z) < 30) N.list.push(o); }
+    for (const o of N.list) if (o.parent === scene && Math.abs(o.position.x - c.x) < 3 && Math.abs(o.position.z - c.z) < 3) test(o); }
   for (const ig of interiorGroups) if (ig.g.visible && Math.abs(ig.x - c.x) < ig.r && Math.abs(ig.z - c.z) < ig.r) for (const o of ig.g.children) if (o.isGroup && Math.abs(o.position.x - c.x) < 3 && Math.abs(o.position.z - c.z) < 3) test(o);
   for (const v of cars){
     const g = v.g; if (!g.visible || Math.abs(g.position.x - c.x) > 6 || Math.abs(g.position.z - c.z) > 6) continue;
@@ -38904,9 +39126,58 @@ for (const c of BCH48.values()){
 
 function solidsAt48(x, z){
   if (SDIRTY48 === undefined) return solids;
-  if (SDIRTY48){ SDIRTY48 = false; SREG48 = {ny: [], pb: [], vil: [], bk: [], tk: []}; for (const s of solids){ const cx = (s.minX + s.maxX)/2, cz = (s.minZ + s.maxZ)/2; (cx > 2500 ? SREG48.pb : cx < -3000 ? SREG48.bk : cz > 1500 ? SREG48.vil : cz < -3000 ? SREG48.tk : SREG48.ny).push(s); } }
-  return x > 2500 ? SREG48.pb : x < -3000 ? SREG48.bk : z > 1500 ? SREG48.vil : z < -3000 ? SREG48.tk : SREG48.ny;
+  if (SDIRTY48){ SDIRTY48 = false; SREG48 = {ny: [], pb: [], vil: [], bk: [], tk: []}; for (const s of solids){ const cx = (s.minX + s.maxX)/2, cz = (s.minZ + s.maxZ)/2; (cx > 2500 ? SREG48.pb : cx < -3000 ? SREG48.bk : cz > 1500 ? SREG48.vil : cz < -3000 ? SREG48.tk : SREG48.ny).push(s); } SGRID321.clear(); }
+  const L = x > 2500 ? SREG48.pb : x < -3000 ? SREG48.bk : z > 1500 ? SREG48.vil : z < -3000 ? SREG48.tk : SREG48.ny;
+  if (L.length < 256 || window.__noGrid321 === true) return L;
+  const out = sgrid321(L, x, z);
+  if (PERF !== null) sgridCheck321(L, out, x, z);
+  return out;
 }
+// v321: a city's solids on a 16 m grid. Asked for the solids at a point, the collisions got every solid of the city
+// (15,600 in New Yolk): 0.16 ms for each floorAt and 0.7 ms for each collide (three passes over them), and a flight
+// collides every 25 cm. Each cell keeps the solids within 2 m of it, in the city's own order (the collisions take the
+// first of two equal floors, and push out of walls one after another); solids over 128 m across, and every solid that
+// has ever moved, are in one list the cells share, merged in by that same order. Moving a solid is just setting its
+// minX..maxZ (the tram, the rides, the bus, falling poles), so the grid looks for that itself: at most every 8 ms it
+// compares every solid with where it was filed (about 50 microseconds for New Yolk). One that moved joins the shared list
+// for good, so it is late at most once, by a frame; one that moved into another city's area has the cities filed again.
+// (?perf=1 checks every answer against all the city's solids; window.__noGrid321 = true: the whole list again, live)
+const SGRID321 = new Map(), SG321 = 16, SGM321 = 2, SGPOOL321 = [], SGEMPTY321 = [];
+let SGP321 = 0;
+function sgridBuild321(L){
+  const G = {cells: new Map(), always: [], snap: new Float64Array(L.length*4), t: performance.now(), L};
+  for (let i = 0; i < L.length; i++){ const s = L[i]; s.__i321 = i; const k = i*4; G.snap[k] = s.minX; G.snap[k + 1] = s.maxX; G.snap[k + 2] = s.minZ; G.snap[k + 3] = s.maxZ;
+    if (s.__mv321 === true || s.maxX - s.minX > 128 || s.maxZ - s.minZ > 128){ G.always.push(s); continue; }
+    const x0 = Math.floor((s.minX - SGM321)/SG321), x1 = Math.floor((s.maxX + SGM321)/SG321), z0 = Math.floor((s.minZ - SGM321)/SG321), z1 = Math.floor((s.maxZ + SGM321)/SG321);
+    for (let a = x0; a <= x1; a++) for (let b = z0; b <= z1; b++){ const key = a*100003 + b; let c = G.cells.get(key); if (!c){ c = []; G.cells.set(key, c); } c.push(s); } }
+  SGRID321.set(L, G); return G;
+}
+function sgrid321(L, x, z){
+  let G = SGRID321.get(L); if (!G) G = sgridBuild321(L);
+  const now = performance.now();
+  if (now - G.t > 8){ G.t = now; const S = G.snap; let moved = null;
+    for (let i = 0; i < L.length; i++){ const s = L[i], k = i*4; if (s.minX !== S[k] || s.maxX !== S[k + 1] || s.minZ !== S[k + 2] || s.maxZ !== S[k + 3]){ S[k] = s.minX; S[k + 1] = s.maxX; S[k + 2] = s.minZ; S[k + 3] = s.maxZ; if (s.__mv321 !== true) (moved || (moved = [])).push(s); } }
+    if (moved){ const reg = (px, pz) => px > 2500 ? SREG48.pb : px < -3000 ? SREG48.bk : pz > 1500 ? SREG48.vil : pz < -3000 ? SREG48.tk : SREG48.ny;
+      for (const s of moved){ s.__mv321 = true; if (reg((s.minX + s.maxX)/2, (s.minZ + s.maxZ)/2) !== L) SDIRTY48 = true; }
+      if (SDIRTY48) return solidsAt48(x, z);   // (filed again, by city)
+      return sgridBuild321(L) && sgrid321(L, x, z); } }
+  const c = G.cells.get(Math.floor(x/SG321)*100003 + Math.floor(z/SG321)) || SGEMPTY321, A = G.always;
+  if (A.length === 0) return c;
+  if (c.length === 0) return A;
+  // the cell's and the shared list merged in the city's order, into one of a few arrays used in turn (callers only keep
+  // the list while they loop over it)
+  const out = SGPOOL321[SGP321] || (SGPOOL321[SGP321] = []); SGP321 = (SGP321 + 1) & 15; out.length = 0;
+  let i = 0, j = 0; while (i < c.length && j < A.length) out.push(c[i].__i321 < A[j].__i321 ? c[i++] : A[j++]);
+  while (i < c.length) out.push(c[i++]); while (j < A.length) out.push(A[j++]);
+  return out;
+}
+// ?perf=1: every solid within 1 m of the point must be in the answer, in the city's order
+function sgridCheck321(L, out, x, z){
+  let last = -1, k = 0;
+  for (const s of out){ if (s.__i321 <= last){ sgridBad321('order', x, z); return; } last = s.__i321; }
+  for (const s of L){ if (x < s.minX - 1 || x > s.maxX + 1 || z < s.minZ - 1 || z > s.maxZ + 1) continue; while (k < out.length && out[k].__i321 < s.__i321) k++; if (out[k] !== s){ sgridBad321('missing ' + (s.tag || ''), x, z); return; } }
+}
+function sgridBad321(what, x, z){ const E = window.__errs || (window.__errs = []); if (E.filter(e => e.startsWith('grid321')).length < 5) E.push(`grid321: ${what} at ${x.toFixed(1)}, ${z.toFixed(1)}`); }
 
 /* ---------- where Bangcluck is ---------- */
 const BK = {x: -6000, z: 0, x0: -460, x1: 660, z0: -420, z1: 420};
@@ -39315,7 +39586,10 @@ function setLOD317(H, st){
   if (st === 1 && !farBody317(H)) st = 0;
   if (H.st317 === st) return; H.st317 = st;
   const fb = H.far317;
-  H.g.traverse(o => { if (!(o.isMesh || o.isSprite)) return; if (o === fb){ o.visible = st === 1; o.layers.set(st === 2 ? 2 : 0); return; } o.layers.set(st === 0 ? 0 : st === 1 ? 4 : 2); });
+  let lit = false; H.g.traverse(o => { if (o.isLight) lit = true; if (!(o.isMesh || o.isSprite)) return; if (o === fb){ o.visible = st === 1; o.layers.set(st === 2 ? 2 : 0); return; } o.layers.set(st === 0 ? 0 : st === 1 ? 4 : 2); });
+  // v321: the passes needn't look through a rig nothing of which they draw: far, none of it; in the middle, only the one
+  // body (render/static-batch.js). Not for a rig with a light in it; anything added to it later turns this off for it
+  H.g.__lod317 = lit || st === 0 ? undefined : st; H.g.__fb317 = st === 1 ? fb : undefined;
 }
 function setLayer102(H, far){ setLOD317(H, far ? 2 : 0); }
 
@@ -48264,6 +48538,13 @@ WHATS_NEW.unshift(['320 · Second Look', 'The cannoli job can be started again (
 GAME_VER.n = 321;
 GAME_VER.name = 'Have a Look';
 WHATS_NEW.unshift(['321 · Have a Look', 'Grandpa Coo\'s lessons can be finished again: opening your bag with the thimble in it, and then your map, now count (since menus started pausing the world, Finders Keepers and Lay of the Land never noticed you had looked).']);
+/* =====================================================================
+   v322 · LIGHTER LOAD: the frame-time work (WebGPU), measured and checked pixel for pixel
+   ===================================================================== */
+// v322
+GAME_VER.n = 322;
+GAME_VER.name = 'Lighter Load';
+WHATS_NEW.unshift(['322 · Lighter Load', 'The game does a good deal less work every frame, and the picture is exactly the same: collisions look only at what is near Pidge, unchanged things are not redrawn from scratch, faraway crowds and rooftops are skipped when the camera cannot see them, and lamps that are off no longer light anything. Character portraits no longer make the game stutter after you arrive in a city. New in Settings: Frame rate. On a fast screen (120 Hz and up) "Steady" keeps an even rate instead of a jittery one; you can also cap it at 60 or 30.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -49700,13 +49981,42 @@ function resize(){
   camera.aspect = w/h; camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize); resize();
+{ const el = $('setFps'); if (el){ el.value = settings.fps || 'auto'; el.addEventListener('change', e => { settings.fps = e.target.value; saveSettings(); }); } }   // v321: steady frame pacing (pace321)
 
 let last = performance.now(), time = 0, saveT = 0, mapT = 0, frameN = 0;
 const FRAMEERR47 = new Set();
 function frameErr308(e){ const k = String(e && e.message); if (!FRAMEERR47.has(k)){ FRAMEERR47.add(k); console.error('frame', e);
   // v319: the test harness hears it too (a frame that throws every time froze the game, and __errs stayed empty)
   if (Array.isArray(window.__errs)) window.__errs.push('frame: ' + k + ' ' + String(e && e.stack || '').slice(0, 400)); if (FRAMEERR47.size === 1 && typeof toast === 'function') try { toast('Something went wrong in the game. It carries on, but if things look stuck, reload the page: your progress is saved.', '', 6000); } catch(_){} } }
-function frame(now){ requestAnimationFrame(frame); try { frameBody47(now); } catch(e){ frameErr308(e); } }
+function frame(now){ requestAnimationFrame(frame); if (pace321(now)) return; try { frameBody47(now); } catch(e){ frameErr308(e); } }
+// v321: steady frame pacing (settings.fps). On a screen faster than 75 Hz, 'auto' draws every k-th refresh, k the smallest
+// that keeps frames on time without going under 60 a second: a 144 Hz screen holds 144 if it can, else a steady 72; a
+// 120 Hz phone that can't hold 120 gets an even 60 instead of judder (and runs cooler). k goes up when more than one drawn
+// frame in eight came late over the last second, and back down after five seconds in which the longest frame would have
+// fitted the faster rate. A 60 Hz screen draws every frame, as before. '60' and '30' cap the rate; 'off' draws every refresh. The test
+// harness (window.__snap, window.__ev) always draws every frame.
+const newPace321 = () => ({prev: 0, raw: [], ref: 0, n: 0, k: 1, last: 0, late: 0, drawn: 0, t: 0, work: 0, wmax: 0}), PACE321 = newPace321();
+function pace321(now){ return paceStep321(PACE321, now, typeof window.__snap === 'function' || window.__ev ? 'off' : settings.fps || 'auto'); }
+// (one callback's decision, on a state of its own: tools/pace-test.mjs drives it with made-up refresh rates)
+function paceStep321(P, now, mode){
+  if (P.prev){ const d = now - P.prev; if (d > 0 && d < 100){ P.raw.push(d); if (P.raw.length > 120) P.raw.shift(); } } P.prev = now;
+  if (++P.n % 60 === 0 && P.raw.length >= 30){ const s = P.raw.slice().sort((a, b) => a - b); P.ref = s[Math.floor(s.length*0.25)]; }   // the refresh: the shorter intervals are one refresh
+  if (mode === 'off' || !P.ref){ P.last = now; return false; }
+  let target;
+  if (mode === '60' || mode === '30') target = 1000/+mode;
+  else { if (P.ref > 1000/75){ P.last = now; return false; }
+    target = P.ref*P.k; }
+  if (now - P.last < target - Math.min(2, P.ref*0.3)) return true;
+  // a frame is drawn: was it on time? (auto adapts k once a second)
+  if (mode === 'auto' && P.last){ const gap = now - P.last; P.drawn++; if (gap > target*1.4) P.late++;
+    if (now - P.t > 1000){ P.t = now;
+      if (P.late*8 > P.drawn && 1000/(P.ref*(P.k + 1)) >= 59){ P.k++; P.good5 = 0; }
+      // down again only after five seconds in which no frame came late and the longest frame's work would have fitted
+      // the faster rate with room to spare
+      else if (P.k > 1 && P.late === 0 && P.wmax < P.ref*(P.k - 1)*0.8){ P.good5 = (P.good5 || 0) + 1; if (P.good5 >= 5){ P.k--; P.good5 = 0; } } else P.good5 = 0;
+      P.late = P.drawn = 0; P.wmax = 0; } }
+  P.last = now; return false;
+}
 // v295: the frame-time governor (quality Auto only). A smoothed frame time; over 25 ms for 3 s it steps down (render
 // scale 0.85, then 0.72 with the soft glow off), under 17 ms for 8 s it steps back up. Dialogue, cut-scenes and menus
 // leave it where it is; the test harness (window.__snap) and other quality settings keep it at full.
@@ -49748,6 +50058,8 @@ function pausedFrame315(dt){
   post.render();
 }
 function frameBody47(now){
+  const tw321 = performance.now();
+  if (PERF) perfFrame(now);   // v321: ?perf=1, where the frame's time goes (ui/perf-overlay.js)
   gov295(now);
   if (updateRegions() === 'busy'){ last = now; return; }   // regions build the first frame they are needed (core/regions.js); a city behind its load card (v303)
   const dt = Math.min(0.05, Math.max(0, (now - last)/1000)); last = Math.max(last, now);   // v298.1: never a negative step (a stale first rAF stamp after a long boot gave dt = -30 s)
@@ -49786,8 +50098,9 @@ function frameBody47(now){
   followSky();
   renderer.shadowMap.needsUpdate = (frameN++ % shadowEvery) === 0;
   post.render();
+  { const w = performance.now() - tw321; PACE321.work += (w - PACE321.work)*0.1; if (w > PACE321.wmax) PACE321.wmax = w; }   // v321: a drawn frame's work (pace321)
 }
-organiseMenu302(); bootDone();   // v302: the pause menu in tabs (ui/pause-menu.js). v301: the load is done: held timers run, the title screen's buttons wake up (core/start.js)
+perfInit(); organiseMenu302(); bootDone();   // v302: the pause menu in tabs (ui/pause-menu.js). v301: the load is done: held timers run, the title screen's buttons wake up (core/start.js)
 requestAnimationFrame(frame);
 })();
 </script>
