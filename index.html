@@ -5790,7 +5790,7 @@ await window.__THREE_READY;
 // v301: the load yields to the browser every ~200 ms (the build puts `await bootYield(name)` after every load step), so
 // the title screen can show how far it has got instead of freezing for ten seconds and more. Timers that load steps set
 // were written for a load in one go (they ran once everything was built): they are held until the load is done.
-const BOOT = {on: true, t: performance.now(), held: [], total: 528};
+const BOOT = {on: true, t: performance.now(), held: [], total: 532};
 { const st = window.setTimeout.bind(window), ct = window.clearTimeout.bind(window);
   window.setTimeout = function(fn, ms, ...a){ if (BOOT.on && typeof fn === 'function'){ BOOT.held.push([fn, ms, a]); return -BOOT.held.length; } return st(fn, ms, ...a); };
   window.clearTimeout = function(id){ if (typeof id === 'number' && id < 0){ const h = BOOT.held[-id - 1]; if (h) h[0] = null; return; } return ct(id); };
@@ -41417,6 +41417,422 @@ UNIQUE_MG.encyclo = {name: 'Encyclopaedia Birdtannica',
     for (const p of wmPlaces()){ if (S.visited[p.key] || worldOf49({x: p.p[0], z: p.p[2]}) !== here) continue; S.visited[p.key] = true; n++; }
     if (n){ toast(`<b>Local Knowledge.</b> The Encyclopaedia puts ${n} place${n > 1 ? 's' : ''} on your map.`, '', 3000); save(); } }};
 };
+/* ---------- gameplay/blackjack ---------- */
+// Blackjack at Khun Lek's table in the Kempinski Bangcluck lobby (world/bangcluck/khun-lek.js). House chips, not
+// crumbs: each table is a session with a stake, a number of hands and a target. Rules: one or two decks, dealer stands
+// on all 17s, blackjack pays 3 to 2, double on any two cards, no splitting ("Khun Lek hates paperwork").
+// Two other modes share the felt: "by the book", where every decision must be the textbook play (a chart hangs on the
+// wall, BJ_BOOK), and Raymond Babbird's test, where Khun Lek deals a deck card by card and Raymond asks for the running
+// count (the Hi-Lo count: 2-6 plus one, 7-9 nothing, tens and aces minus one), three times, exactly.
+// The overlay pauses the world (PAUSE315); state in S.v900mg.bj.
+const BJ_MG = {built: false, on: false, el: null, mode: 'play', cfg: null, shoe: [], i: 0, bank: 0, bet: 0, hands: 0, p: [], d: [], phase: 'bet', msg: '', book: {n: 0, ok: 0}, drill: null, result: null};
+const QBJ = () => { const q = QMG(); return q.bj || (q.bj = {}); };
+const BJ_SUITS = ['♠', '♥', '♦', '♣'], BJ_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+function bjShoe(decks){ const s = []; for (let d = 0; d < decks; d++) for (const su of BJ_SUITS) for (const r of BJ_RANKS) s.push({r, su}); for (let i = s.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i + 1)); [s[i], s[j]] = [s[j], s[i]]; } return s; }
+const bjVal1 = c => c.r === 'A' ? 11 : ['J', 'Q', 'K', '10'].includes(c.r) ? 10 : +c.r;
+function bjVal(h){ let v = 0, a = 0; for (const c of h){ v += bjVal1(c); if (c.r === 'A') a++; } while (v > 21 && a){ v -= 10; a--; } return {v, soft: a > 0}; }
+const bjHilo = c => { const v = bjVal1(c); return v <= 6 ? 1 : v >= 10 ? -1 : 0; };
+function bjDraw(){ const B = BJ_MG; if (B.i >= B.shoe.length){ B.shoe = bjShoe(B.cfg.decks || 1); B.i = 0; B.msg = 'Khun Lek shuffles.'; } return B.shoe[B.i++]; }
+
+// the book: what a careful player does with these two (or more) cards against the dealer's up card, no splitting
+function bjBook(h, up){ const {v, soft} = bjVal(h), two = h.length === 2, u = bjVal1(up);
+  if (soft){ if (v >= 19) return 'S'; if (v === 18) return u >= 9 ? 'H' : (two && u >= 3 && u <= 6 ? 'D' : 'S'); if (two && ((v === 17 && u >= 3 && u <= 6) || (v >= 15 && u >= 4 && u <= 6) || (v >= 13 && u >= 5 && u <= 6))) return 'D'; return 'H'; }
+  if (v >= 17) return 'S'; if (v >= 13) return u <= 6 ? 'S' : 'H'; if (v === 12) return u >= 4 && u <= 6 ? 'S' : 'H';
+  if (v === 11) return two ? 'D' : 'H'; if (v === 10) return two && u <= 9 ? 'D' : 'H'; if (v === 9) return two && u >= 3 && u <= 6 ? 'D' : 'H'; return 'H'; }
+const BJ_ACT = {H: 'hit', S: 'stand', D: 'double'};
+
+/* ---------- the overlay ---------- */
+function bjBuild(){ if (BJ_MG.built) return; BJ_MG.built = true;
+  const css = document.createElement('style'); css.textContent = `
+  #bjMG{position:fixed;inset:0;z-index:30;background:rgba(10,6,4,.82);display:grid;place-items:center;padding:12px;font-family:"Pixelify Sans",system-ui,sans-serif}
+  #bjMG .felt{width:min(680px,100%);background:radial-gradient(ellipse at 50% 30%,#1f7a46,#0f4a2a);border:12px solid #5a2a14;border-radius:120px 120px 18px 18px;box-shadow:0 0 0 3px #c8a050 inset,0 18px 40px rgba(0,0,0,.6);padding:20px 22px 16px;color:#f4ecd8;text-align:center}
+  #bjMG .ttl{color:#ffd166;font-weight:700;font-size:15px;letter-spacing:.06em}
+  #bjMG .lab{font-size:12px;opacity:.8;margin-top:6px}
+  #bjMG .hand{display:flex;gap:6px;justify-content:center;min-height:86px;margin:6px 0;flex-wrap:wrap}
+  #bjMG .card{width:56px;height:80px;border-radius:7px;background:#fbf7ee;color:#16161c;display:flex;flex-direction:column;justify-content:space-between;padding:4px 6px;font:700 18px/1 system-ui,sans-serif;box-shadow:0 2px 0 rgba(0,0,0,.35);animation:dealMG .18s ease-out}
+  #bjMG .card.red{color:#c8202a} #bjMG .card .b{align-self:flex-end;font-size:22px}
+  #bjMG .card.back{background:repeating-linear-gradient(45deg,#8a1a2a 0 6px,#a8283a 6px 12px);border:3px solid #fbf7ee}
+  #bjMG .card.big{width:110px;height:156px;font-size:34px;padding:8px 10px} #bjMG .card.big .b{font-size:46px}
+  @keyframes dealMG{from{transform:translateY(-14px);opacity:0}to{transform:none;opacity:1}}
+  #bjMG .msg{min-height:22px;margin:8px 0 4px;font-size:16px}
+  #bjMG .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+  #bjMG .row button{font:inherit;font-size:15px;min-width:86px;min-height:42px;border-radius:8px;border:2px solid #c8a050;background:#2a1408;color:#f4ecd8;cursor:pointer}
+  #bjMG .row button:disabled{opacity:.35;cursor:default}
+  #bjMG .row button b{color:#ffd166;margin-right:4px}
+  #bjMG .stat{display:flex;justify-content:space-between;font-size:13px;opacity:.9;margin-top:10px}
+  #bjMG .chart{font:11px/1.25 ui-monospace,Consolas,monospace;text-align:left;background:rgba(0,0,0,.35);padding:8px;border-radius:6px;margin-top:8px;white-space:pre;overflow:auto;max-height:180px}
+  #bjMG input{font:700 22px system-ui;width:90px;text-align:center;border-radius:8px;border:2px solid #c8a050;background:#fbf7ee;color:#16161c}`;
+  document.head.appendChild(css);
+  const el = document.createElement('div'); el.id = 'bjMG'; el.hidden = true;
+  el.innerHTML = '<div class="felt"><div class="ttl"></div><div class="lab">KHUN LEK</div><div class="hand d"></div><div class="lab you">YOU</div><div class="hand p"></div><div class="msg"></div><div class="row act"></div><div class="extra"></div><div class="stat"><span class="l"></span><span class="r"></span></div></div>';
+  document.body.appendChild(el); BJ_MG.el = el;
+  el.querySelector('.act').addEventListener('click', e => { const b = e.target.closest('button[data-a]'); if (b && !b.disabled) bjDo(b.dataset.a); });
+  addEventListener('keydown', e => { if (state !== 'miniBJ') return; e.stopImmediatePropagation(); const k = e.code;
+    if (k === 'Escape'){ e.preventDefault(); return bjEnd(); }
+    if (BJ_MG.mode === 'drill'){ if (k === 'Enter' && BJ_MG.drill && BJ_MG.drill.ask){ e.preventDefault(); bjAnswer(); } return; }
+    const map = {KeyH: 'H', KeyS: 'S', KeyD: 'D', Space: 'deal', Enter: 'deal', ArrowUp: 'up', ArrowDown: 'down', KeyW: 'up'}; const a = map[k]; if (a){ e.preventDefault(); bjDo(a); } }, true);
+}
+
+const bjCard = (c, cls = '') => c ? `<div class="card ${c.su === '♥' || c.su === '♦' ? 'red' : ''} ${cls}"><span>${c.r}${c.su}</span><span class="b">${c.su}</span></div>` : `<div class="card back ${cls}"></div>`;
+
+function bjRender(){ const B = BJ_MG, el = B.el, C = B.cfg;
+  el.querySelector('.ttl').textContent = C.title;
+  if (B.mode === 'drill') return bjRenderDrill();
+  el.querySelector('.you').style.display = '';
+  const hide = B.phase === 'play';
+  el.querySelector('.hand.d').innerHTML = B.d.map((c, i) => bjCard(i === 1 && hide ? null : c)).join('');
+  el.querySelector('.hand.p').innerHTML = B.p.map(c => bjCard(c)).join('');
+  el.querySelector('.msg').innerHTML = B.msg;
+  const a = el.querySelector('.act');
+  if (B.phase === 'play') a.innerHTML = `<button data-a="H"><b>H</b>Hit</button><button data-a="S"><b>S</b>Stand</button><button data-a="D" ${B.p.length === 2 && B.bank >= B.bet*2 ? '' : 'disabled'}><b>D</b>Double</button>`;
+  else if (B.phase === 'bet') a.innerHTML = `<button data-a="down" ${B.bet > C.min ? '' : 'disabled'}>− bet</button><button data-a="deal"><b>␣</b>Deal ${B.bet}</button><button data-a="up" ${B.bet < Math.min(C.max, B.bank) ? '' : 'disabled'}>+ bet</button>`;
+  else a.innerHTML = `<button data-a="leave">Leave the table</button>`;
+  el.querySelector('.extra').innerHTML = B.mode === 'book' && (QBJ().chart || C.chart) ? `<div class="chart">${bjChart()}</div>` : '';
+  el.querySelector('.l').textContent = B.mode === 'book' ? `By the book: ${B.book.ok}/${B.book.n} · need ${C.hands} in a row` : `Chips ${B.bank} · target ${C.target}`;
+  el.querySelector('.r').textContent = B.mode === 'book' ? '' : `Hand ${Math.min(B.hands + (B.phase === 'bet' ? 1 : 0), C.hands)} of ${C.hands}`; }
+
+// the chart on the wall, for the book table
+function bjChart(){ const ups = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'A']; let s = 'YOU     ' + ups.map(u => u.padStart(3)).join('') + '  (dealer shows)\n';
+  const row = (name, h) => name.padEnd(8) + ups.map(u => ('  ' + bjBook(h, {r: u === '10' ? 'K' : u})).slice(-3)).join('') + '\n';
+  for (const v of [8, 9, 10, 11, 12, 13, 16, 17]) s += row('hard ' + v, v <= 10 ? [{r: '2'}, {r: String(v - 2)}] : v === 11 ? [{r: '5'}, {r: '6'}] : [{r: 'K'}, {r: String(v - 10)}]);
+  for (const v of [13, 15, 17, 18, 19]) s += row('soft ' + v, [{r: 'A'}, {r: String(v - 11)}]);
+  return s + 'H hit · S stand · D double (hit if you can\'t)'; }
+
+function bjDo(a){ const B = BJ_MG, C = B.cfg;
+  if (B.phase === 'over'){ if (a === 'leave' || a === 'deal') bjEnd(); return; }
+  if (B.phase === 'bet'){ const step = C.min; if (a === 'up') B.bet = Math.min(C.max, B.bank, B.bet + step); else if (a === 'down') B.bet = Math.max(C.min, B.bet - step); else if (a === 'deal') bjDeal(); bjRender(); return; }
+  if (B.phase !== 'play' || !BJ_ACT[a]) return;
+  if (B.mode === 'book'){ const want = bjBook(B.p, B.d[0]); const ok = a === want || (want === 'D' && a === 'H' && B.p.length > 2); B.book.n++; if (ok) B.book.ok++; else { B.book.ok = 0; B.msg = `Khun Lek taps the chart. The book says <b>${BJ_ACT[want]}</b>. Start the count again.`; tone(196, 0.15, 'square', 0.03); } }
+  if (a === 'D'){ if (B.p.length !== 2 || B.bank < B.bet*2) return; B.bet *= 2; B.p.push(bjDraw()); return bjSettle(); }
+  if (a === 'H'){ B.p.push(bjDraw()); tone(660, 0.03, 'triangle', 0.03); if (bjVal(B.p).v > 21) return bjSettle(); if (bjVal(B.p).v === 21) return bjSettle(); bjRender(); return; }
+  if (a === 'S') return bjSettle(); }
+
+function bjDeal(){ const B = BJ_MG; if (B.bank < B.cfg.min) return; B.bet = Math.min(B.bet, B.bank); B.base = B.bet; B.p = [bjDraw(), bjDraw()]; B.d = [bjDraw(), bjDraw()]; B.phase = 'play'; if (B.mode !== 'book') B.msg = ''; tone(520, 0.04, 'triangle', 0.03);
+  if (bjVal(B.p).v === 21 || bjVal(B.d).v === 21) return bjSettle(); bjRender(); }
+
+function bjSettle(){ const B = BJ_MG, C = B.cfg; const pv = bjVal(B.p).v, pbj = pv === 21 && B.p.length === 2; let dv = bjVal(B.d).v; const dbj = dv === 21 && B.d.length === 2;
+  if (pv <= 21 && !pbj && !dbj) while (dv < 17){ B.d.push(bjDraw()); dv = bjVal(B.d).v; }
+  let win = 0, txt;
+  if (pbj && !dbj){ win = Math.floor(B.bet*1.5); txt = 'Blackjack!'; } else if (dbj && !pbj){ win = -B.bet; txt = 'Khun Lek has blackjack.'; } else if (pbj && dbj){ txt = 'Two blackjacks. Push.'; }
+  else if (pv > 21){ win = -B.bet; txt = `Bust with ${pv}.`; } else if (dv > 21){ win = B.bet; txt = `Khun Lek busts with ${dv}.`; } else if (pv > dv){ win = B.bet; txt = `${pv} beats ${dv}.`; } else if (pv < dv){ win = -B.bet; txt = `${dv} beats ${pv}.`; } else txt = `${pv} each. Push.`;
+  B.bank += win; B.hands++;
+  if (win > 0){ tone(784, 0.06, 'triangle', 0.035); tone(1047, 0.1, 'triangle', 0.035, null, 0.07); } else if (win < 0) tone(220, 0.12, 'square', 0.025);
+  const book = B.mode === 'book' ? B.msg.startsWith('Khun Lek taps') ? B.msg : '' : '';
+  B.msg = `${txt} ${win > 0 ? `+${win}` : win < 0 ? win : ''}` + (book ? `<br>${book}` : '');
+  B.phase = 'bet'; B.bet = Math.max(C.min, Math.min(B.base || C.min, C.max, B.bank));   // the same stake again (before any double)
+  // the session ends on a target, a broken bank, or the last hand
+  let done = null;
+  if (B.mode === 'book'){ if (B.book.ok >= C.hands) done = true; else if (B.hands >= C.hands*3) done = false; }
+  else if (B.bank >= C.target) done = true; else if (B.bank < C.min || B.hands >= C.hands) done = false;
+  if (done !== null) bjOver(done); bjRender(); }
+
+function bjOver(won){ const B = BJ_MG; B.phase = 'over'; B.result = {won, mode: B.mode, rung: B.cfg.rung, bank: B.bank}; B.msg += `<br><b>${won ? (B.mode === 'book' ? 'By the book, every time. Khun Lek nods.' : `You leave with ${B.bank}. Target made.`) : (B.mode === 'book' ? 'Not by the book. Not tonight.' : `${B.bank} chips. Not tonight.`)}</b>`;
+  if (won){ tone(523, 0.1, 'triangle', 0.05); tone(659, 0.1, 'triangle', 0.05, null, 0.1); tone(784, 0.2, 'triangle', 0.05, null, 0.2); } }
+
+/* ---------- Raymond's test: count down a deck ---------- */
+function bjDrillStart(){ const B = BJ_MG, C = B.cfg; B.shoe = bjShoe(1); B.i = 0; const stops = []; while (stops.length < 3){ const s = 12 + Math.floor(Math.random()*38); if (stops.every(x => Math.abs(x - s) > 8)) stops.push(s); } stops.sort((a, b) => a - b);
+  B.drill = {stops, k: 0, rc: 0, shown: null, t: 0, every: C.every, ask: false, right: 0, wrong: 0, n: 0, last: ''}; bjRender(); bjDrillNext(); }
+function bjDrillNext(){ const B = BJ_MG, D = B.drill; if (!B.on || B.mode !== 'drill' || D.ask) return;
+  if (D.k < D.stops.length && D.n === D.stops[D.k]){ D.ask = true; bjRender(); const inp = B.el.querySelector('input'); if (inp) setTimeout(() => inp.focus(), 50); return; }
+  if (D.n >= 52){ return bjOver(D.right >= 3); }
+  const c = B.shoe[B.i++]; D.rc += bjHilo(c); D.shown = c; D.n++; tone(880, 0.02, 'triangle', 0.02); bjRender();
+  B.drillT = setTimeout(bjDrillNext, Math.max(320, D.every - D.n*6)); }
+function bjAnswer(){ const B = BJ_MG, D = B.drill, inp = B.el.querySelector('input'); if (!D || !D.ask || !inp) return; const v = parseInt(inp.value.replace('−', '-').trim(), 10); if (!isFinite(v)) return;
+  D.ask = false; D.k++; if (v === D.rc){ D.right++; D.last = `Raymond: "${D.rc > 0 ? '+' : ''}${D.rc}. Yes. Definitely ${D.rc > 0 ? '+' : ''}${D.rc}."`; tone(784, 0.08, 'triangle', 0.04); }
+  else { D.last = `Raymond: "No. ${D.rc > 0 ? '+' : ''}${D.rc}. It was ${D.rc > 0 ? '+' : ''}${D.rc}. Definitely." He goes back to his notebook.`; tone(220, 0.15, 'square', 0.03); B.drill.wrong++; bjRender(); clearTimeout(B.drillT); return setTimeout(() => bjOver(false), 1600); }
+  bjRender(); B.drillT = setTimeout(bjDrillNext, 900); }
+function bjRenderDrill(){ const B = BJ_MG, D = B.drill || {}, el = B.el;
+  el.querySelector('.you').style.display = 'none'; el.querySelector('.hand.p').innerHTML = '';
+  el.querySelector('.hand.d').innerHTML = D.shown ? bjCard(D.shown, 'big') : bjCard(null, 'big');
+  el.querySelector('.msg').innerHTML = B.phase === 'over' ? B.msg : D.ask ? '<b>Raymond: "What\'s the count?"</b>' : (D.last || 'Khun Lek deals. Raymond watches. Count.');
+  el.querySelector('.act').innerHTML = B.phase === 'over' ? '<button data-a="leave">Leave the table</button>' : D.ask ? '<input type="text" inputmode="numeric" placeholder="0" aria-label="the running count"><button data-a="answer"><b>↵</b>That\'s the count</button>' : '';
+  const ab = el.querySelector('[data-a="answer"]'); if (ab) ab.onclick = bjAnswer;
+  el.querySelector('.extra').innerHTML = ''; el.querySelector('.l').textContent = `Card ${D.n || 0} of 52`; el.querySelector('.r').textContent = `Checks ${D.right || 0} of 3`; }
+
+/* ---------- opening and closing ---------- */
+// cfg: {title, rung, mode: 'play'|'book'|'drill', decks, stake, target, hands, min, max, every, chart}
+function bjOpen(cfg){ bjBuild(); const B = BJ_MG; Object.assign(B, {on: true, cfg, mode: cfg.mode || 'play', shoe: bjShoe(cfg.decks || 1), i: 0, bank: cfg.stake || 0, bet: cfg.min || 0, base: cfg.min || 0, hands: 0, p: [], d: [], phase: 'bet', msg: cfg.intro || '', book: {n: 0, ok: 0}, drill: null, result: null});
+  try { PAUSE315.add('miniBJ'); } catch(e){}
+  state = 'miniBJ'; exitLock(); for (const k in keys) keys[k] = false; B.el.hidden = false;
+  if (B.mode === 'drill'){ B.phase = 'drill'; bjDrillStart(); } else bjRender(); }
+function bjEnd(){ const B = BJ_MG; if (!B.on) return; B.on = false; clearTimeout(B.drillT); B.el.hidden = true; if (state === 'miniBJ') state = 'play'; for (const k in keys) keys[k] = false;
+  const r = B.result || {won: false, quit: true, mode: B.mode, rung: B.cfg.rung}; B.result = null; if (B.onClose) try { B.onClose(r); } catch(e){ console.error(e); } save(); }
+/* ---------- world/bangcluck/khun-lek ---------- */
+// Since the Golden Prawn went down, its croupier, Khun Lek, deals blackjack at a table by the Kempinski Bangcluck's shut
+// casino doors (the game is gameplay/blackjack.js). Raymond Babbird sits beside it with a notebook, counting. A ladder
+// (gameplay/ladders.js): three tables of rising stakes, a table played strictly by the book, and Raymond's test, where
+// the only way through is to know how to count cards. The prize, the Golden Prawn Chip: House Edge (every loot roll comes
+// up better) and Comped (every bite of food pays two crumbs more). The venue step runs in the Bangcluck region.
+const KL_MG = {eaten0: -1};
+const KL_RUNGS = [
+  {title: 'The Five Table', mode: 'play', decks: 1, stake: 50, target: 65, hands: 12, min: 5, max: 20},
+  {title: 'The Twenty Table', mode: 'play', decks: 1, stake: 100, target: 140, hands: 15, min: 10, max: 40},
+  {title: 'The Gold Table', mode: 'play', decks: 2, stake: 200, target: 300, hands: 15, min: 20, max: 100},
+  {title: 'By the Book', mode: 'book', decks: 2, stake: 500, target: 99999, hands: 12, min: 10, max: 10},
+  {title: 'Raymond\'s Test', mode: 'drill', every: 950},
+];
+const KLK = (t, c) => L('Khun Lek', t, c), RBB = (t, c) => L('Raymond Babbird', t, c);
+
+function klPlay(i){ const R = Object.assign({rung: i}, KL_RUNGS[i]); if (R.mode === 'book') R.chart = !!QBJ().chart; R.intro = i === 4 ? '' : R.mode === 'book' ? 'Every decision by the book. Twelve in a row.' : `${R.stake} house chips. Leave with ${R.target} in ${R.hands} hands or fewer.`; bjOpen(R); }
+
+function klClose(r){ if (!r || r.quit) return; const st = ladState('blackjack'), i = r.rung;
+  if (r.won){ ladderBeat('blackjack', i); if (i === 4 && st.beat >= 5) setTimeout(() => say([RBB('...Three for three. Definitely three for three.'), RBB('You can count. I can count. Khun Lek can count, but he\'s not allowed to.'), KLK('He wants you to have this. It was the last chip off the Golden Prawn. Raymond kept it in his sock. For luck. Please do not ask which sock.')]), 1200); }
+  else if (i === st.beat) ladderFail('blackjack'); }
+
+const ld_bangcluckKhunLek_1 = () => {
+if (typeof KEMP51 === 'undefined' || !KEMP51 || !KEMP51.lobbyRoom) return;
+bjBuild();
+const R = KEMP51.lobbyRoom, x = R.minX + 6, z = R.maxZ - 3.4, y0 = 0.15, g = new THREE.Group(); bangG.add(g); KL_MG.g = g;
+// a half-round table in green felt, gold rail, a shoe and a chip rack
+{ const top = mesh(new THREE.CylinderGeometry(1.4, 1.4, 0.08, 24, 1, false, -PI/2, PI), mat(0x1f7a46), x, y0 + 0.86, z); g.add(top); const rail = mesh(new THREE.TorusGeometry(1.4, 0.06, 6, 24, PI), mat(0xc8a050), x, y0 + 0.92, z); rail.rotation.x = -PI/2; rail.rotation.z = PI; g.add(rail);
+  g.add(boxMesh(2.8, 0.08, 0.3, mat(0x5a2a14), x, y0 + 0.88, z + 0.15)); g.add(boxMesh(0.6, 0.8, 0.5, mat(0x5a2a14), x, y0 + 0.43, z - 0.05));
+  g.add(boxMesh(0.3, 0.18, 0.4, mat(0x2a1408), x + 0.9, y0 + 1.0, z + 0.05)); for (let k = 0; k < 5; k++) g.add(boxMesh(0.07, 0.06, 0.3, mat([0xd4302a, 0x3f6bd4, 0x2a2a30, 0xf4f0e6, 0x3fa04a][k]), x - 0.5 + k*0.09, y0 + 0.95, z + 0.08));
+  addSolid(x, z - 0.3, 2.8, 1.4, 0, y0 + 0.92, 'cardtable'); }
+KL_MG.lek = person22(g, x, z + 0.9, PI, {shirt: 0xf4f0e6, pants: 0x1a1a20, hair: 0x1a1410}); KL_MG.lek.g.userData.cr = 99;
+{ const vest = boxMesh(0.42, 0.42, 0.26, mat(0x6a1a2a), 0, 1.38, 0.02); KL_MG.lek.g.add(vest); const bow = boxMesh(0.14, 0.05, 0.05, mat(0x1a1a20), 0, 1.66, 0.14); KL_MG.lek.g.add(bow); }
+KL_MG.ray = person22(g, x - 2.6, z - 0.4, PI/2, {shirt: 0xb8a888, pants: 0x5a5a62, hair: 0x6a5a4a}); KL_MG.ray.g.userData.cr = 99;
+{ const book = boxMesh(0.2, 0.26, 0.03, mat(0xf4ecd8), 0.18, 1.2, 0.26); book.rotation.x = -0.6; KL_MG.ray.g.add(book); }
+// the chart on the casino doors
+{ const c = document.createElement('canvas'); c.width = 128; c.height = 160; const cg = c.getContext('2d'); cg.fillStyle = '#f4ecd8'; cg.fillRect(0, 0, 128, 160); cg.fillStyle = '#6a1a2a'; cg.font = 'bold 13px monospace'; cg.textAlign = 'center'; cg.fillText('THE BOOK', 64, 18); cg.font = '9px monospace'; cg.fillStyle = '#2a1408';
+  ['hard 17+  STAND', 'hard 13-16  stand v 2-6', '      else HIT', 'hard 12  stand v 4-6', '11  DOUBLE', '10  double v 2-9', '9  double v 3-6', 'soft 19+  STAND', 'soft 18  stand, hit v 9+', 'soft 13-17  hit', '  (double v 4-6)'].forEach((l, i) => cg.fillText(l, 64, 38 + i*11));
+  const t = new THREE.CanvasTexture(c), pl = mesh(new THREE.PlaneGeometry(0.64, 0.8), mat(0xffffff, {map: t}), R.minX + 8.6, 1.7, R.maxZ - 0.62); pl.rotation.y = PI; g.add(pl); KL_MG.chartPos = new THREE.Vector3(R.minX + 8.6, 0.9, R.maxZ - 1.8); }
+PORTRAITS['Khun Lek'] = (() => { const H = makeHuman({shirt: 0xf4f0e6, hair: 0x1a1410}); scene.remove(H.g); H.snack.visible = false; H.g.rotation.y = 0.4; return renderPortrait(H.g, new THREE.Vector3(0.3, 1.92, 1.15), new THREE.Vector3(0, 1.8, 0)); })();
+PORTRAITS['Raymond Babbird'] = (() => { const H = makeHuman({shirt: 0xb8a888, hair: 0x6a5a4a}); scene.remove(H.g); H.snack.visible = false; H.g.rotation.y = 0.4; return renderPortrait(H.g, new THREE.Vector3(0.3, 1.92, 1.15), new THREE.Vector3(0, 1.8, 0)); })();
+VOICES['Khun Lek'] = {kind: 'human', base: 190, range: 0.3, rate: 13, cps: 48}; VOICES['Raymond Babbird'] = {kind: 'human', base: 150, range: 0.12, rate: 16, cps: 56};
+FOLK.push(['Khun Lek', 'The croupier from the Golden Prawn. Since it sank he deals at a table by the Kempinski\'s shut casino doors. House chips only. The house is nervous.'], ['Raymond Babbird', 'Sits by Khun Lek\'s table with a notebook. Counts everything: cards, tiles, toothpicks. Definitely counts.']);
+KL_MG.spot = new THREE.Vector3(x, 0.6, z - 1.5); KL_MG.raySpot = new THREE.Vector3(x - 2.6, 0.6, z - 1.5);
+const inLobby = () => inBang() && roomAt(player.pos) === KEMP51.lobbyRoom;
+LADDERS.blackjack = {key: 'blackjack', title: 'Blackjack with Khun Lek',
+  levels: [
+    {id: 'bj0', name: 'The Five Table', pay: 10, xp: 40},
+    {id: 'bj1', name: 'The Twenty Table', pay: 15, xp: 60, loot: {roll: 1, floor: 1}},
+    {id: 'bj2', name: 'The Gold Table', pay: 25, xp: 90, loot: {legend: 'Khun Lek\'s Bow Tie', base: 'brooch', r: 2, st: {charm: 14, fence: 10}}},
+    {id: 'bj3', name: 'By the Book', pay: 40, xp: 140, loot: {legend: 'The Golden Prawn\'s Last Shoe', base: 'watch', r: 3, st: {luck: 18, fence: 16, crumb: 18}}},
+    {id: 'bj4', name: 'Raymond\'s Test', pay: 300, xp: 400, loot: {legend: 'The Golden Prawn Chip', base: 'coin', b: 'chipmg', s: 'charm', uq: 'chip', r: 4, v: 70, st: {luck: 25, fence: 25, crumb: 15}}},
+  ],
+  at: () => KL_MG.spot,
+  text: i => `${KL_RUNGS[i].title} with Khun Lek, in the Kempinski Bangcluck lobby.`,
+  hint: st => st.beat === 4 ? 'Raymond Babbird, without looking up: <i>"Plus one, plus one, minus one. Count. Definitely count."</i>' : null};
+addNamedTalker(() => 'Play blackjack with Khun Lek', 'Khun Lek', () => inBang() ? KL_MG.spot : AR_FAR, () => { const st = ladState('blackjack'), b = st.beat, first = !st.met; st.met = 1;
+  const lines = first ? [KLK('Sawasdee krap. I dealt on the Golden Prawn for eleven years. Then it sank. So now I deal here, by the doors, with house chips. The house is very nervous.'), KLK('Blackjack. Dealer stands on seventeen, blackjack pays three to two, and no splitting. I hate paperwork.')] : [];
+  if (b >= 5) lines.push(KLK(mpick(['The chip suits you. Raymond misses it. He will not say so.', 'A friendly game? House chips. Nobody gets hurt.'])));
+  else if (b === 3 && !QBJ().chart) lines.push(KLK('By the book means by the book. The book is on the doors behind me. Read it first.'));
+  else if (b === 4) lines.push(KLK('The last table is not mine. It is Raymond\'s. Talk to Raymond.'));
+  else lines.push(KLK(`Next: ${KL_RUNGS[b].title}.`));
+  const ch = []; for (let i = Math.min(b, 3); i >= 0; i--) ch.push({label: `${KL_RUNGS[i].title}${KL_RUNGS[i].mode === 'play' ? `: ${KL_RUNGS[i].stake} → ${KL_RUNGS[i].target}` : ''}`, fn: () => klPlay(i)});
+  ch.push({label: 'Not now.', fn: () => {}}); save(); say([...lines, KLK('Which table?', ch)]); }, 2.0, inLobby);
+addNamedTalker(() => 'Talk to Raymond Babbird', 'Raymond Babbird', () => inBang() ? KL_MG.raySpot : AR_FAR, () => { const st = ladState('blackjack'), b = st.beat, tries = st.tries || 0;
+  if (b < 4) return say([RBB(mpick(['Two hundred and forty-six toothpicks. In the jar. Definitely two hundred and forty-six.', 'Khun Lek shuffles left to right. Always left to right.', 'Five tables. Then my test. Five tables first.']))]);
+  if (b >= 5) return say([RBB(mpick(['You count good. Definitely good.', 'Minus two. Somebody at the pool just ordered two mango mocktails. Minus two.']))]);
+  const lines = [RBB('My test. Khun Lek deals the deck. One card, then the next. Faster. Three times I ask: what\'s the count? You tell me. Exactly.')];
+  if (tries >= 1) lines.push(RBB('The count is not the cards added up. The count is small against big.'));
+  if (tries >= 3) lines.push(RBB('Two, three, four, five, six: plus one each. Seven, eight, nine: nothing. Tens, pictures, aces: minus one each. Start at zero. Keep it going. Definitely keep it going.'));
+  if (tries >= 6) lines.push(RBB('Don\'t add them one by one when they come in pairs. A five and a king is nothing. Two small ones is plus two. Pairs. Count in pairs.'));
+  say([...lines, RBB('Ready?', [{label: 'Deal the deck.', fn: () => klPlay(4)}, {label: 'Not yet.', fn: () => {}}])]); }, 1.8, inLobby);
+addNamedTalker(() => 'Read the chart on the casino doors', 'Chart', () => inBang() ? KL_MG.chartPos : AR_FAR, () => { QBJ().chart = 1; save(); say([L('Chart', 'THE BOOK. Hard 17 or more: stand. Hard 13 to 16: stand if the dealer shows 2 to 6, otherwise hit. Hard 12: stand against 4 to 6. 11: double. 10: double against 2 to 9. 9: double against 3 to 6. Soft 19 or more: stand. Soft 18: stand, but hit against 9, 10 or an ace. Soft 13 to 17: hit (double against 4 to 6). Anything else: hit.'), L('Pidge', '(You will remember this. Khun Lek will put it on the felt for you, too.)')]); }, 1.6, inLobby);
+BJ_MG.onClose = klClose;
+SYS52.push(['khunLekMG', () => { const near = inBang() && player.pos.distanceTo(KL_MG.spot) < 50; if (g.visible !== near) g.visible = near; }]);
+};
+
+/* ---------- the Golden Prawn Chip ---------- */
+const ld_gameplayChipMG_1 = () => {
+aroundHook('lootIcon', function(next, b, r){ if (b !== 'chipmg') return next(b, r); const k = b + r; if (ICON29[k]) return ICON29[k];
+  const c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d'), col = RAR[r].col;
+  pdisc(g, 8, 8, 7, '#e0b040'); pdisc(g, 8, 8, 5.5, '#8a1a2a'); for (let a = 0; a < 8; a++) px(g, 8 + Math.round(Math.cos(a*PI/4)*6) - 1, 8 + Math.round(Math.sin(a*PI/4)*6) - 1, '#f4ecd8', 2, 2); pdisc(g, 8, 8, 3, col); px(g, 7, 6, '#fff6dc', 2, 1);
+  return ICON29[k] = c.toDataURL(); });
+UNIQUE_MG.chip = {name: 'The Golden Prawn Chip',
+  card: () => '<b>Unique.</b> The last chip off the Golden Prawn. It smells faintly of sock.<br>· <b>House Edge</b>: every loot roll comes up better, as if the house were on your side for once.<br>· <b>Comped</b>: every bite of food pays two crumbs more.',
+  frame: () => { const n = S.eaten || 0; if (KL_MG.eaten0 < 0 || n < KL_MG.eaten0){ KL_MG.eaten0 = n; return; } if (n > KL_MG.eaten0){ S.crumbs += 2*(n - KL_MG.eaten0); KL_MG.eaten0 = n; } }};
+aroundHook('rollLoot', function(next, boost, base){ return next(wearingMG('chip') ? (boost || 0) + 0.8 : boost, base); });
+};
+/* ---------- gameplay/lunar-lander ---------- */
+// Lunar Lander, after the 1979 cabinet: white vector lines on black, the real Moon's gravity (1.62 m/s²), an engine that
+// pushes at 4.5 m/s² and burns a unit of fuel a second, and a pad to set down on gently (under 2 m/s down, 1.2 m/s
+// sideways, 10° of tilt). Played on a cabinet outside the Grand Hôtel de la Tranquillité (world/moon/lander.js).
+// The fifth pad, the Lighthouse, starts two kilometres up and falling at 40 m/s with 29 s of fuel. Slow down early
+// and hover the rest of the way and it takes about 70: every second the engine holds you up, the Moon takes a second of
+// fuel. Fall instead, and burn at full thrust at the last moment (from about a sixth of v² metres: the "suicide burn"),
+// and it takes 25. Fixed 60 Hz steps on its own frame loop, the world paused behind it; state in S.v900mg.ll.
+const LL_MG = {built: false, on: false, el: null, cv: null, g: null, acc: 0, lv: null, s: null, k: {}, pk: {}, kb: {}, touch: {}, scr: 'fly', t: 0, result: null, script: null};
+const QLL = () => { const q = QMG(); return q.ll || (q.ll = {}); };
+const LL_G = 1.62, LL_THRUST = 4.5, LL_TURN = 1.7;
+const LL_LEVELS = [
+  {name: 'Training Pad', seed: 3, alt: 400, x: 0, vx: 0, vy: -5, fuel: 60, pad: [-40, 40], rough: 50},
+  {name: 'Highland Pad', seed: 11, alt: 600, x: -260, vx: 12, vy: -4, fuel: 70, pad: [-20, 30], rough: 120, hills: 1},
+  {name: 'The Narrow Pad', seed: 23, alt: 500, x: 150, vx: -8, vy: -3, fuel: 45, pad: [-10, 10], rough: 150, ridge: 1},
+  {name: 'Tranquillity Base', seed: 42, alt: 800, x: -600, vx: 0, vy: 0, fuel: 80, pad: [-25, 25], rough: 90},
+  {name: 'The Lighthouse', seed: 64, alt: 2000, x: 0, vx: 0, vy: -40, fuel: 29, pad: [-22, 22], rough: 140, light: 1},
+];
+
+// terrain: a height every 20 m from x = -1200 to 1200, the pad flat at height 0
+function llTerrain(L){ let a = L.seed*9301 + 49297; const rnd = () => (a = (a*9301 + 49297) % 233280)/233280; const pts = [];
+  for (let x = -1200; x <= 1200; x += 20){ let h = (rnd() - 0.4)*L.rough + Math.sin(x/170 + L.seed)*L.rough*0.6; if (L.hills && Math.abs(x) < 160) h += (160 - Math.abs(x))*0.9; if (L.ridge) h += Math.max(0, 220 - Math.abs(x)*0.8);
+    if (x >= L.pad[0] - 20 && x <= L.pad[1] + 20) h = L.ridge || L.hills ? (L.ridge ? 176 : 144) : 0; pts.push([x, h]); }
+  const padH = pts.find(p => p[0] >= L.pad[0])[1]; for (const p of pts) if (p[0] >= L.pad[0] && p[0] <= L.pad[1]) p[1] = padH;
+  return {pts, padH}; }
+function llGround(x){ const P = LL_MG.lv.T.pts; if (x <= P[0][0]) return P[0][1]; for (let i = 1; i < P.length; i++) if (x <= P[i][0]){ const [x0, y0] = P[i - 1], [x1, y1] = P[i]; return y0 + (y1 - y0)*(x - x0)/(x1 - x0); } return P[P.length - 1][1]; }
+
+function llStart(i){ const L = Object.assign({i}, LL_LEVELS[i]); L.T = llTerrain(L); LL_MG.lv = L; LL_MG.s = {x: L.x, y: L.T.padH + L.alt, vx: L.vx, vy: L.vy, a: 0, fuel: L.fuel, t: 0, burn: false, used: 0}; LL_MG.scr = 'fly'; LL_MG.t = 0; LL_MG.result = null; }
+
+/* ---------- the step ---------- */
+const LLKEY = {ArrowUp: 'up', KeyW: 'up', Space: 'up', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', Enter: 'go'};
+function llInput(){ const k = {}, kb = LL_MG.kb, tc = LL_MG.touch; for (const n of ['up', 'l', 'r', 'go']) k[n] = !!(kb[n] || tc[n]);
+  const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(p => p && p.connected && p.mapping === 'standard');
+  if (gp){ const B = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.5)), ax = gp.axes[0] || 0; k.up = k.up || B(0) || B(7); k.l = k.l || B(14) || ax < -0.4; k.r = k.r || B(15) || ax > 0.4; k.go = k.go || B(9); if (B(8)) llEnd(); }
+  if (LL_MG.script){ const s = LL_MG.script(LL_MG.s, LL_MG.t); if (s) Object.assign(k, s); }
+  LL_MG.pk = LL_MG.k; LL_MG.k = k; }
+
+function llStep(){ llInput(); const S_ = LL_MG.s, L = LL_MG.lv, k = LL_MG.k, dt = 1/60; LL_MG.t++;
+  if (LL_MG.scr !== 'fly'){ if (LL_MG.t > 60 && k.go && !LL_MG.pk.go) llAfter(); return; }
+  if (k.l) S_.a -= LL_TURN*dt; if (k.r) S_.a += LL_TURN*dt; S_.a = Math.max(-PI/2, Math.min(PI/2, S_.a));
+  S_.burn = k.up && S_.fuel > 0; let ax = 0, ay = -LL_G;
+  if (S_.burn){ ax += Math.sin(S_.a)*LL_THRUST; ay += Math.cos(S_.a)*LL_THRUST; S_.fuel = Math.max(0, S_.fuel - dt); S_.used += dt; }
+  S_.vx += ax*dt; S_.vy += ay*dt; S_.x += S_.vx*dt; S_.y += S_.vy*dt; S_.t += dt;
+  if (S_.x < -1180 || S_.x > 1180){ S_.x = Math.max(-1180, Math.min(1180, S_.x)); S_.vx = 0; }
+  // the feet, 3 m either side
+  const fl = llGround(S_.x - 3), fr = llGround(S_.x + 3), foot = S_.y - 2.4;
+  if (foot <= Math.max(fl, fr)){ const onPad = S_.x - 3 >= L.pad[0] && S_.x + 3 <= L.pad[1], soft = S_.vy > -2.0 && Math.abs(S_.vx) < 1.2 && Math.abs(S_.a) < 0.18;
+    S_.y = Math.max(fl, fr) + 2.4; const ok = onPad && soft; LL_MG.scr = ok ? 'landed' : 'crashed'; LL_MG.t = 0;
+    LL_MG.result = {won: ok, i: L.i, fuel: +S_.fuel.toFixed(1), vy: +S_.vy.toFixed(2), vx: +S_.vx.toFixed(2), why: ok ? '' : !onPad ? 'not on the pad' : S_.vy <= -2.0 ? `too fast: ${(-S_.vy).toFixed(1)} m/s down` : Math.abs(S_.vx) >= 1.2 ? `drifting ${Math.abs(S_.vx).toFixed(1)} m/s sideways` : 'not upright'};
+    if (ok){ tone(523, 0.12, 'sine', 0.05); tone(784, 0.25, 'sine', 0.05, null, 0.12); } else { noise(0.6, 600, 0.06); tone(90, 0.6, 'sawtooth', 0.05, 40); }
+    if (LL_MG.onResult) try { LL_MG.onResult(LL_MG.result); } catch(e){ console.error(e); } }
+  if (S_.burn && LL_MG.t % 6 === 0) noise(0.08, 300, 0.012);
+}
+
+function llAfter(){ llEnd(); }
+
+/* ---------- drawing: vectors ---------- */
+function llDraw(){ const g = LL_MG.g, W = LL_MG.cv.width, H = LL_MG.cv.height, S_ = LL_MG.s, L = LL_MG.lv; g.fillStyle = '#05060a'; g.fillRect(0, 0, W, H);
+  // zoomed so the lander and the ground under it always fit, the ground near the bottom
+  const gU = llGround(S_.x), alt = S_.y - gU, zoom = Math.max(0.12, Math.min(3.2, H*0.62/(alt + 25))), sx = x => W/2 + (x - S_.x)*zoom, sy = y => H*0.88 - (y - gU)*zoom;
+  g.strokeStyle = '#e8f4ff'; g.lineWidth = 1.4; g.shadowColor = '#8fd8ff'; g.shadowBlur = 6;
+  // the ground
+  g.beginPath(); let first = true; for (const [x, y] of L.T.pts){ const X = sx(x); if (X < -40 || X > W + 40) continue; if (first){ g.moveTo(X, sy(y)); first = false; } else g.lineTo(X, sy(y)); } g.stroke();
+  // the pad, brighter, and the Lighthouse on the last one
+  g.strokeStyle = '#ffd166'; g.lineWidth = 3; g.beginPath(); g.moveTo(sx(L.pad[0]), sy(L.T.padH)); g.lineTo(sx(L.pad[1]), sy(L.T.padH)); g.stroke(); g.lineWidth = 1.4;
+  if (L.light){ const lx = sx(L.pad[1] + 14), ly = sy(L.T.padH); g.strokeStyle = '#e8f4ff'; g.beginPath(); g.moveTo(lx - 4*zoom, ly); g.lineTo(lx - 2*zoom, ly - 30*zoom); g.lineTo(lx + 2*zoom, ly - 30*zoom); g.lineTo(lx + 4*zoom, ly); g.stroke(); if (LL_MG.t % 60 < 30){ g.strokeStyle = '#ffd166'; g.beginPath(); g.arc(lx, ly - 32*zoom, Math.max(2, 3*zoom), 0, PI*2); g.stroke(); } }
+  // the lander
+  const lz = Math.max(zoom, 0.9), X = sx(S_.x), Y = sy(S_.y); g.save(); g.translate(X, Y); g.rotate(S_.a); g.strokeStyle = LL_MG.scr === 'crashed' ? '#ff8a7a' : '#e8f4ff';
+  g.beginPath(); g.moveTo(-3*lz, -1*lz); g.lineTo(-2*lz, -4*lz); g.lineTo(2*lz, -4*lz); g.lineTo(3*lz, -1*lz); g.closePath(); g.moveTo(-3.5*lz, -1*lz); g.lineTo(3.5*lz, -1*lz); g.lineTo(2.5*lz, 0.8*lz); g.lineTo(-2.5*lz, 0.8*lz); g.closePath();
+  g.moveTo(-2.5*lz, 0.8*lz); g.lineTo(-3.4*lz, 2.4*lz); g.moveTo(2.5*lz, 0.8*lz); g.lineTo(3.4*lz, 2.4*lz); g.moveTo(-4*lz, 2.4*lz); g.lineTo(-2.8*lz, 2.4*lz); g.moveTo(2.8*lz, 2.4*lz); g.lineTo(4*lz, 2.4*lz); g.stroke();
+  if (S_.burn){ g.strokeStyle = '#ffd166'; g.beginPath(); g.moveTo(-1*lz, 0.9*lz); g.lineTo(0, (2.6 + Math.random()*2.4)*lz); g.lineTo(1*lz, 0.9*lz); g.stroke(); }
+  g.restore(); g.shadowBlur = 0;
+  // the readout
+  g.fillStyle = '#e8f4ff'; g.font = '14px "Consolas","Courier New",monospace'; g.textBaseline = 'top';
+  const row = (t, y, c = '#e8f4ff') => { g.fillStyle = c; g.fillText(t, 14, y); };
+  row(`ALTITUDE        ${Math.max(0, alt - 2.4).toFixed(0).padStart(5)} m`, 12); row(`VERTICAL SPEED  ${S_.vy.toFixed(1).padStart(6)} m/s ${S_.vy < -0.05 ? '↓' : S_.vy > 0.05 ? '↑' : ' '}`, 30, S_.vy < -2 && alt < 60 ? '#ff8a7a' : '#e8f4ff');
+  row(`HORIZONTAL      ${Math.abs(S_.vx).toFixed(1).padStart(6)} m/s ${S_.vx < -0.05 ? '←' : S_.vx > 0.05 ? '→' : ' '}`, 48); row(`FUEL            ${S_.fuel.toFixed(1).padStart(6)} s`, 66, S_.fuel < 5 ? '#ff8a7a' : '#e8f4ff');
+  row(`TIME            ${S_.t.toFixed(1).padStart(6)} s`, 84);
+  g.textAlign = 'right'; g.fillStyle = '#ffd166'; g.fillText(`${L.i + 1}. ${L.name.toUpperCase()}`, W - 14, 12); g.fillStyle = '#8fa8c0'; g.fillText(`PAD ${S_.x < L.pad[0] ? '→' : S_.x > L.pad[1] ? '←' : '↓'} ${Math.max(0, S_.x < L.pad[0] ? L.pad[0] - S_.x : S_.x > L.pad[1] ? S_.x - L.pad[1] : 0).toFixed(0)} m`, W - 14, 30); g.textAlign = 'left';
+  if (LL_MG.scr !== 'fly'){ const r = LL_MG.result; g.textAlign = 'center'; g.font = 'bold 26px "Consolas","Courier New",monospace'; g.fillStyle = r.won ? '#ffd166' : '#ff8a7a'; g.fillText(r.won ? 'THE EAGLE HAS LANDED' : 'CRASHED', W/2, H*0.28);
+    g.font = '14px "Consolas","Courier New",monospace'; g.fillStyle = '#e8f4ff'; g.fillText(r.won ? `${r.fuel.toFixed(1)} s of fuel left` : r.why, W/2, H*0.28 + 36); if (LL_MG.t > 60) g.fillText('ENTER / START', W/2, H*0.28 + 58); g.textAlign = 'left'; }
+}
+
+/* ---------- the cabinet ---------- */
+function llBuild(){ if (LL_MG.built) return; LL_MG.built = true;
+  const css = document.createElement('style'); css.textContent = `
+  #llMG{position:fixed;inset:0;z-index:30;background:#0c0c10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;touch-action:none;user-select:none;-webkit-user-select:none}
+  #llMG .cab{background:#2a2a34;border-radius:14px;padding:14px;box-shadow:0 0 0 3px #4a4a58 inset,0 10px 30px rgba(0,0,0,.6)}
+  #llMG canvas{display:block;border-radius:10px;background:#05060a}
+  #llMG .plate{font:700 12px/1 "Courier New",monospace;color:#c8c8d8;letter-spacing:.3em;text-align:center;margin-top:8px}
+  #llMG .help{font:12px/1.4 system-ui;color:#a8a8b8;text-align:center}
+  #llMG .keys{display:none;gap:12px} #llMG.touch .keys{display:flex}
+  #llMG .keys button{min-width:72px;height:60px;border:0;border-radius:10px;background:#3a3a48;color:#e8f4ff;font:700 18px system-ui;box-shadow:0 4px 0 #1a1a22}
+  #llMG .keys button.on{filter:brightness(1.4)}
+  #llMG .x{position:absolute;top:10px;right:10px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#e8e8e0;font:700 18px system-ui}`;
+  document.head.appendChild(css);
+  const el = document.createElement('div'); el.id = 'llMG'; el.hidden = true;
+  el.innerHTML = '<button class="x" type="button" aria-label="Quit">✕</button><div class="cab"><canvas width="640" height="420"></canvas><div class="plate">LUNAR LANDER</div></div><div class="help">↑ or Space: engine · ← →: turn · land under 2 m/s, upright, on the pad · Esc quits</div><div class="keys"><button type="button" data-k="l">⟲</button><button type="button" data-k="up">ENGINE</button><button type="button" data-k="r">⟳</button></div>';
+  document.body.appendChild(el); LL_MG.el = el; LL_MG.cv = el.querySelector('canvas'); LL_MG.g = LL_MG.cv.getContext('2d');
+  addEventListener('keydown', e => { if (state !== 'miniLL') return; if (e.code === 'Escape'){ e.preventDefault(); e.stopImmediatePropagation(); return llEnd(); } const n = LLKEY[e.code]; if (n){ LL_MG.kb[n] = true; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  addEventListener('keyup', e => { const n = LLKEY[e.code]; if (n) LL_MG.kb[n] = false; }, true);
+  addEventListener('blur', () => { LL_MG.kb = {}; });
+  el.querySelector('.x').addEventListener('click', llEnd);
+  for (const b of el.querySelectorAll('[data-k]')){ const n = b.dataset.k; b.addEventListener('pointerdown', ev => { ev.preventDefault(); b.setPointerCapture(ev.pointerId); LL_MG.touch[n] = true; if (n === 'up' && LL_MG.scr !== 'fly') LL_MG.touch.go = true; b.classList.add('on'); }); for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(t, () => { LL_MG.touch[n] = false; LL_MG.touch.go = false; b.classList.remove('on'); }); }
+  addEventListener('resize', llFit); }
+function llFit(){ if (!LL_MG.cv) return; const k = Math.min(1.4, (innerWidth - 50)/640, (innerHeight - (isTouch ? 170 : 90))/420); LL_MG.cv.style.width = Math.floor(640*k) + 'px'; LL_MG.cv.style.height = Math.floor(420*k) + 'px'; LL_MG.el.classList.toggle('touch', isTouch); }
+
+function llOpen(i){ llBuild(); try { PAUSE315.add('miniLL'); } catch(e){} LL_MG.on = true; state = 'miniLL'; exitLock(); for (const kk in keys) keys[kk] = false; LL_MG.kb = {}; LL_MG.touch = {}; LL_MG.k = {}; LL_MG.pk = {}; LL_MG.acc = 0;
+  LL_MG.el.hidden = false; llFit(); llStart(i); llDraw();
+  if (typeof post !== 'undefined' && post && !LL_MG.postR){ LL_MG.postR = post.render; post.render = () => {}; }   // (nobody sees the hotel behind the cabinet)
+  let last = performance.now(); const loop = now => { if (!LL_MG.on) return; LL_MG.acc = Math.min(0.1, LL_MG.acc + (now - last)/1000); last = now; let n = 0; while (LL_MG.acc >= 1/60 && n < 4){ llStep(); LL_MG.acc -= 1/60; n++; } if (n) llDraw(); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
+function llEnd(){ if (!LL_MG.on) return; LL_MG.on = false; LL_MG.el.hidden = true; if (LL_MG.postR){ post.render = LL_MG.postR; LL_MG.postR = null; } if (state === 'miniLL') state = 'play'; for (const kk in keys) keys[kk] = false; if (LL_MG.onClose) try { LL_MG.onClose(); } catch(e){ console.error(e); } save(); }
+/* ---------- world/moon/lander ---------- */
+// A Lunar Lander cabinet beside the Grand Hôtel de la Tranquillité's door (the game is gameplay/lunar-lander.js), and
+// Buzz Aldroost, lunar module pilot, retired, who leans on it. A ladder (gameplay/ladders.js) of five pads; the fifth,
+// the Lighthouse, has fuel only for a hoverslam. The prize, Apollo's Lunar Module Key: Low Gravity (you fall like on the
+// Moon, everywhere) and Retro Burn (Z: a burst of thrust that stops a fall, every eight seconds).
+// The mo_* step runs in the moon region (boot/moon.js); the Key's step at load (boot/world.js).
+const LM_MG = {retro: 0};
+const BA = (t, c) => L('Buzz Aldroost', t, c);
+
+function lmClose(){ const r = LM_MG.last; LM_MG.last = null; if (!r) return; const st = ladState('lander');
+  if (r.won){ ladderBeat('lander', r.i); if (r.i === 4 && st.beat >= 5) setTimeout(() => say([BA('...You fell two kilometres and stopped at the last second, with fuel to spare.'), BA('We came down at Tranquillity with twenty-five seconds left. You had less. I like you.'), BA('Here. The key to Eagle. They let us keep them. Mine\'s been in this coat since 1969.')]), 1200); }
+  else if (r.i === st.beat) ladderFail('lander'); }
+
+const mo_lander_1 = () => {
+if (typeof HOTEL195 === 'undefined' || !HOTEL195 || !HOTEL195.door) return;
+llBuild();
+const d = HOTEL195.door, Y = MOON151.y, x = d.x - 5.4, z = d.z + 2.6, g = new THREE.Group(); HOTEL195.g.add(g); LM_MG.g = g;
+// an upright cabinet, Atari brown, a round screen with a lander on it, a throttle lever and two buttons
+g.add(boxMesh(0.9, 1.9, 0.8, mat(0x4a3424), x, Y + 0.95, z)); g.add(boxMesh(0.92, 0.3, 0.82, mat(0x2a2a30), x, Y + 2.0, z));
+g.add(boxMesh(0.9, 0.12, 0.42, mat(0x2a2a30), x, Y + 1.05, z + 0.5)); g.add(boxMesh(0.04, 0.22, 0.04, mat(0xc8c8d0), x - 0.2, Y + 1.2, z + 0.52));
+for (const s of [0.1, 0.26]) g.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.03, 10), mat(0xd4302a), x + s, Y + 1.12, z + 0.52));
+{ const c = document.createElement('canvas'); c.width = 128; c.height = 96; const cg = c.getContext('2d'); cg.fillStyle = '#05060a'; cg.fillRect(0, 0, 128, 96); cg.strokeStyle = '#e8f4ff'; cg.lineWidth = 1.5; cg.beginPath(); cg.moveTo(0, 80); for (let k = 1; k <= 16; k++) cg.lineTo(k*8, k > 6 && k < 10 ? 74 : 70 + Math.sin(k*1.7)*10); cg.stroke(); cg.strokeStyle = '#ffd166'; cg.beginPath(); cg.moveTo(52, 74); cg.lineTo(76, 74); cg.stroke();
+  cg.strokeStyle = '#e8f4ff'; cg.strokeRect(58, 34, 10, 7); cg.beginPath(); cg.moveTo(58, 41); cg.lineTo(55, 47); cg.moveTo(68, 41); cg.lineTo(71, 47); cg.stroke(); cg.fillStyle = '#e8f4ff'; cg.font = '9px monospace'; cg.fillText('LUNAR LANDER', 30, 12);
+  const t = new THREE.CanvasTexture(c); const scr = mesh(new THREE.PlaneGeometry(0.62, 0.46), new THREE.MeshBasicMaterial({map: t}), x, Y + 1.5, z + 0.41); g.add(scr); }
+addSolid(x, z, 0.9, 0.8, Y, Y + 2.1, 'cabinet');
+LM_MG.buzz = person22(g, x - 1.3, z + 0.6, PI*0.4, {y: Y + 0.15, shirt: 0xe8e8e0, pants: 0xe8e8e0, hair: 0xd8d4cc}); LM_MG.buzz.g.userData.cr = 99;
+{ const flag = boxMesh(0.12, 0.08, 0.02, mat(0x3f6bd4), -0.14, 1.52, 0.15); LM_MG.buzz.g.add(flag); }
+PORTRAITS['Buzz Aldroost'] = (() => { const H = makeHuman({shirt: 0xe8e8e0, hair: 0xd8d4cc}); scene.remove(H.g); H.snack.visible = false; H.g.rotation.y = 0.4; return renderPortrait(H.g, new THREE.Vector3(0.3, 1.92, 1.15), new THREE.Vector3(0, 1.8, 0)); })();
+VOICES['Buzz Aldroost'] = {kind: 'human', base: 140, range: 0.25, rate: 11, cps: 42};
+FOLK.push(['Buzz Aldroost', 'Lunar module pilot, retired. Leans on the Lunar Lander cabinet outside the Grand Hôtel and tells anyone who lands badly how it was done in 1969.']);
+LM_MG.spot = new THREE.Vector3(x, Y + 0.9, z + 1.2); LM_MG.bspot = new THREE.Vector3(x - 1.3, Y + 0.9, z + 1.6);
+const near = () => onMoon151() && !inBas199() && player.pos.distanceTo(LM_MG.spot) < 3;
+LADDERS.lander = {key: 'lander', title: 'Lunar Lander at the Grand Hôtel',
+  levels: [
+    {id: 'll0', name: 'Training Pad', pay: 10, xp: 40},
+    {id: 'll1', name: 'Highland Pad', pay: 15, xp: 60, loot: {roll: 1, floor: 1}},
+    {id: 'll2', name: 'The Narrow Pad', pay: 25, xp: 90, loot: {legend: 'Buzz\'s Mission Patch', base: 'badge', r: 2, st: {wing: 1.2, xp: 10}}},
+    {id: 'll3', name: 'Tranquillity Base', pay: 40, xp: 140, loot: {legend: 'The Eagle\'s Altimeter', base: 'watch', r: 3, st: {wing: 2, speed: 12, luck: 12}}},
+    {id: 'll4', name: 'The Lighthouse', pay: 300, xp: 400, loot: {legend: 'Apollo\'s Lunar Module Key', base: 'ring', b: 'lmkeymg', s: 'leg', uq: 'lmkey', r: 4, v: 68, st: {wing: 3, speed: 15, stealth: 10}}},
+  ],
+  at: () => LM_MG.spot,
+  text: i => `Land on ${LL_LEVELS[i].name} on the Lunar Lander cabinet outside the Grand Hôtel de la Tranquillité.`,
+  hint: st => st.beat === 4 ? 'Buzz Aldroost: <i>"Every second you hold yourself up, the Moon takes a second of fuel. Come and ask me."</i>' : null};
+addNamedTalker(() => 'Play Lunar Lander', 'Lunar Lander', () => onMoon151() ? LM_MG.spot : AR_FAR, () => { const st = ladState('lander'), b = st.beat; st.met = 1;
+  const ch = []; for (let i = Math.min(b, 4); i >= 0; i--) ch.push({label: `${i + 1}. ${LL_LEVELS[i].name}${i === b ? ' (next)' : ''}`, fn: () => llOpen(i)}); ch.push({label: 'Not now.', fn: () => {}});
+  say([L('Lunar Lander', b >= 5 ? 'INSERT COIN. (There is no coin slot. Buzz removed it in 1980.)' : 'LUNAR LANDER. Land gently: under 2 m/s down, upright, on the pad. Which pad?', ch)]); }, 1.6, near);
+addNamedTalker(() => 'Talk to Buzz Aldroost', 'Buzz Aldroost', () => onMoon151() ? LM_MG.bspot : AR_FAR, () => { const st = ladState('lander'), b = st.beat, tries = st.tries || 0; const lines = [];
+  if (!st.buzz){ st.buzz = 1; lines.push(BA('Buzz Aldroost. Lunar module pilot. Second bird on the Moon, first one to say so at parties.'), BA('That cabinet\'s the closest thing to the real Eagle on this rock. Five pads. The last one\'s the Lighthouse, and it\'s a beast.')); }
+  if (b >= 5) lines.push(BA(mpick(['Keep the key out of your mouth. It\'s been places.', 'Low gravity suits you. Hop a little. Go on.'])));
+  else if (b < 4) lines.push(BA(`You're on pad ${b + 1}: ${LL_LEVELS[b].name}. Gently does it.`));
+  else { lines.push(BA('The Lighthouse. Two kilometres up, falling at forty, and twenty-nine seconds of fuel. Twenty-nine.'));
+    if (tries >= 3) lines.push(BA('Here\'s the thing nobody tells you. Every second you hold yourself up, the Moon takes a second of fuel off you. Hovering is how you crash.'));
+    if (tries >= 6) lines.push(BA('So don\'t come down slowly. Fall. Then stop, all at once, at the last moment. Muskrat\'s boys call it a hoverslam. We called it Tuesday.'));
+    if (tries >= 9) lines.push(BA('The sum: light the engine when your altitude is about your speed squared, divided by six. Falling at seventy, that\'s about eight hundred metres. Then hold it on, all the way down.')); }
+  save(); say(lines); }, 1.8, near);
+LL_MG.onResult = r => { LM_MG.last = r; };
+LL_MG.onClose = lmClose;
+};
+
+/* ---------- Apollo's Lunar Module Key ---------- */
+const ld_gameplayLmKeyMG_1 = () => {
+aroundHook('lootIcon', function(next, b, r){ if (b !== 'lmkeymg') return next(b, r); const k = b + r; if (ICON29[k]) return ICON29[k];
+  const c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d'), col = RAR[r].col;
+  pdisc(g, 5, 6, 4, '#c8c8d0'); pdisc(g, 5, 6, 2, '#16161c'); px(g, 8, 5, '#c8c8d0', 7, 2); px(g, 12, 7, '#c8c8d0', 2, 3); px(g, 9, 7, '#c8c8d0', 1, 2); px(g, 1, 11, col, 14, 3); px(g, 3, 12, '#3f6bd4', 3, 1);
+  return ICON29[k] = c.toDataURL(); });
+UNIQUE_MG.lmkey = {name: 'Apollo\'s Lunar Module Key',
+  card: () => '<b>Unique.</b> The key to Eagle. They let them keep them.<br>· <b>Low Gravity</b>: you fall the way you would on the Moon, everywhere.<br>· <b>Retro Burn</b> (Z' + (isTouch ? ', or the ▲ button' : '') + '): in the air, a burst of thrust that stops a fall. Every eight seconds.',
+  frame: dt => { if (LM_MG.retro > 0) LM_MG.retro -= dt; }};
+hook('updatePlayer', function(dt){ const P = player; if (state !== 'play' || P.grounded || P.vel.y >= 0 || keys.dive || !wearingMG('lmkey')) return; P.vel.y += G*0.3*dt; });
+function retroBurn(){ const P = player; if (!wearingMG('lmkey') || state !== 'play' || dlg || P.grounded) return; if (LM_MG.retro > 0) return toast(`Retro Burn recharging (${Math.ceil(LM_MG.retro)} s).`, '', 1200);
+  LM_MG.retro = 8; P.vel.y = Math.max(P.vel.y, 2.5); P.stamina = Math.min(maxStamina(), (P.stamina || 0) + 1); emit('feather', P.pos, 8, 1, 1.2); noise(0.35, 400, 0.04); tone(110, 0.35, 'sawtooth', 0.03, 60); floatText(P.pos, 'retro burn', '#ffd166', 1.1); }
+addEventListener('keydown', e => { if (e.code === 'KeyZ' && !e.repeat && state === 'play' && !dlg) retroBurn(); });
+if (isTouch){ const b = document.createElement('button'); b.id = 'retroMG'; b.type = 'button'; b.textContent = '▲'; b.hidden = true; b.style.cssText = 'position:absolute;right:12px;top:calc(46% - 52px);width:44px;height:44px;border-radius:50%;z-index:15;font:700 16px system-ui;border:2px solid #ffd166;background:rgba(20,20,30,.7);color:#ffd166'; b.addEventListener('click', retroBurn); document.getElementById('app').appendChild(b);
+  SYS52.push(['retroBtnMG', () => { const on = state === 'play' && wearingMG('lmkey'); if (b.hidden === on) b.hidden = !on; }]); }
+};
 /* ---------- world: gameplay/feel ---------- */
 // From v120. The ld_* steps are run by boot/world.js, in load order.
 
@@ -48580,6 +48996,11 @@ step(ld_petersbirdPajitnoo_1, 900000006); await bootYield("ld_petersbirdPajitnoo
 // Quiz night at The Plucky Duck (gameplay/pub-quiz.js, world/little-pecking/quiz-night.js) and the Encyclopaedia Birdtannica
 step(ld_gameplayEncycloMG_1, 900000007); await bootYield("ld_gameplayEncycloMG_1");      // hooks lootIcon, UNIQUE_MG.encyclo
 step(ld_littlePeckingQuizNight_1, 900000008); await bootYield("ld_littlePeckingQuizNight_1");  // QN_MG, Jeremy Pecksman, the chalkboard, LADDERS.quiz, talkers, system quizNightMG
+// Blackjack with Khun Lek (gameplay/blackjack.js) in the Kempinski Bangcluck lobby, and the Golden Prawn Chip (world/bangcluck/khun-lek.js)
+step(ld_gameplayChipMG_1, 900000009); await bootYield("ld_gameplayChipMG_1");         // hooks lootIcon, UNIQUE_MG.chip, hooks rollLoot
+later('bangcluck', ld_bangcluckKhunLek_1, 900000010);   // KL_MG, the table, Khun Lek, Raymond Babbird, the chart, LADDERS.blackjack, talkers, system khunLekMG
+// Lunar Lander outside the Grand Hôtel de la Tranquillité (gameplay/lunar-lander.js, world/moon/lander.js; its venue step is in boot/moon.js) and Apollo's Lunar Module Key
+step(ld_gameplayLmKeyMG_1, 900000011); await bootYield("ld_gameplayLmKeyMG_1");        // hooks lootIcon, UNIQUE_MG.lmkey, hooks updatePlayer, addEventListener
 /* ---------- moon: gate ---------- */
 // From v191. The mo_* steps are run by boot/moon.js, in load order.
 // set by the steps below
@@ -54164,6 +54585,8 @@ region('moon', () => WARST48() >= 64 || FINALE_DONE(), [
  [mo_secrets_2, -1096463882],               // DECO231
  [mo_history, -1096463882, 'load'],         // GAME_VER.n, GAME_VER.name, WHATS_NEW.unshift, ...
 ], ['paree']);
+// Lunar Lander: the cabinet and Buzz Aldroost beside the hotel door (world/moon/lander.js)
+later('moon', mo_lander_1, 900000012);   // LM_MG, the cabinet, Buzz Aldroost, LADDERS.lander, talkers
 /* ---------- world: detail/kit ---------- */
 // The detail pass (v261 on): the shared kit for dressing every city, the way H249 dressed the moon.
 //   DK.kind(x, z)        what the city map says is there: 'road', 'bld', 'water', 'park', 'plaza', 'slab', 'field'... or null
@@ -55490,6 +55913,20 @@ WHATS_NEW.unshift(['326 · Kill Screen', 'In Kommunalka No. 7 in St. Petersbird,
 GAME_VER.n = 327;
 GAME_VER.name = 'Quiz Night';
 WHATS_NEW.unshift(['327 · Quiz Night', 'Quiz night at The Plucky Duck in Little Pecking, with Jeremy Pecksman. Monday is the village, Wednesday New Yolk, Friday abroad, and on Sunday you take on the Yolkheads, who have not lost since 1987. Every question is about this world, so the way to win is to have looked: signs, menus, plaques, what people say. And at Christmas, the Special: ten questions, eight seconds each, all ten right. Nobody wins the Special.']);
+/* =====================================================================
+   v328 · COUNT DOWN: blackjack with Khun Lek at the Kempinski Bangcluck
+   ===================================================================== */
+// v328
+GAME_VER.n = 328;
+GAME_VER.name = 'Count Down';
+WHATS_NEW.unshift(['328 · Count Down', 'Since the Golden Prawn went down, its croupier, Khun Lek, deals blackjack at a table by the Kempinski Bangcluck\'s shut casino doors. House chips, three tables of rising stakes, then a table played strictly by the book. And beside it sits Raymond Babbird with a notebook. His test is the last one, and luck won\'t help you with it: three times he\'ll ask what the count is, and you\'ll need to know. Ask him what that means. Ask him a few times.']);
+/* =====================================================================
+   v329 · HOVERSLAM: a Lunar Lander cabinet outside the Grand Hôtel de la Tranquillité
+   ===================================================================== */
+// v329
+GAME_VER.n = 329;
+GAME_VER.name = 'Hoverslam';
+WHATS_NEW.unshift(['329 · Hoverslam', 'Outside the Grand Hôtel de la Tranquillité there is a Lunar Lander cabinet now, and leaning on it, Buzz Aldroost, lunar module pilot, retired. Five pads, from a wide training pad to Tranquillity Base. The fifth is the Lighthouse: two kilometres up, falling fast, and twenty-nine seconds of fuel. Hover your way down and you will run dry. Buzz knows the trick. Buzz will tell you, eventually.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
