@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v314 (Tokyoo shows on every trip again, parked cars stay in the road, bikes stand on the pavement, softer street lamps at night, and fly-to spots that no longer drop Pidge inside things).
+Current version: v321 (menus pause the game, it remembers where you left off in every city, Grandpa Coo's lessons can be finished again, and many fixes from Tokyoo and Paree to the moon).
