@@ -42261,7 +42261,7 @@ function esDraw(){ const g = ES_MG.g, W = ES_MG.cv.width, H = ES_MG.cv.height, M
   for (let i = 0; i < W/16; i++){ g.fillStyle = i % 2 ? '#2a6ad8' : '#f4f4f0'; g.beginPath(); g.moveTo(i*16, 0); g.lineTo(i*16 + 8, 6); g.lineTo(i*16 + 16, 0); g.fill(); }
   const P = (t, x, y, c = '#2a2620', f = '12px', al = 'left') => { g.fillStyle = c; g.font = f + ' system-ui'; g.textAlign = al; g.fillText(t, x, y); };
   P(`Kehre ${M.kehre} of ${O.kehren}`, 14, 26, '#2a2620', 'bold 14px'); P(`Pidge ${M.score[0]}  :  ${M.score[1]} ${O.n}`, W/2, 26, '#2a2620', 'bold 15px', 'center');
-  const left = sd => 4 - M.stocks.filter(s => s.side === sd).length; for (const sd of [0, 1]) for (let k = 0; k < 4; k++){ const x = sd ? W - 20 - k*16 : W - 150 + k*16; g.globalAlpha = k < left(sd) ? 1 : 0.2; esStock(g, x, 20, 6, sd ? O.col : '#c8302a'); g.globalAlpha = 1; }
+  const left = sd => 4 - M.stocks.filter(s => s.side === sd).length; for (const sd of [0, 1]) for (let k = 0; k < 4; k++){ const x = sd ? W - 20 - k*16 : W - 150 + k*16; esStock(g, x, 20, 6, sd ? O.col : '#c8302a', k >= left(sd)); }
   // the overview: the whole lane, throwing line on the left
   const oy = 46, oh = 54, ox = 14, ow = W - 28, osx = y => ox + y/(ES_BACK + 0.6)*ow, osy = x => oy + oh/2 + x/ES_HW*(oh/2 - 4);
   g.fillStyle = '#5a5a60'; g.fillRect(ox, oy, ow, oh); g.fillStyle = '#7a5a3a'; g.fillRect(osx(ES_BACK), oy - 2, 6, oh + 4); g.fillStyle = '#f4f4f0'; g.fillRect(osx(0) + 2, oy, 2, oh); g.fillRect(osx(ES_FIELD), oy, 1, oh);
@@ -42361,7 +42361,7 @@ addSolid(cx, z, x1 - x0, 0.1, top - 0.6, top + 0.12, 'stockbahn');
 // the people
 SB_MG.sepp = human131({shirt: 0xf4f4f0, pants: 0x5a3a20, hair: 0x8a5a2a}, x0 + 0.4, top + 0.12, z + 1.1, PI/2 + 0.5);
 SB_MG.vroni = human131({shirt: 0x3a7a4a, pants: 0x2a3a6a, hair: 0xd8a83a}, x0 + 4.5, floorAt(x0 + 4.5, z - 2.7, 50) + 0.02, z - 2.7, 0.3);
-SB_MG.hw = person22(g, x0 + 2.82, z - 2.9, PI/2, {sit: true, y: gb - 0.06, shirt: 0x1a1a1e, pants: 0x1a1a1e, hair: 0xc8c4bc});
+SB_MG.hw = person22(g, x0 + 2.82, z - 2.9, PI/2, {sit: true, y: gb - 0.38, shirt: 0x1a1a1e, pants: 0x1a1a1e, hair: 0xc8c4bc});
 for (const H of [SB_MG.sepp, SB_MG.vroni, SB_MG.hw]) if (H && H.g) H.g.userData.cr = 99;
 const portrait = (o, n) => { PORTRAITS[n] = (() => { const H = makeHuman(o); scene.remove(H.g); H.snack.visible = false; H.g.rotation.y = 0.4; return renderPortrait(H.g, new THREE.Vector3(0.3, 1.92, 1.15), new THREE.Vector3(0, 1.8, 0)); })(); };
 portrait({shirt: 0xf4f4f0, hair: 0x8a5a2a}, 'Sepp'); portrait({shirt: 0x3a7a4a, hair: 0xd8a83a}, 'Vroni'); portrait({shirt: 0x1a1a1e, hair: 0xc8c4bc}, 'Hochwürden');
