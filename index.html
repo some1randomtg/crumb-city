@@ -5763,12 +5763,12 @@ if (nodeHost) {
 }
 
 </script>
-<script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.webgpu.js", "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.webgpu.js", "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.tsl.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"}}</script>
+<script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.js", "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.js", "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 <script type="module">
 window.__THREE_READY = (async () => {
   const q = new URLSearchParams(location.search);
   let gpu = false; try { gpu = !q.has('webgl') && !!navigator.gpu && !!(await navigator.gpu.requestAdapter()); } catch (e){}
-  if (!gpu){ window.THREE = Object.assign({}, await import('https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.min.js')); window.__GPU = null; return; }
+  if (!gpu){ window.THREE = Object.assign({}, await import('https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.min.js')); window.__GPU = null; return; }
   const [T, TSL, csm, gtao, ssr, bloom, blur, smaa] = await Promise.all(['three/webgpu', 'three/tsl', 'three/addons/csm/CSMShadowNode.js', 'three/addons/tsl/display/GTAONode.js', 'three/addons/tsl/display/SSRNode.js', 'three/addons/tsl/display/BloomNode.js', 'three/addons/tsl/display/GaussianBlurNode.js', 'three/addons/tsl/display/SMAANode.js'].map(m => import(m)));
   window.THREE = Object.assign({}, T, {TSL, ADDONS: {CSMShadowNode: csm.CSMShadowNode, ao: gtao.ao, ssr: ssr.ssr, bloom: bloom.bloom, gaussianBlur: blur.gaussianBlur, smaa: smaa.smaa}, WebGLRenderTarget: T.RenderTarget});
   window.__GPU = new T.WebGPURenderer({canvas: document.getElementById('game'), antialias: false, alpha: false, powerPreference: 'high-performance',   /* v299: the fast GPU on a two-GPU laptop */ trackTimestamp: q.has('ts') || q.has('perf')});   // alpha: false: an opaque canvas (the post pass's output carries no alpha, and a see-through canvas showed nothing in Chrome)   // ?ts=1 (or ?perf=1, ui/perf-overlay.js): GPU timings, for tests
@@ -7027,8 +7027,10 @@ function sbInit(){
       const u = object.userData;
       // v321: a group whose sphere (sbGroupSphere321) is outside this pass's view is skipped whole (three tests each mesh,
       // never a group, so every pass walked the whole shown world, the city behind the camera included)
-      if (object.parent === null){ const F = camera.__gf321 || (camera.__gf321 = new THREE.Frustum()); _sbGM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); F.setFromProjectionMatrix(_sbGM, camera.coordinateSystem, camera.reversedDepth); }
-      else if (object.__gs !== undefined && object.isMesh !== true){ const g = object.__gs;
+      // (the frustum once a render or compile, as three sets its own up: a compile of one group, which has a parent,
+      // gets one too)
+      { const rid = this._nodes.nodeFrame.renderId; if (camera.__gfR321 !== rid){ camera.__gfR321 = rid; const F = camera.__gf321 || (camera.__gf321 = new THREE.Frustum()); _sbGM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); F.setFromProjectionMatrix(_sbGM, camera.coordinateSystem, camera.reversedDepth); } }
+      if (object.__gs !== undefined && object.isMesh !== true){ const g = object.__gs;
         if (g.v === object.__sbV && g.big === false && SB_FR - g.f < 900 && window.__noGc321 !== true && (g.s === null || (camera.__gf321 !== undefined && !camera.__gf321.intersectsSphere(g.s)))) return; }
       if (PERF !== null && PERF.vis !== null) PERF.vis.v++;   // v321: objects walked, by pass (?perf=1)
       // v323: a rig drawn by the crowd batches this frame (render/crowd-batch.js), whole, or one of its parts
@@ -46758,7 +46760,10 @@ V48 = (x, y, z) => new THREE.Vector3(x, y, z); _a48 = new THREE.Vector3(); _b48 
 /* ---------- collisions look only at the solids of the world you're in ---------- */
 // (var, not let: the base game's setup calls this before this part of the script has run)
 
-solids.push = function(){ SDIRTY48 = true; return Array.prototype.push.apply(this, arguments); };
+// v333: a solid added once they're filed is filed by itself, at the end of its city's list and of its grid (a city's detail
+// asks for the floor under each bench it places, just after adding the last one's solid: every solid filed again and the
+// grid built again each time, 8 ms a bench, Paree's 160 benches a 1.4 s freeze on arriving). (window.__noAppend333 = true: filed again)
+solids.push = function(){ const n = Array.prototype.push.apply(this, arguments); if (SDIRTY48 === false && window.__noAppend333 !== true) for (let i = 0; i < arguments.length; i++) sfile333(arguments[i]); else SDIRTY48 = true; return n; };
 solids.splice = function(){ SDIRTY48 = true; return Array.prototype.splice.apply(this, arguments); };
 SDIRTY48 = true;
 FAC48 = [['#d8d0c0', '#5a5a62'], ['#b8c8cc', '#4a5a6a'], ['#a8c8b0', '#3a4a42'], ['#e0c0b8', '#5a3a3a'], ['#e0d098', '#5a4a2a'], ['#b8b0a4', '#3a3a40'], ['#e8d8b8', '#6a5a4a'], ['#c8d0d8', '#3a4a5a'], ['#a8a49c', '#2a2a30'], ['#d8b8a0', '#4a3a2a']].map(([base, bar], i) => glowMat(shopTex48(base, bar, {balcony: i % 3 === 0})));
@@ -47040,6 +47045,16 @@ function sgridBuild321(L){
     const x0 = Math.floor((s.minX - SGM321)/SG321), x1 = Math.floor((s.maxX + SGM321)/SG321), z0 = Math.floor((s.minZ - SGM321)/SG321), z1 = Math.floor((s.maxZ + SGM321)/SG321);
     for (let a = x0; a <= x1; a++) for (let b = z0; b <= z1; b++){ const key = a*100003 + b; let c = G.cells.get(key); if (!c){ c = []; G.cells.set(key, c); } c.push(s); } }
   SGRID321.set(L, G); return G;
+}
+function sfile333(s){
+  const cx = (s.minX + s.maxX)/2, cz = (s.minZ + s.maxZ)/2, L = cx > 2500 ? SREG48.pb : cx < -3000 ? SREG48.bk : cz > 1500 ? SREG48.vil : cz < -3000 ? SREG48.tk : SREG48.ny;
+  L.push(s); const G = SGRID321.get(L); if (!G) return;
+  const i = L.length - 1, k = i*4; s.__i321 = i;
+  if (G.snap.length < k + 4){ const S = new Float64Array(Math.max(k + 4, G.snap.length*2)); S.set(G.snap); G.snap = S; }
+  G.snap[k] = s.minX; G.snap[k + 1] = s.maxX; G.snap[k + 2] = s.minZ; G.snap[k + 3] = s.maxZ;
+  if (s.__mv321 === true || s.maxX - s.minX > 128 || s.maxZ - s.minZ > 128){ G.always.push(s); return; }
+  const x0 = Math.floor((s.minX - SGM321)/SG321), x1 = Math.floor((s.maxX + SGM321)/SG321), z0 = Math.floor((s.minZ - SGM321)/SG321), z1 = Math.floor((s.maxZ + SGM321)/SG321);
+  for (let a = x0; a <= x1; a++) for (let b = z0; b <= z1; b++){ const key = a*100003 + b; let c = G.cells.get(key); if (!c){ c = []; G.cells.set(key, c); } c.push(s); }
 }
 function sgrid321(L, x, z){
   let G = SGRID321.get(L); if (!G) G = sgridBuild321(L);
@@ -56525,6 +56540,13 @@ WHATS_NEW.unshift(['331 · Les Bordures', 'A yellow tent has gone up by the Tour
 GAME_VER.n = 332;
 GAME_VER.name = 'Royal Guard';
 WHATS_NEW.unshift(['332 · Royal Guard', 'Behind the Neutaubenstein beer garden there\'s a Stockbahn now: Stockschießen, the summer kind of Eisstock, on asphalt. Beat Sepp from the Wirtshaus, Vroni from the Maibaum club and Hochwürden, and the King himself comes down from the castle. King Ludwig the Second-Best throws last every Kehre and never misses. But a King does not step aside. Hochwürden thinks about that a lot. Ask him.']);
+/* =====================================================================
+   v333 · STEADY HANDS: arriving in a city freezes far less; seated people whole (v325.1); a pixel gate that sees
+   ===================================================================== */
+// v333
+GAME_VER.n = 333;
+GAME_VER.name = 'Steady Hands';
+WHATS_NEW.unshift(['333 · Steady Hands', 'Arriving somewhere new stutters much less. Paree used to freeze for nearly three seconds the first time you got there, and now it is a tenth of a second. Tokyoo\'s streets dress themselves four times faster, and every city builds faster. People sitting at the Pigeon Park chess tables and in the pub garden have their heads, arms and shadows back (that was v325.1).']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a

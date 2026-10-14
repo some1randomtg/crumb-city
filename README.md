@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v332 (the last two zone minigames: Le Tour de Fromage at a cheese tent by the Tour director in Paree, ending in a crosswind stage behind Lance Wingstrong, and Stockschießen on the Neutaubenstein Stockbahn in Bavaria, ending against King Ludwig, who throws last and never steps aside).
+Current version: v333 (arriving in a city stutters far less: Paree's first visit no longer freezes for three seconds, and every city builds faster; plus the minigames of v326 to v332)
