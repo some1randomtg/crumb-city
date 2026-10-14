@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v322 (smoother on WebGPU: 8 to 25% more frames a second in the big cities with exactly the same picture, no more stutter after arriving in a city, and a new Frame rate setting for fast screens).
+Current version: v324 (two new minigames: a chess ladder in Pigeon Park, ending with Bobby Flapper playing for real, and Super Pidge Land, a pocket-sized platformer on a cabinet in Tokyoo's SEGA-COO game centre, with a record nobody beats the honest way).
