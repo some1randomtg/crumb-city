@@ -5790,7 +5790,7 @@ await window.__THREE_READY;
 // v301: the load yields to the browser every ~200 ms (the build puts `await bootYield(name)` after every load step), so
 // the title screen can show how far it has got instead of freezing for ten seconds and more. Timers that load steps set
 // were written for a load in one go (they ran once everything was built): they are held until the load is done.
-const BOOT = {on: true, t: performance.now(), held: [], total: 524};
+const BOOT = {on: true, t: performance.now(), held: [], total: 528};
 { const st = window.setTimeout.bind(window), ct = window.clearTimeout.bind(window);
   window.setTimeout = function(fn, ms, ...a){ if (BOOT.on && typeof fn === 'function'){ BOOT.held.push([fn, ms, a]); return -BOOT.held.length; } return st(fn, ms, ...a); };
   window.clearTimeout = function(id){ if (typeof id === 'number' && id < 0){ const h = BOOT.held[-id - 1]; if (h) h[0] = null; return; } return ct(id); };
@@ -40796,7 +40796,7 @@ function plFit(){ if (!PL_MG.el) return; const W = innerWidth, H = innerHeight, 
 
 function plQuitAsk(force){ if (force || PL_MG.scr === 'title' || PL_MG.quitT > 0) return plEnd(); PL_MG.quitT = 90; if (PL_MG.scr === 'play') PL_MG.paused = true; }
 
-function plOpen(){ plBuildDom(); const Q = QPL(); PL_MG.ch = Q.ch || 0; PL_MG.sel = 0; PL_MG.scr = 'title'; PL_MG.t = 0; PL_MG.paused = false; PL_MG.kb = {}; PL_MG.touch = {}; PL_MG.k = {}; PL_MG.pk = {}; PL_MG.acc = 0;
+function plOpen(){ plBuildDom(); try { PAUSE315.add('miniPL'); } catch(e){} const Q = QPL(); PL_MG.ch = Q.ch || 0; PL_MG.sel = 0; PL_MG.scr = 'title'; PL_MG.t = 0; PL_MG.paused = false; PL_MG.kb = {}; PL_MG.touch = {}; PL_MG.k = {}; PL_MG.pk = {}; PL_MG.acc = 0;
   PL_MG.on = true; state = 'miniPL'; exitLock(); for (const kk in keys) keys[kk] = false; PL_MG.el.hidden = false; plFit(); plDraw();
   // its own frame loop: the world is paused behind the cabinet (PAUSE315), so the game's systems don't run, and the
   // city isn't drawn under a screen that hides it (on a phone that was most of the frame); plEnd puts it back
@@ -40931,6 +40931,491 @@ answerHook('knock', () => saveStateMG());
 addEventListener('keydown', e => { if (state !== 'play' || dlg || e.repeat || !cartOnMG()) return; if (e.code === 'KeyY') warpMenuMG(); else if (e.code === 'KeyL') gbvMG(); });
 if (isTouch){ const mk = (id, txt, top, fn) => { const b = document.createElement('button'); b.id = id; b.type = 'button'; b.textContent = txt; b.hidden = true; b.style.cssText = `position:absolute;right:12px;top:calc(46% + ${top}px);width:44px;height:44px;border-radius:50%;z-index:15;font:700 14px system-ui;border:2px solid #9bbc0f;background:rgba(15,56,15,.7);color:#9bbc0f`; b.addEventListener('click', fn); document.getElementById('app').appendChild(b); return b; };
   const bw = mk('warpMG', '⤓', 52, warpMenuMG), bg = mk('gbvMG', 'GB', 104, gbvMG); SYS52.push(['cartBtnMG', () => { const on = state === 'play' && cartOnMG(); if (bw.hidden === on){ bw.hidden = !on; bg.hidden = !on; } }]); }
+};
+/* ---------- gameplay/elektronika ---------- */
+// Tetris as it was in Moscow in 1984: green text on a black Elektronika 60 terminal, [] for blocks, <! !> for the walls.
+// Played in Kommunalka No. 7, St. Petersbird, against Alexey Pajitnoo (world/petersbird/pajitnoo.js).
+// The rules are the home-console ones the world plays by: no hard drop, no lock delay, no wall kicks, a piece locks the
+// moment it can't fall, speed by level (48 frames a row at 0 down to 1 at 29), and the side keys repeat after 16 frames,
+// then every 6. That last rule is why level 29 is "the kill screen": a piece is on the floor in 20 frames, and holding a
+// key can't carry it to the walls in time. Tapping can, a little. Rolling can: every key-down counts as its own press, so
+// two keys for one direction (A and J, or ← and D... see EL_KEYS) pressed one after the other move twice as often.
+// Fixed 60 Hz steps on its own frame loop, the world paused behind it (PAUSE315); state in S.v900mg.el.
+const EL_MG = {built: false, on: false, el: null, cv: null, g: null, acc: 0, b: null, p: null, next: 0, last: -1, fr: 0, lines: 0, level: 0, start: 0, score: 0, goal: null, das: 0, dir: 0, edges: [], drop: 0, are: 0, clear: null, over: false, won: false, paused: false, onEnd: null, onResult: null, held: {}, script: null, gravT: 0};
+const QEL = () => { const q = QMG(); return q.el || (q.el = {best: 0, best29: 0}); };
+
+// gravity, in frames a row, by level
+const EL_GRAV = [48, 43, 38, 33, 28, 23, 18, 13, 8, 6, 5, 5, 5, 4, 4, 4, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1];
+const elGrav = lv => EL_GRAV[Math.min(lv, 29)];
+const EL_PTS = [0, 40, 100, 300, 1200];
+
+// the seven pieces, each rotation as four cells around the pivot (x right, y down); spawn is rotation 0
+const EL_P = {
+  T: [[[-1, 0], [0, 0], [1, 0], [0, 1]], [[0, -1], [-1, 0], [0, 0], [0, 1]], [[-1, 0], [0, 0], [1, 0], [0, -1]], [[0, -1], [0, 0], [1, 0], [0, 1]]],
+  J: [[[-1, 0], [0, 0], [1, 0], [1, 1]], [[0, -1], [0, 0], [-1, 1], [0, 1]], [[-1, -1], [-1, 0], [0, 0], [1, 0]], [[0, -1], [1, -1], [0, 0], [0, 1]]],
+  Z: [[[-1, 0], [0, 0], [0, 1], [1, 1]], [[1, -1], [0, 0], [1, 0], [0, 1]]],
+  O: [[[-1, 0], [0, 0], [-1, 1], [0, 1]]],
+  S: [[[0, 0], [1, 0], [-1, 1], [0, 1]], [[0, -1], [0, 0], [1, 0], [1, 1]]],
+  L: [[[-1, 0], [0, 0], [1, 0], [-1, 1]], [[-1, -1], [0, -1], [0, 0], [0, 1]], [[1, -1], [-1, 0], [0, 0], [1, 0]], [[0, -1], [0, 0], [0, 1], [1, 1]]],
+  I: [[[-2, 0], [-1, 0], [0, 0], [1, 0]], [[0, -2], [0, -1], [0, 0], [0, 1]]],
+};
+const EL_ORDER = ['T', 'J', 'Z', 'O', 'S', 'L', 'I'];
+
+// the keys: several for each direction, so a player can roll between them
+const EL_KEYS = {ArrowLeft: 'l', KeyA: 'l', KeyJ: 'l', Numpad4: 'l', ArrowRight: 'r', KeyD: 'r', KeyL: 'r', Numpad6: 'r', ArrowDown: 'd', KeyS: 'd', KeyK: 'd', Numpad5: 'd', ArrowUp: 'cw', KeyX: 'cw', KeyW: 'cw', KeyI: 'cw', KeyZ: 'ccw', KeyQ: 'ccw', KeyU: 'ccw', Enter: 'p', KeyP: 'p'};
+
+function elRand(){ let k = Math.floor(Math.random()*8); if (k === 7 || k === EL_MG.last) k = Math.floor(Math.random()*7); EL_MG.last = k; return k; }
+function elCells(p, rot = p.rot, x = p.x, y = p.y){ const R = EL_P[p.t]; return R[rot % R.length].map(([dx, dy]) => [x + dx, y + dy]); }
+function elFits(p, rot, x, y){ for (const [cx, cy] of elCells(p, rot, x, y)){ if (cx < 0 || cx > 9 || cy > 19) return false; if (cy >= 0 && EL_MG.b[cy][cx]) return false; } return true; }
+function elSpawn(){ const t = EL_ORDER[EL_MG.next]; EL_MG.next = elRand(); const p = {t, rot: 0, x: 5, y: 0}; EL_MG.p = p; EL_MG.gravT = 0; EL_MG.drop = 0;
+  if (!elFits(p, 0, 5, 0)){ EL_MG.over = true; EL_MG.p = null; elFinish(false); } }
+
+function elNew(start, goal){ const E = EL_MG; E.b = Array.from({length: 20}, () => Array(10).fill(0)); E.start = start; E.level = start; E.lines = 0; E.score = 0; E.goal = goal; E.over = false; E.won = false; E.clear = null; E.are = 0; E.das = 0; E.dir = 0; E.edges = []; E.paused = false; E.result = null; E.last = -1; E.next = elRand(); elSpawn(); }
+
+function elFinish(won){ const E = EL_MG; E.won = won; E.over = true; E.result = {won, lines: E.lines, score: E.score, level: E.level, start: E.start, goal: E.goal}; E.endT = 0;
+  const Q = QEL(); if (E.score > Q.best) Q.best = E.score; if (E.start >= 29) Q.best29 = Math.max(Q.best29 || 0, E.lines);
+  if (won){ tone(523, 0.12, 'square', 0.04); tone(659, 0.12, 'square', 0.04, null, 0.12); tone(784, 0.12, 'square', 0.04, null, 0.24); tone(1047, 0.4, 'square', 0.04, null, 0.36); }
+  else { tone(220, 0.25, 'square', 0.04, 110); }
+  if (E.onResult) try { E.onResult(E.result); } catch(e){ console.error(e); } }
+
+function elLock(){ const E = EL_MG, p = E.p; for (const [cx, cy] of elCells(p)){ if (cy < 0){ E.p = null; return elFinish(false); } E.b[cy][cx] = 1; } E.p = null; tone(130, 0.04, 'square', 0.025);
+  const full = []; for (let y = 0; y < 20; y++) if (E.b[y].every(c => c)) full.push(y);
+  if (full.length){ E.clear = {rows: full, t: 0}; const n = full.length; E.score += EL_PTS[n]*(E.level + 1); if (n === 4){ tone(784, 0.1, 'square', 0.04); tone(1175, 0.25, 'square', 0.04, null, 0.1); } else tone(659, 0.1, 'square', 0.035); }
+  else E.are = 10; }
+
+// one press: move one cell now, and start the repeat count again
+function elShift(d){ const p = EL_MG.p; if (!p) return; if (elFits(p, p.rot, p.x + d, p.y)){ p.x += d; tone(330, 0.02, 'square', 0.015); } }
+function elRot(d){ const p = EL_MG.p; if (!p) return; const n = EL_P[p.t].length, r = (p.rot + d + n) % n; if (elFits(p, r, p.x, p.y)){ p.rot = r; tone(440, 0.02, 'square', 0.015); } }
+
+function elStep(){ const E = EL_MG; E.fr++;
+  if (E.script){ const s = E.script(E.fr); if (s) for (const ev of s) E.edges.push(ev); }
+  if (E.over){ E.endT++; const ev = E.edges.shift(); E.edges.length = 0; if (E.endT > 40 && ev && (ev === 'cw' || ev === 'p')) elAfter(); return; }
+  if (E.edges.includes('p')){ E.edges = E.edges.filter(e => e !== 'p'); E.paused = !E.paused; }
+  if (E.paused){ E.edges.length = 0; return; }
+  if (E.clear){ if (++E.clear.t >= 20){ for (const y of E.clear.rows){ E.b.splice(y, 1); E.b.unshift(Array(10).fill(0)); } E.lines += E.clear.rows.length; E.clear = null; E.are = 10;
+      const lv = E.start + Math.floor(E.lines/10); if (lv > E.level){ E.level = lv; tone(880, 0.08, 'square', 0.03); tone(1320, 0.12, 'square', 0.03, null, 0.08); }
+      if (E.goal && E.goal.lines && E.lines >= E.goal.lines) return elFinish(true); }
+    E.edges.length = 0; return; }
+  if (!E.p){ if (--E.are <= 0) elSpawn(); E.edges.length = 0; return; }
+  // presses this frame (a press is a key going down: rolling two keys makes two)
+  let shifted = false;
+  while (E.edges.length){ const ev = E.edges.shift();
+    if ((ev === 'l' || ev === 'r') && !shifted){ shifted = true; elShift(ev === 'l' ? -1 : 1); E.das = 0; E.dir = ev === 'l' ? -1 : 1; }
+    else if (ev === 'cw') elRot(1); else if (ev === 'ccw') elRot(-1); }
+  // holding: the repeat
+  const H = E.held, hd = H.l && !H.r ? -1 : H.r && !H.l ? 1 : 0;
+  if (hd && !shifted){ if (hd !== E.dir){ E.dir = hd; E.das = 0; } if (++E.das >= 16){ E.das = 10; elShift(hd); } } else if (!hd) E.das = 0;
+  // falling: soft drop is a row every 2 frames
+  const g = H.d ? Math.min(2, elGrav(E.level)) : elGrav(E.level);
+  if (++E.gravT >= g){ E.gravT = 0; const p = E.p; if (elFits(p, p.rot, p.x, p.y + 1)) p.y++; else elLock(); }
+}
+
+function elAfter(){ const E = EL_MG; if (E.onEnd) try { E.onEnd(E.result); } catch(e){} }
+
+/* ---------- drawing: an Elektronika 60, green on black ---------- */
+function elDraw(){ const E = EL_MG, g = E.g, W = E.cv.width, H = E.cv.height, cw = E.cw, ch = 20, ox = Math.round((W - 40*cw)/2), oy = 16;
+  g.fillStyle = '#020a04'; g.fillRect(0, 0, W, H);
+  g.font = `16px "Consolas","Courier New",monospace`; g.textBaseline = 'top'; g.shadowColor = '#3cff6a'; g.shadowBlur = 6;
+  const T = (s, col, row, c = '#46f06c') => { g.fillStyle = c; g.fillText(s, ox + col*cw, oy + row*ch); };
+  const bx = 15;   // the well starts at this column
+  // the score panel, in Russian and English
+  T('ПОЛНЫХ СТРОК:', 0, 1); T(String(E.lines).padStart(4), 0, 2); T('LINES', 6, 2, '#2a9a44');
+  T('УРОВЕНЬ:', 0, 4); T(String(E.level).padStart(4), 0, 5); T('LEVEL', 6, 5, '#2a9a44');
+  T('СЧЁТ:', 0, 7); T(String(E.score).padStart(7), 0, 8);
+  if (E.goal){ T('ЦЕЛЬ / GOAL:', 0, 10); T(`${E.goal.lines} LINES`, 0, 11, '#2a9a44'); T(E.start >= 29 ? 'AT LEVEL 29' : `FROM LEVEL ${E.start}`, 0, 12, '#2a9a44'); }
+  T('СЛЕД. / NEXT:', 0, 14); { const t = EL_ORDER[E.next], R = EL_P[t][0]; for (const [dx, dy] of R) T('[]', 3 + (dx + 2)*2, 16 + dy); }
+  T('← →  MOVE', 0, 19, '#2a9a44'); T('↑ ROT  ↓ DROP', 0, 20, '#2a9a44');
+  // the well
+  for (let y = 0; y < 20; y++){ T('<!', bx, y); T('!>', bx + 22, y);
+    let row = ''; for (let x = 0; x < 10; x++) row += E.b[y][x] ? '[]' : ' .';
+    if (E.clear && E.clear.rows.includes(y)) row = E.clear.t % 6 < 3 ? '[][][][][][][][][][]' : '                    ';
+    T(row, bx + 2, y); }
+  if (E.p) for (const [cx, cy] of elCells(E.p)) if (cy >= 0) T('[]', bx + 2 + cx*2, cy, '#8dffa6');
+  T('<!====================!>', bx, 20); T('\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/', bx + 2, 21);
+  g.shadowBlur = 0;
+  if (E.paused || E.over){ g.fillStyle = 'rgba(2,10,4,.82)'; g.fillRect(ox + (bx + 2)*cw, oy + 7*ch, 20*cw, 6*ch); g.shadowBlur = 6;
+    if (E.paused) T('    ПАУЗА / PAUSE   ', bx + 2, 9);
+    else { T(E.won ? '   ГОТОВО! / DONE!' : '  КОНЕЦ / GAME OVER', bx + 2, 8); T(`  ${E.lines} lines, ${E.score}`.slice(0, 20), bx + 2, 10, '#2a9a44'); if (E.endT > 40) T('  ⟳ / ENTER: ДАЛЕЕ', bx + 2, 11, '#2a9a44'); }
+    g.shadowBlur = 0; }
+  // scanlines
+  g.fillStyle = 'rgba(0,0,0,.18)'; for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1);
+}
+
+/* ---------- the terminal ---------- */
+function elBuildDom(){ if (EL_MG.built) return; EL_MG.built = true;
+  const css = document.createElement('style'); css.textContent = `
+  #elMG{position:fixed;inset:0;z-index:30;background:#16120e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;touch-action:none;user-select:none;-webkit-user-select:none}
+  #elMG .crt{background:#5a5448;border-radius:18px;padding:18px 22px 14px;box-shadow:inset 0 0 0 3px #3a3630,0 10px 30px rgba(0,0,0,.6)}
+  #elMG canvas{display:block;border-radius:14px/10px;background:#020a04;box-shadow:0 0 24px rgba(60,255,106,.18) inset}
+  #elMG .plate{font:700 11px/1 "Courier New",monospace;color:#d8d0bc;letter-spacing:.2em;text-align:center;margin-top:8px}
+  #elMG .keys{display:none;gap:10px;flex-wrap:wrap;justify-content:center}
+  #elMG.touch .keys{display:flex}
+  #elMG .keys button{min-width:64px;height:58px;border:0;border-radius:10px;background:#3a3630;color:#d8ffd8;font:700 20px system-ui;box-shadow:0 4px 0 #1a1612}
+  #elMG .keys button.on{filter:brightness(1.4)}
+  #elMG .x{position:absolute;top:10px;right:10px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#e8e8e0;font:700 18px system-ui}
+  #elMG .help{font:12px/1.4 system-ui;color:#a8a090;text-align:center;max-width:min(520px,92vw)}`;
+  document.head.appendChild(css);
+  const el = document.createElement('div'); el.id = 'elMG'; el.hidden = true;
+  el.innerHTML = '<button class="x" type="button" aria-label="Quit">✕</button><div class="crt"><canvas></canvas><div class="plate">ЭЛЕКТРОНИКА 60</div></div><div class="help">← → move (A/J and D/L too) · ↑ or X rotate, Z back · ↓ drop faster · Enter pause · Esc quit</div><div class="keys"><button type="button" data-k="l">◀</button><button type="button" data-k="l">◀</button><button type="button" data-k="ccw">⟲</button><button type="button" data-k="cw">⟳</button><button type="button" data-k="d">▼</button><button type="button" data-k="r">▶</button><button type="button" data-k="r">▶</button></div>';
+  document.body.appendChild(el); EL_MG.el = el; EL_MG.cv = el.querySelector('canvas'); EL_MG.g = EL_MG.cv.getContext('2d');
+  addEventListener('keydown', e => { if (state !== 'miniEL') return; if (e.code === 'Escape'){ e.preventDefault(); e.stopImmediatePropagation(); return elEnd(); } const n = EL_KEYS[e.code]; if (!n) return; e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat) EL_MG.edges.push(n); (EL_MG.keyHeld || (EL_MG.keyHeld = {}))[e.code] = n; elHeld(); }, true);
+  addEventListener('keyup', e => { if (EL_MG.keyHeld && EL_MG.keyHeld[e.code]){ delete EL_MG.keyHeld[e.code]; elHeld(); } }, true);
+  addEventListener('blur', () => { EL_MG.keyHeld = {}; EL_MG.touchHeld = {}; elHeld(); if (EL_MG.on && !EL_MG.over) EL_MG.paused = true; });
+  el.querySelector('.x').addEventListener('click', elEnd);
+  // touch: every finger that comes down is a press, so two fingers on one ◀ roll
+  for (const b of el.querySelectorAll('.keys [data-k]')){ const n = b.dataset.k; b.addEventListener('pointerdown', ev => { ev.preventDefault(); b.setPointerCapture(ev.pointerId); EL_MG.edges.push(n); (EL_MG.touchHeld || (EL_MG.touchHeld = {}))[ev.pointerId] = n; b.classList.add('on'); elHeld(); });
+    for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(t, ev => { if (EL_MG.touchHeld) delete EL_MG.touchHeld[ev.pointerId]; b.classList.remove('on'); elHeld(); }); }
+  addEventListener('resize', elFit);
+}
+function elHeld(){ const H = {}; for (const n of Object.values(EL_MG.keyHeld || {})) H[n] = true; for (const n of Object.values(EL_MG.touchHeld || {})) H[n] = true; if (EL_MG.pad) for (const n of ['l', 'r', 'd']) if (EL_MG.pad[n]) H[n] = true; EL_MG.held = H; }
+
+// the pad: d-pad and stick are separate sources, so rolling between them counts too
+function elPad(){ const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(p => p && p.connected && p.mapping === 'standard'); if (!gp) return;
+  const B = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.5)), ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+  const now = {dl: B(14), sl: ax < -0.5, dr: B(15), sr: ax > 0.5, d: B(13) || ay > 0.6, cw: B(0) || B(3), ccw: B(2) || B(1), p: B(9), q: B(8)}, was = EL_MG.padWas || {};
+  for (const [k, n] of [['dl', 'l'], ['sl', 'l'], ['dr', 'r'], ['sr', 'r'], ['cw', 'cw'], ['ccw', 'ccw'], ['p', 'p']]) if (now[k] && !was[k]) EL_MG.edges.push(n);
+  if (now.q && !was.q) elEnd();
+  EL_MG.pad = {l: now.dl || now.sl, r: now.dr || now.sr, d: now.d}; EL_MG.padWas = now; elHeld(); }
+
+function elFit(){ if (!EL_MG.cv) return; const g = EL_MG.g; g.font = `16px "Consolas","Courier New",monospace`; EL_MG.cw = Math.ceil(g.measureText('M').width);
+  const W = 40*EL_MG.cw + 24, H = 22*20 + 32; EL_MG.cv.width = W; EL_MG.cv.height = H;
+  const touchH = isTouch ? 150 : 40, k = Math.min(1.6, (innerWidth - 60)/W, (innerHeight - 90 - touchH)/H); EL_MG.cv.style.width = Math.floor(W*k) + 'px'; EL_MG.cv.style.height = Math.floor(H*k) + 'px';
+  EL_MG.el.classList.toggle('touch', isTouch); }
+
+function elOpen(start, goal){ elBuildDom(); try { PAUSE315.add('miniEL'); } catch(e){} EL_MG.on = true; state = 'miniEL'; exitLock(); for (const kk in keys) keys[kk] = false; EL_MG.keyHeld = {}; EL_MG.touchHeld = {}; EL_MG.held = {}; EL_MG.padWas = null; EL_MG.acc = 0;
+  EL_MG.el.hidden = false; elFit(); elNew(start, goal); elDraw();
+  if (typeof post !== 'undefined' && post && !EL_MG.postR){ EL_MG.postR = post.render; post.render = () => {}; }   // (nobody sees the city behind the terminal)
+  let last = performance.now(); const loop = now => { if (!EL_MG.on) return; EL_MG.acc = Math.min(0.1, EL_MG.acc + (now - last)/1000); last = now; let n = 0; while (EL_MG.acc >= 1/60 && n < 4){ elPad(); elStep(); EL_MG.acc -= 1/60; n++; } if (n) elDraw(); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
+
+function elEnd(){ if (!EL_MG.on) return; EL_MG.on = false; EL_MG.el.hidden = true; if (EL_MG.postR){ post.render = EL_MG.postR; EL_MG.postR = null; } if (state === 'miniEL') state = 'play'; for (const kk in keys) keys[kk] = false;
+  const r = EL_MG.result; EL_MG.result = null; if (EL_MG.onClose) try { EL_MG.onClose(r); } catch(e){ console.error(e); } save(); }
+/* ---------- world/petersbird/pajitnoo ---------- */
+// An Elektronika 60 in the corner of Kommunalka No. 7, and Lyosha the student, who turns out to be Alexey Pajitnoo and
+// to be writing a game on it (the game is gameplay/elektronika.js). A ladder (gameplay/ladders.js) of five runs, the
+// last at level 29, where the pieces fall faster than a held key repeats; rolling between two keys is the way through.
+// The prize, Pajitnoo's Cardigan: Soviet Hardware (a bust costs no crumbs) and the Tetris Effect (four bites of food in
+// quick succession pay a bonus). The ld_* step is run by boot/world.js, after Petersbird's interiors are built.
+const PJ_MG = {pending: null, eaten: [], eaten0: -1, tetrisAt: 0};
+const PJ_RUNGS = [
+  {name: 'Novice', start: 0, lines: 10, text: '10 LINES FROM LV 0'},
+  {name: 'Komsomol', start: 5, lines: 20, text: '20 LINES FROM LV 5'},
+  {name: 'Five-Year Plan', start: 9, lines: 25, text: '25 LINES FROM LV 9'},
+  {name: 'Hero of Labour', start: 15, lines: 20, text: '20 LINES FROM LV 15'},
+  {name: 'The Kill Screen', start: 29, lines: 10, text: '10 LINES AT LV 29'},
+];
+
+function pjPlay(i){ const R = PJ_RUNGS[i]; EL_MG.rung = i; elOpen(R.start, {lines: R.lines, text: R.text}); }
+function pjFree(){ EL_MG.rung = -1; elOpen(0, null); }
+
+// what a run pays, on stepping away from the terminal (so the toasts are seen)
+function pjClose(r){ if (!r) return; const st = ladState('tetris'), i = EL_MG.rung; if (i < 0) return;
+  if (r.won){ ladderBeat('tetris', i); if (i === 4 && st.beat >= 5) setTimeout(() => say([L('Alexey Pajitnoo', '...Twenty-nine. You cleared lines at twenty-nine.'), L('Alexey Pajitnoo', 'Nobody in the computer club has done that. Nobody at the Academy of Sciences has done that.'), L('Alexey Pajitnoo', 'Here. My cardigan. I wore it every night I wrote this game. It is a little bit Soviet. It is a little bit lucky.')]), 1400); }
+  else if (i === st.beat) ladderFail('tetris'); }
+
+const ld_petersbirdPajitnoo_1 = () => {
+if (typeof kommRoom === 'undefined' || !kommRoom) return;
+elBuildDom();
+const x = X9(-113.75), z = Z9(-71.3), g = new THREE.Group(); scene.add(g); PJ_MG.g = g;
+// a desk against the east wall, the terminal on it, a punch card or two
+GB(g, 0.8, 0.06, 1.3, 0x6b4a2e, x, 0.9, z, true, 'desk'); for (const [dx, dz] of [[-0.32, -0.56], [-0.32, 0.56], [0.32, -0.56], [0.32, 0.56]]) GB(g, 0.06, 0.74, 0.06, 0x4a3220, x + dx, 0.53, z + dz);
+GB(g, 0.62, 0.5, 0.56, 0xd8d0bc, x + 0.02, 1.2, z); GB(g, 0.4, 0.34, 0.42, 0xc8c0aa, x + 0.24, 1.2, z);
+{ const c = document.createElement('canvas'); c.width = 128; c.height = 96; const gg = c.getContext('2d'); gg.fillStyle = '#020a04'; gg.fillRect(0, 0, 128, 96); gg.font = '10px monospace'; gg.fillStyle = '#46f06c';
+  for (let y = 0; y < 9; y++) gg.fillText('<!' + (y > 5 ? '[][] .[][][][][]'.slice(0, 16) : ' . . . . . . . .') + '!>', 14, 10 + y*10); gg.fillText('ТЕТРИС  1984', 30, 94);
+  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; const scr = mesh(new THREE.PlaneGeometry(0.46, 0.34), new THREE.MeshBasicMaterial({map: t}), x - 0.29, 1.22, z); scr.rotation.y = -PI/2; g.add(scr); }
+GB(g, 0.36, 0.05, 0.62, 0x3a3630, x - 0.18, 0.95, z); for (let k = 0; k < 3; k++) GB(g, 0.2, 0.005, 0.09, 0xe8dcb0, x + 0.1, 0.935, z - 0.5 + k*0.04).rotation.y = 0.2*k;
+PJ_MG.spot = new THREE.Vector3(x - 0.95, 0.6, z);
+VOICES['Alexey Pajitnoo'] = VOICES.Lyosha; PORTRAITS['Alexey Pajitnoo'] = PORTRAITS.Lyosha;
+FOLK.push(['Alexey Pajitnoo', 'Lyosha to Klavdia. A student at the Academy, with three chords and an Elektronika 60, on which he is writing a game about falling shapes.']);
+const AP = (t, c) => L('Alexey Pajitnoo', t, c);
+LADDERS.tetris = {key: 'tetris', title: 'Tetris on the Elektronika 60',
+  levels: [
+    {id: 'el0', name: 'Novice: 10 lines', pay: 10, xp: 40},
+    {id: 'el1', name: 'Komsomol: 20 lines from level 5', pay: 15, xp: 60, loot: {roll: 1, floor: 1}},
+    {id: 'el2', name: 'Five-Year Plan: 25 lines from level 9', pay: 25, xp: 90, loot: {legend: 'Pajitnoo\'s Punch Card', base: 'token', r: 2, st: {xp: 12, fence: 12}}},
+    {id: 'el3', name: 'Hero of Labour: 20 lines from level 15', pay: 40, xp: 140, loot: {legend: 'The Elektronika\'s Power Key', base: 'key', r: 3, st: {wing: 1.5, crumb: 24, luck: 14}}},
+    {id: 'el4', name: 'The Kill Screen: 10 lines at level 29', pay: 400, xp: 400, loot: {legend: 'Pajitnoo\'s Cardigan', base: 'medal', b: 'cardimg', s: 'neck', uq: 'cardigan', r: 4, v: 66, st: {crumb: 40, fence: 20, xp: 15}}},
+  ],
+  at: () => PJ_MG.spot,
+  text: i => `Clear ${['10 lines', '20 lines from level 5', '25 lines from level 9', '20 lines from level 15', '10 lines at level 29'][i]} on the Elektronika 60 in Kommunalka No. 7, St. Petersbird.`,
+  hint: st => st.beat === 4 ? 'Alexey, from the kitchen: <i>"At twenty-nine, holding the key is useless. Ask me why."</i>' : null};
+nt38('Use the Elektronika 60', 'Alexey Pajitnoo', () => PJ_MG.spot, () => { const st = ladState('tetris'), b = st.beat, first = !st.met, tries = st.tries || 0; st.met = 1;
+  const intro = first ? [AP('Careful! That is an Elektronika 60. There are twenty-three in the whole city, and one is in this kitchen, because I carried it here.'), AP('My name is Alexey Pajitnoo. Only Klavdia calls me Lyosha. I am writing a game. Shapes fall. You fit them together. A full row disappears.'), AP('Like a queue at the bakery, but in reverse. Try it.')] : [];
+  const lines = [];
+  if (b < 5) lines.push(AP(b === 0 ? 'Start small. Ten lines. Everybody can do ten lines.' : b < 4 ? `Next: ${PJ_RUNGS[b].name}. ${PJ_RUNGS[b].text.toLowerCase()}.` : 'The last one. Level twenty-nine. Ten lines. Nobody at the computer club can do it. I cannot do it.'));
+  else lines.push(AP(mpick(['The cardigan suits you. Very Soviet. Very lucky.', 'I am thinking of selling the game abroad. Klavdia says nobody abroad will want shapes.'])));
+  if (b === 4 && tries >= 3) lines.push(AP('At twenty-nine a piece is on the floor in twenty frames. Hold the key and it waits sixteen before it repeats. There is no time.'));
+  if (b === 4 && tries >= 6) lines.push(AP('The kids at the club do not hold the key. They press it. Again and again. Every press is a step, at once.'));
+  if (b === 4 && tries >= 9) lines.push(AP('And the best of them use two keys for one direction. A, then J. A, then J. Like rolling your fingers on a table. Each key is its own press, so they step twice as often.'));
+  const ch = []; for (let i = Math.min(b, 4); i >= 0; i--) ch.push({label: `${PJ_RUNGS[i].name}: ${PJ_RUNGS[i].text.toLowerCase()}`, fn: () => pjPlay(i)});   // the newest first
+  ch.push({label: 'Just play (level 0, no goal).', fn: pjFree}, {label: 'Not now.', fn: () => {}});
+  say([...intro, ...lines, AP('Well?', ch)]); save(); }, 1.6);
+EL_MG.onClose = pjClose;
+EL_MG.onEnd = () => elEnd();
+SYS52.push(['pajitnooMG', (dt, time) => { const near = player.pos.distanceTo(PJ_MG.spot) < 30; if (g.visible !== near) g.visible = near; }]);
+};
+
+/* ---------- Pajitnoo's Cardigan ---------- */
+const ld_gameplayCardiganMG_1 = () => {
+aroundHook('lootIcon', function(next, b, r){ if (b !== 'cardimg') return next(b, r); const k = b + r; if (ICON29[k]) return ICON29[k];
+  const c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d'), col = RAR[r].col;
+  px(g, 2, 2, '#6b5a3a', 12, 13); px(g, 2, 2, '#8a7650', 4, 13); px(g, 10, 2, '#8a7650', 4, 13); px(g, 6, 2, '#3a3020', 4, 4); for (let y = 6; y < 15; y += 3) px(g, 7, y, col, 2, 1); px(g, 3, 6, '#5a4a30', 2, 5); px(g, 11, 6, '#5a4a30', 2, 5);
+  if (r >= 3){ px(g, 0, 0, '#ffffff'); px(g, 15, 2, '#ffffff'); px(g, 13, 14, '#ffffff'); }
+  return ICON29[k] = c.toDataURL(); });
+UNIQUE_MG.cardigan = {name: 'Pajitnoo\'s Cardigan',
+  card: () => '<b>Unique.</b> Brown, warm, a little bit Soviet.<br>· <b>Soviet Hardware</b>: busted by the police, you keep your crumbs.<br>· <b>Tetris Effect</b>: four bites of food within four seconds, and the fourth pays forty crumbs more. Every ten seconds.',
+  frame: () => { const n = S.eaten || 0; if (PJ_MG.eaten0 < 0){ PJ_MG.eaten0 = n; return; } if (n === PJ_MG.eaten0) return; const now = performance.now();
+    for (let k = PJ_MG.eaten0; k < n; k++) PJ_MG.eaten.push(now); PJ_MG.eaten0 = n; PJ_MG.eaten = PJ_MG.eaten.filter(t => now - t < 4000);
+    if (PJ_MG.eaten.length >= 4 && now - PJ_MG.tetrisAt > 10000){ PJ_MG.tetrisAt = now; PJ_MG.eaten.length = 0; S.crumbs += 40; floatText(player.pos, 'TETRIS!', '#46f06c', 1.6, {yoff: 1.2}); tone(784, 0.1, 'square', 0.04); tone(1175, 0.25, 'square', 0.04, null, 0.1); toast('<b>Tetris!</b> Four in a row: +40 crumbs.', '', 2200); } }};
+// (bust27 takes answers, not wrappers: this one does the bust itself and hands the fine back; the Cartridge's Save State,
+// added later, is asked first)
+answerHook('bust27', function(){ if (!wearingMG('cardigan')) return null; const c = S.crumbs, r = bust27Base(); if (S.crumbs < c){ S.crumbs = c; setTimeout(() => toast('<b>Soviet Hardware.</b> They found nothing on you. Not a crumb.', '', 2600), 1200); } return {answer: r}; });
+};
+/* ---------- data/pub-quiz ---------- */
+// Quiz night at The Plucky Duck (gameplay/pub-quiz.js): questions about the game's own world, each checked against the
+// source line in src. The right answer is always a[0]; the quiz shuffles them.
+const QUIZ_MG = {
+  village: [
+    {q: 'Who works the oven at Bess\'s Buns, being Bess\'s husband?', a: ['Bert', 'Bruno', 'Dougal', 'Pat'], src: 'src/world/new-yolk/bess-buns.js:17'},
+    {q: 'Who is the vicar of St Wilfrid\'s in Little Pecking?', a: ['Reverend Plum', 'Reverend Wren', 'Brother Somsak', 'Professor Plumtree'], src: 'src/world/little-pecking/villagers.js:19'},
+    {q: 'What is the name of Little Pecking\'s postie?', a: ['Pat', 'Peg', 'Mo', 'Nell'], src: 'src/world/little-pecking/villagers.js:18'},
+    {q: 'What shiny thing glints on the roof of The Plucky Duck?', a: ['A silver thimble', 'A gold bottle cap', 'A ruby brooch', 'A brass hand-bell'], src: 'src/world/little-pecking/villagers.js:47'},
+    {q: 'The village sign says Little Pecking was Best Kept Village in which year?', a: ['1987', '1974', '1966', '1999'], src: 'src/world/little-pecking/character.js:26'},
+    {q: 'What does the smaller plate under the village sign say?', a: ['THE GREATER GOOD', 'MIND THE SHEEP', 'TWINNED WITH NEW YOLK', 'FOR KING AND COUNTRY'], src: 'src/world/little-pecking/character.js:26'},
+    {q: 'What does the name plate on Grandpa Coo\'s gate say?', a: ['A. COO', 'G. COO', 'P. COO', 'GRANDPA'], src: 'src/world/little-pecking/character.js:39'},
+    {q: 'Someone has chalked what on the blue box behind the church?', a: ['"Bigger on the inside."', '"Back in five minutes."', '"Do not knock."', '"Police public call box."'], src: 'src/world/little-pecking/character.js:44'},
+    {q: 'The round green door by the windmill: no admittance except on what?', a: ['Party business', 'Church business', 'Family business', 'Official business'], src: 'src/world/little-pecking/character.js:45'},
+    {q: 'What has the old red phone box near the green become?', a: ['A book exchange', 'A seed bank', 'A tiny post office', 'A bus shelter'], src: 'src/world/little-pecking/character.js:43'},
+    {q: 'According to Pat, who writes the letter you carry to the vicar?', a: ['The vicar himself', 'Grandpa Coo', 'Baker Bess', 'Pat the postie'], src: 'src/story/tutorial.js:36'},
+    {q: 'How many crumbs does Grandpa Coo ask you to peck up for breakfast?', a: ['Three', 'Five', 'Two', 'Six'], src: 'src/story/tutorial.js:11'},
+    {q: 'In the lesson called "The Swoop", what do you dive through?', a: ['A golden hoop', 'Six golden rings', 'The church arch', 'The windmill sails'], src: 'src/story/tutorial.js:14'},
+    {q: 'Skip the lessons and Grandpa Coo says you\'re just like whom?', a: ['Your father', 'Your grandmother', 'Your mother', 'Old Gus'], src: 'src/story/tutorial.js:81'},
+    {q: 'Where in Little Pecking is the summer fete held?', a: ['The east field', 'The village green', 'Behind the church', 'By the duck pond'], src: 'src/story/tutorial.js:18'},
+    {q: 'At the fete, Paulie gives the word. Who actually grabs Pidge?', a: ['Talons the hawk', 'Vinnie the raven', 'Hoots the owl', 'Crowley the crow'], src: 'src/story/cutscenes.js:36'},
+    {q: 'Which of these pigeons pecks about the green in Little Pecking?', a: ['Bramble', 'Plume', 'Wendell', 'Kevin'], src: 'src/world/little-pecking/villagers.js:36'},
+    {q: 'Which of Grandpa Coo\'s lessons has you coo at Baker Bess?', a: ['Ask Nicely', 'Charm Offensive', 'Finders Keepers', 'Breakfast'], src: 'src/story/tutorial.js:12'},
+  ],
+  newyolk: [
+    {q: 'In Gus\'s "Statue Duty", whose bronze head must you perch on?', a: ['Mayor Featherstone', 'Augustus Feathersby', 'Captain Coo', 'Cher Ami'], src: 'src/data/story.js:47'},
+    {q: 'How long have Gus and Mabel been together, by Gus\'s count?', a: ['Forty springs', 'Fifty-one years', 'Twenty summers', 'Sixty winters'], src: 'src/data/story.js:55'},
+    {q: 'In Gus\'s "The Big Score", whose hot dog do you pinch?', a: ['Sal\'s', 'Joe\'s', 'Vince\'s', 'Morty\'s'], src: 'src/data/story.js:50'},
+    {q: 'Which Midtown jeweller has the ruby brooch the Don wants?', a: ['Tiffeathers', 'Top Notch Hats', 'Antiques & Curios', 'Lost Property'], src: 'src/story/jobs.js:121'},
+    {q: 'What kind of bagels does Pidge bring back to the Don?', a: ['Everything bagels', 'Sesame bagels', 'Poppy seed bagels', 'Cinnamon raisin bagels'], src: 'src/story/jobs.js:169'},
+    {q: 'Coo next to a gull with Tony\'s "little friend" and it goes what?', a: ['PARP', 'HONK', 'TOOT', 'BOOM'], src: 'src/story/jobs.js:152'},
+    {q: 'What colour is Tony "Two Wings"\'s suit?', a: ['White', 'Black', 'Pinstripe grey', 'Gold'], src: 'src/story/magpie-mob.js:21'},
+    {q: 'Kevin, the tourist pigeon in the bucket hat, comes from where?', a: ['Ohio', 'Texas', 'Florida', 'Nebraska'], src: 'src/cast/kevin-the-tourist.js:31'},
+    {q: 'Which film is always on at The Roxy?', a: ['Pigeon Impossible', 'The Big Lebirdski', 'Pulp Friction', 'Doctor Zhivagull'], src: 'src/world/new-yolk/roxy-cinema.js:39'},
+    {q: 'Which of these is a station on the Crumb Line?', a: ['Market Cross', 'Westgate Halt', 'Market Steps', 'Airport Parkway'], src: 'src/world/new-yolk/crumb-line.js:340'},
+    {q: 'Who has lost his ticket at Catz\'s Deli. Again?', a: ['Mr Feldman', 'Mr Katz', 'Morty', 'Barry'], src: 'src/world/new-yolk/catz-deli.js:43'},
+    {q: 'Who is the landlord of The Crooked Feather in Old Town?', a: ['Dougal', 'Crowley', 'Bellamy', 'Archibald'], src: 'src/world/new-yolk/post-office.js:31'},
+    {q: 'What is Agnes\'s ginger bookshop cat called?', a: ['Pages', 'Biscuit', 'Fifi', 'Mrs Katz'], src: 'src/data/story.js:14'},
+    {q: 'June met Harold by the pond when she hit him on the nose with what?', a: ['Bread for the ducks', 'A pebble', 'A rose', 'A tennis ball'], src: 'src/story/conversations.js:70'},
+    {q: 'Flappy\'s halftime show: how many golden rings in forty seconds?', a: ['Six', 'Four', 'Eight', 'Ten'], src: 'src/world/new-yolk/madison-squab-garden.js:62'},
+    {q: 'Who runs New Yolk Post in the Market Quarter?', a: ['Peg', 'Pat', 'Mags', 'Prudence'], src: 'src/world/new-yolk/post-office.js:31'},
+    {q: 'Which of these is on Ledger Lou\'s collection round?', a: ['Two Scoops', 'Joe\'s Peeza', 'Catz\'s Deli', 'Bun & Done'], src: 'src/story/family-business.js:24'},
+    {q: 'What is the green tank engine out of New Yolk Central called?', a: ['The New Yolk Flyer', 'The Euro Express', 'The Crumb Line', 'The Matryoshka'], src: 'src/world/new-yolk/railway.js:254'},
+  ],
+  abroad: [
+    {q: 'Which container ship carries Pidge across the sea to St. Petersbird?', a: ['The Matryoshka', 'The Salty Claw', 'The Chao Fryer Princess', 'The New Yolk Flyer'], src: 'src/story/container-ship.js:15'},
+    {q: 'Who lies in state in St. Petersbird\'s Mausoleum?', a: ['Comrade Crumb', 'Comrade Pootin', 'Captain Krabov', 'Major Coo'], src: 'src/world/petersbird/usdr.js:81'},
+    {q: 'What does Babushka Zoya do on her chair in the Hermit-Age?', a: ['She knits', 'She sleeps', 'She sings', 'She reads Tolstoy'], src: 'src/story/shellfish-affair.js:40'},
+    {q: 'The Tsar Pelmen countdown always stops at what time?', a: ['0:07', '0:01', '0:00', '0:13'], src: 'src/story/double-cross.js:64'},
+    {q: 'Which boat do you board for Bangcluck\'s river dinner cruise?', a: ['The Chao Fryer Princess', 'The Matryoshka', 'The Salty Claw', 'The Riverbus'], src: 'src/world/bangcluck/river-cruise.js:24'},
+    {q: 'The sign at Bangcluck\'s ruins says which star filmed there?', a: ['Lara Crumb', 'Indiana Bones', 'Ramboo', 'Justice Beaver'], src: 'src/world/bangcluck/character.js:62'},
+    {q: 'How long is the napping gold of the Temple of the Golden Rooster?', a: ['Forty metres', 'Ten metres', 'Ninety metres', 'Four hundred metres'], src: 'src/world/bangcluck/claws-out.js:234'},
+    {q: 'Which energy drink sells for 3 crumbs in Bangcluck?', a: ['Red Bawk', 'Kvass', 'Plombir', 'Lune Pie'], src: 'src/world/bangcluck/louder.js:17'},
+    {q: 'What is the machine mind that runs Tokyoo called?', a: ['HAIKU-9000', 'Hooli-coo', 'Mecha-Gojirra', 'Nucleus'], src: 'src/world/tokyoo/haiku-core.js:22'},
+    {q: 'What is the "bronze" pigeon waiting at Tokyoo\'s crossing called?', a: ['Hachicoo', 'Daifuku', 'Peckachu', 'Okimi-san'], src: 'src/world/tokyoo/city.js:100'},
+    {q: 'At Okimi-san\'s tea ceremony, you drink the matcha in how many sips?', a: ['Three and a half', 'One heroic gulp', 'Two', 'Seven'], src: 'src/data/tokyoo.js:10'},
+    {q: 'Which Pecketmon sleeps across main roads with a car-sized snot bubble?', a: ['Snorelax', 'Peckachu', 'Bulbasoar', 'Jiggly-coo'], src: 'src/data/tokyoo.js:63'},
+    {q: 'On which day are the Eiffel Tower\'s lift operators on strike?', a: ['Tuesday', 'Monday', 'Friday', 'Sunday'], src: 'src/world/paree/eiffel-tower.js:36'},
+    {q: 'Where in Paree can you hang a PIDGE + PLUME love lock?', a: ['The Pont des Arts', 'The Pont Neuf', 'The Pont de l\'Alma', 'The Pont de la Concorde'], src: 'src/world/paree/amour.js:36'},
+    {q: 'What lies mummified in a glass case in the Louvre?', a: ['A pigeon', 'A cat', 'A crocodile', 'A baguette'], src: 'src/world/paree/louvre-inside.js:80'},
+    {q: 'Which king do you meet at Schloss Neutaubenstein in Bavaria?', a: ['Ludwig the Second-Best', 'Ludwig the Second', 'Ludwig the Third-Best', 'Ludwig the Great'], src: 'src/world/bavaria/ludwig.js:30'},
+    {q: 'What do the round pastel Mooncoos say?', a: ['Bip', 'Pom', 'Beep', 'Coo'], src: 'src/world/moon/surface/mooncoos.js:49'},
+    {q: 'What does the moon rabbit pound in her mortar?', a: ['Mochi', 'Pelmeni', 'Cheese', 'Rice crackers'], src: 'src/world/moon/surface/clair-de-lune.js:70'},
+  ],
+  deep: [
+    {q: 'The signpost out of Little Pecking reads NEW YOLK CITY and what number?', a: ['112', '12', '87', '211'], src: 'src/world/little-pecking/village.js:157'},
+    {q: 'Since which year has Catz\'s Deli enforced "no ticket, no leaving"?', a: ['1888', '1952', '1966', '1822'], src: 'src/world/new-yolk/catz-deli.js:43'},
+    {q: 'In which year was Featherstone University established?', a: ['1822', '1790', '1871', '1882'], src: 'src/world/new-yolk/featherstone.js:20'},
+    {q: 'What does Madame Plume charge to tell your fortune?', a: ['3 crumbs', '1 crumb', '5 crumbs', '10 crumbs'], src: 'src/world/new-yolk/madame-plume.js:24'},
+    {q: 'All six selfies done: five gold caps, and what else does Kevin give you?', a: ['His lucky pin', 'His bucket hat', 'His disposable camera', 'A postcard of Ohio'], src: 'src/cast/kevin-the-tourist.js:39'},
+    {q: 'Vinnie "The Beak" who?', a: ['Corvino', 'Corleone', 'Capone', 'Magpione'], src: 'src/story/magpie-mob.js:21'},
+    {q: 'Wendell the wood pigeon belongs to which family?', a: ['Hampshire Woodcote-Pigeons', 'Surrey Featherstones', 'Kent Ringnecks', 'Berkshire Columbas'], src: 'src/data/new-yolk.js:50'},
+    {q: 'By its plaque in St. Petersbird, how long did Sputnik go "beep"?', a: ['Three weeks', 'Three days', 'Three months', 'Thirty years'], src: 'src/world/petersbird/usdr.js:82'},
+    {q: 'What does a crab omelette from Jay Fry in Bangcluck cost?', a: ['6 crumbs', '3 crumbs', '5 crumbs', '10 crumbs'], src: 'src/world/bangcluck/justice-beaver.js:98'},
+    {q: 'What does a matryoshka cost at Masha\'s in St. Petersbird?', a: ['8 caps', '5 caps', '8 crumbs', '12 crumbs'], src: 'src/world/petersbird/early-interiors.js:46'},
+    {q: 'How much love does Paree cut off the Pont des Arts every year?', a: ['Forty-five tonnes', 'Four tonnes', 'Ninety tonnes', 'Twelve tonnes'], src: 'src/world/paree/amour.js:38'},
+    {q: 'The mirror on the moon says the moon drifts away by how much a year?', a: ['Four centimetres', 'Four millimetres', 'Forty centimetres', 'Four metres'], src: 'src/world/moon/surface/film-set.js:77'},
+    {q: 'Which karaoke room in Tokyoo is reserved for the HAIKU Harmony Choir?', a: ['Room 9000', 'Room 101', 'Room 2B', 'Room 42'], src: 'src/world/tokyoo/karaoke.js:35'},
+    {q: 'Peckachu\'s plaque asks which company to please stop writing in?', a: ['Nintendoo', 'Hooli-coo', 'Pied Pigeon', 'Muskrat Space'], src: 'src/world/tokyoo/akihabirda.js:85'},
+  ],
+};
+/* ---------- gameplay/pub-quiz ---------- */
+// Quiz night at The Plucky Duck, Little Pecking, with Jeremy Pecksman. Every question is about the game's own world
+// (data/pub-quiz.js), so the way to win is to have looked. A ladder (gameplay/ladders.js): the village, New Yolk,
+// abroad, the Yolkheads head to head, and the Christmas Special: ten hard questions, eight seconds each, all ten right.
+// The knowledge it wants is out there; and after a few failed Specials the answers go up on the pub's noticeboard.
+// The prize, the Encyclopaedia Birdtannica: Know-It-All (the right answer glows at the quiz) and Local Knowledge (every
+// fly-to place in a city you're in goes on your map). The overlay pauses the world (PAUSE315); state in S.v900mg.qz.
+const QZ_MG = {built: false, on: false, el: null, round: null, qs: [], i: 0, score: 0, them: 0, t: 0, T: 10, picked: -1, order: [], wrong: [], raf: 0, done: false};
+const QQZ = () => { const q = QMG(); return q.qz || (q.qz = {seen: {}, board: 0}); };
+const QZ_ROUNDS = [
+  {name: 'Monday: The Village', pool: ['village'], n: 6, pass: 4, T: 15, fee: 2},
+  {name: 'Wednesday: New Yolk', pool: ['newyolk'], n: 6, pass: 4, T: 14, fee: 2},
+  {name: 'Friday: Abroad', pool: ['abroad'], n: 6, pass: 4, T: 14, fee: 3},
+  {name: 'Sunday: The Yolkheads', pool: ['village', 'newyolk', 'abroad'], n: 8, h2h: 0.75, T: 12, fee: 5},
+  {name: 'The Christmas Special', pool: ['deep'], n: 10, pass: 10, T: 8, fee: 0},
+];
+const YOLKHEADS = ['Judith Peckel', 'Kevin Ashbeak', 'Daphne Fowl', 'CJ de Moult', 'Barry Simmonds'];
+const JP = (t, c) => L('Jeremy Pecksman', t, c);
+
+function qzShuffle(a){ a = a.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+function qzBuild(){ if (QZ_MG.built) return; QZ_MG.built = true;
+  const css = document.createElement('style'); css.textContent = `
+  #qzMG{position:fixed;inset:0;z-index:30;background:rgba(20,12,6,.86);display:grid;place-items:center;padding:16px}
+  #qzMG .board{width:min(640px,100%);background:#1f3a2a;border:12px solid #6b4a2e;border-radius:6px;box-shadow:0 0 0 2px #3a2614,0 18px 40px rgba(0,0,0,.6);padding:18px 18px 16px;color:#f2efe6;font-family:"Pixelify Sans",system-ui,sans-serif}
+  #qzMG .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:14px;opacity:.9}
+  #qzMG .rd{font-weight:700;color:#ffd166}
+  #qzMG .q{font-size:clamp(18px,4.4vw,24px);line-height:1.3;margin:14px 0 14px;min-height:3.9em}
+  #qzMG .ans{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:480px){#qzMG .ans{grid-template-columns:1fr}}
+  #qzMG .ans button{font:inherit;font-size:16px;text-align:left;padding:10px 12px;border-radius:6px;border:2px solid rgba(242,239,230,.55);background:rgba(255,255,255,.06);color:#f2efe6;cursor:pointer;min-height:48px}
+  #qzMG .ans button b{color:#ffd166;margin-right:8px}
+  #qzMG .ans button:hover{background:rgba(255,255,255,.14)}
+  #qzMG .ans button.ok{border-color:#7ae08a;background:rgba(122,224,138,.25)}
+  #qzMG .ans button.no{border-color:#ff8a7a;background:rgba(255,138,122,.22)}
+  #qzMG .ans button.know{box-shadow:0 0 0 3px rgba(255,209,102,.55)}
+  #qzMG .bar{height:8px;background:rgba(255,255,255,.12);border-radius:4px;margin-top:14px;overflow:hidden}
+  #qzMG .bar i{display:block;height:100%;background:#ffd166;width:100%}
+  #qzMG .say{margin-top:10px;font-size:14px;min-height:1.3em;color:#cfe8d4;font-style:italic}
+  #qzMG .row{display:flex;justify-content:space-between;margin-top:12px;font-size:13px;opacity:.85}
+  #qzMG .row button{font:inherit;font-size:13px;background:none;border:1px solid rgba(242,239,230,.5);color:#f2efe6;border-radius:4px;padding:4px 10px;cursor:pointer}`;
+  document.head.appendChild(css);
+  const el = document.createElement('div'); el.id = 'qzMG'; el.hidden = true;
+  el.innerHTML = '<div class="board"><div class="top"><span class="rd"></span><span class="sc"></span></div><div class="q"></div><div class="ans"></div><div class="bar"><i></i></div><div class="say"></div><div class="row"><span class="n"></span><button type="button" class="quit">Leave the quiz (Esc)</button></div></div>';
+  document.body.appendChild(el); QZ_MG.el = el;
+  el.querySelector('.ans').addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (b) qzPick(+b.dataset.k); });
+  el.querySelector('.quit').addEventListener('click', () => qzEnd(true));
+  addEventListener('keydown', e => { if (state !== 'miniQZ') return; e.stopImmediatePropagation(); if (e.code === 'Escape'){ e.preventDefault(); return qzEnd(true); }
+    const m = /^(Digit|Numpad)([1-4])$/.exec(e.code); if (m){ e.preventDefault(); qzPick(+m[2] - 1); } else if ((e.code === 'Space' || e.code === 'Enter') && QZ_MG.done){ e.preventDefault(); qzEnd(false); } }, true);
+}
+
+function qzOpen(r){ const R = QZ_ROUNDS[r]; qzBuild();
+  if (S.crumbs < R.fee) return say([JP(`It's ${R.fee} crumbs a head. You have ${S.crumbs}. This is a pub, not a charity.`)]);
+  S.crumbs -= R.fee;
+  const pool = []; for (const p of R.pool) for (const q of (QUIZ_MG[p] || [])) pool.push(q);
+  const Q = QQZ(); let qs = qzShuffle(pool);
+  // the Special draws the ones you've missed first: you can learn it
+  if (r === 4){ const miss = qs.filter(q => Q.seen[q.q] === 0); qs = miss.concat(qs.filter(q => Q.seen[q.q] !== 0)); }
+  Object.assign(QZ_MG, {on: true, round: r, qs: qs.slice(0, R.n), i: 0, score: 0, them: 0, wrong: [], done: false, result: null});
+  try { PAUSE315.add('miniQZ'); } catch(e){}
+  state = 'miniQZ'; exitLock(); for (const k in keys) keys[k] = false; QZ_MG.el.hidden = false; QZ_MG.el.querySelector('.rd').textContent = R.name;
+  qzAsk(); let last = performance.now(); const loop = now => { if (!QZ_MG.on) return; qzTick((now - last)/1000); last = now; QZ_MG.raf = requestAnimationFrame(loop); }; QZ_MG.raf = requestAnimationFrame(loop);
+  tone(523, 0.1, 'triangle', 0.04); tone(784, 0.15, 'triangle', 0.04, null, 0.1); }
+
+function qzAsk(){ const R = QZ_ROUNDS[QZ_MG.round], q = QZ_MG.qs[QZ_MG.i], el = QZ_MG.el; QZ_MG.order = qzShuffle([0, 1, 2, 3]); QZ_MG.picked = -1; QZ_MG.t = 0; QZ_MG.T = R.T;
+  el.querySelector('.q').textContent = q.q; el.querySelector('.n').textContent = `Question ${QZ_MG.i + 1} of ${QZ_MG.qs.length}`;
+  const know = wearingMG('encyclo');
+  el.querySelector('.ans').innerHTML = QZ_MG.order.map((k, j) => `<button type="button" data-k="${j}"${know && k === 0 ? ' class="know"' : ''}><b>${j + 1}</b>${q.a[k]}</button>`).join('');
+  el.querySelector('.say').textContent = QZ_MG.i === 0 ? mpick(['Fingers on buzzers. You have no buzzer. Fingers on the table, then.', 'Your starter for ten. No conferring.', 'Here we go. Quietly, please, Dougal.']) : '';
+  qzScore(); }
+
+function qzScore(){ const R = QZ_ROUNDS[QZ_MG.round]; QZ_MG.el.querySelector('.sc').textContent = R.h2h !== undefined ? `You ${QZ_MG.score} · Yolkheads ${QZ_MG.them}` : `Score ${QZ_MG.score}${R.pass ? ' · need ' + R.pass : ''}`; }
+
+function qzTick(dt){ if (QZ_MG.done || QZ_MG.picked >= 0) return; QZ_MG.t += dt; const f = Math.max(0, 1 - QZ_MG.t/QZ_MG.T); QZ_MG.el.querySelector('.bar i').style.width = (f*100).toFixed(1) + '%';
+  if (QZ_MG.T - QZ_MG.t < 3 && !QZ_MG.hurried){ QZ_MG.hurried = 1; QZ_MG.el.querySelector('.say').textContent = mpick(['I\'ll have to hurry you.', 'Come on!', 'Come ON.']); }
+  if (QZ_MG.t >= QZ_MG.T) qzPick(-1); }
+
+function qzPick(j){ if (QZ_MG.done || QZ_MG.picked >= 0) return; const R = QZ_ROUNDS[QZ_MG.round], q = QZ_MG.qs[QZ_MG.i], k = j >= 0 ? QZ_MG.order[j] : -1, ok = k === 0, Q = QQZ(); QZ_MG.picked = j; QZ_MG.hurried = 0;
+  const btns = QZ_MG.el.querySelectorAll('.ans button'); btns.forEach((b, n) => { if (QZ_MG.order[n] === 0) b.classList.add('ok'); else if (n === j) b.classList.add('no'); });
+  Q.seen[q.q] = ok ? 1 : 0; if (ok) QZ_MG.score++; else QZ_MG.wrong.push(q);
+  if (ok){ tone(784, 0.08, 'triangle', 0.04); tone(1047, 0.12, 'triangle', 0.04, null, 0.08); } else tone(196, 0.2, 'square', 0.03);
+  let line = ok ? mpick(['Correct.', 'Yes. Correct.', 'Well done. Grudgingly.', 'That\'s right.']) : j < 0 ? `Too slow. It's "${q.a[0]}".` : mpick([`No. It's "${q.a[0]}".`, `Oh, come on. "${q.a[0]}".`, `No. "${q.a[0]}". Everybody knows that.`]);
+  if (R.h2h !== undefined){ const theirs = Math.random() < R.h2h; if (theirs) QZ_MG.them++; line += ` ${mpick(YOLKHEADS)}: ${theirs ? 'correct' : 'wrong'}.`; }
+  QZ_MG.el.querySelector('.say').textContent = line; qzScore();
+  setTimeout(() => { if (!QZ_MG.on) return; QZ_MG.i++; if (QZ_MG.i < QZ_MG.qs.length) return qzAsk();
+    // a tie with the Yolkheads goes to sudden death
+    if (R.h2h !== undefined && QZ_MG.score === QZ_MG.them && QZ_MG.qs.length < 14){ const pool = []; for (const p of R.pool) for (const q2 of QUIZ_MG[p]) if (!QZ_MG.qs.includes(q2)) pool.push(q2); QZ_MG.qs.push(mpick(pool)); QZ_MG.el.querySelector('.say').textContent = 'A tie. Sudden death. One question.'; return setTimeout(qzAsk, 1200); }
+    qzFinish(); }, ok ? 900 : 1700); }
+
+function qzFinish(){ const R = QZ_ROUNDS[QZ_MG.round], won = R.h2h !== undefined ? QZ_MG.score > QZ_MG.them : QZ_MG.score >= R.pass; QZ_MG.done = true; QZ_MG.result = {won, round: QZ_MG.round, score: QZ_MG.score, them: QZ_MG.them, wrong: QZ_MG.wrong};
+  const el = QZ_MG.el; el.querySelector('.q').textContent = won ? (QZ_MG.round === 4 ? 'Ten out of ten. On the Christmas Special.' : 'You win the round.') : 'Not this time.';
+  el.querySelector('.ans').innerHTML = ''; el.querySelector('.bar i').style.width = '0';
+  el.querySelector('.say').textContent = (won ? mpick(['Extraordinary. Have a crisp.', 'Well. Well, well.', 'I have nothing sarcastic to say. Make a note of the date.']) : R.h2h !== undefined ? `The Yolkheads win, ${QZ_MG.them} to ${QZ_MG.score}. They always do.` : `${QZ_MG.score} out of ${QZ_MG.qs.length}. ${R.pass ? `You needed ${R.pass}.` : ''}`) + '  (Space to leave)';
+  if (won){ tone(523, 0.12, 'triangle', 0.05); tone(659, 0.12, 'triangle', 0.05, null, 0.12); tone(784, 0.12, 'triangle', 0.05, null, 0.24); tone(1047, 0.3, 'triangle', 0.05, null, 0.36); } else sfx.bad(); }
+
+function qzEnd(quit){ if (!QZ_MG.on) return; QZ_MG.on = false; cancelAnimationFrame(QZ_MG.raf); QZ_MG.el.hidden = true; if (state === 'miniQZ') state = 'play';
+  const r = QZ_MG.done ? QZ_MG.result : {won: false, round: QZ_MG.round, quit: true, wrong: []}; if (QZ_MG.onClose) try { QZ_MG.onClose(r); } catch(e){ console.error(e); } save(); }
+/* ---------- world/little-pecking/quiz-night ---------- */
+// Quiz night at The Plucky Duck: Jeremy Pecksman by the door, a chalkboard, and the ladder that runs from Monday's
+// village round to the Christmas Special (the quiz is gameplay/pub-quiz.js, the questions data/pub-quiz.js).
+// After nine failed Specials the chalkboard becomes a noticeboard with the answers you got wrong last time.
+// The prize is the Encyclopaedia Birdtannica. The ld_* step is run by boot/world.js.
+const QN_MG = {lk: 0};
+
+function qnClose(r){ const st = ladState('quiz'), Q = QQZ(); if (!r || r.quit) return;
+  if (r.round === 4 && !r.won) Q.lastWrong = r.wrong.map(q => [q.q, q.a[0]]);
+  if (r.won){ ladderBeat('quiz', r.round); if (r.round === 4 && st.beat >= 5) setTimeout(() => say([JP('Ten. Out of ten. On the Christmas Special.'), JP('In thirty years nobody has done that. Not the vicar. Not Dougal. Not the Yolkheads.'), JP('This is yours. The Encyclopaedia Birdtannica. Every edition since 1911, in one volume. Don\'t ask me how. It\'s quite heavy.')]), 1200); }
+  else if (r.round === st.beat) ladderFail('quiz'); }
+
+const ld_littlePeckingQuizNight_1 = () => {
+const x = -26.3, z = VZ + 18.4, bx = -28.4, bz = VZ + 18.7, g = new THREE.Group(); scene.add(g); QN_MG.g = g;
+QN_MG.jp = person22(g, x, z, PI, {shirt: 0x2a2a3a, pants: 0x2a2a30, hair: 0xd8d4cc}); QN_MG.jp.g.userData.cr = 99;
+{ const t = mesh(new THREE.BoxGeometry(0.36, 0.26, 0.03), mat(0xf4f0e6), 0.2, 1.25, 0.32); QN_MG.jp.g.add(t); }   // his cards
+// an A-frame chalkboard
+for (const s of [-1, 1]){ const leg = boxMesh(0.06, 1.3, 0.06, mat(0x6b4a2e), bx + s*0.42, 0.65, bz); leg.rotation.x = 0.18; g.add(leg); }
+{ const c = document.createElement('canvas'); c.width = 160; c.height = 124; const cg = c.getContext('2d');
+  const paint = () => { cg.fillStyle = '#6b4a2e'; cg.fillRect(0, 0, 160, 124); cg.fillStyle = '#23402e'; cg.fillRect(5, 5, 150, 114); cg.fillStyle = '#f2efe6'; cg.textAlign = 'center'; cg.font = 'bold 22px "Pixelify Sans", monospace'; cg.fillText('QUIZ NIGHT', 80, 36); cg.font = '14px "Pixelify Sans", monospace'; cg.fillText('with Jeremy Pecksman', 80, 66); cg.fillStyle = '#ffd166'; cg.fillText('2 crumbs a head', 80, 92); cg.fillStyle = 'rgba(242,239,230,.25)'; cg.fillRect(20, 104, 120, 2); };
+  paint(); const tx = new THREE.CanvasTexture(c); if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { paint(); tx.needsUpdate = true; }).catch(() => {});
+  const board = mesh(new THREE.PlaneGeometry(0.8, 0.62), mat(0xffffff, {map: tx}), bx, 1.0, bz - 0.12); board.rotation.x = -0.18; board.rotation.y = PI; g.add(board); QN_MG.board = board; }
+addSolid(bx, bz, 0.9, 0.4, 0, 1.3, 'chalkboard');
+PORTRAITS['Jeremy Pecksman'] = (() => { const H = makeHuman({shirt: 0x2a2a3a, hair: 0xd8d4cc}); scene.remove(H.g); H.snack.visible = false; H.g.rotation.y = 0.4; return renderPortrait(H.g, new THREE.Vector3(0.3, 1.92, 1.15), new THREE.Vector3(0, 1.8, 0)); })();
+VOICES['Jeremy Pecksman'] = {kind: 'human', base: 140, range: 0.3, rate: 12, cps: 46};
+FOLK.push(['Jeremy Pecksman', 'Has hosted quiz night at The Plucky Duck for thirty years. Sighs at wrong answers. Sighs at right ones too, but differently.']);
+QN_MG.spot = new THREE.Vector3(x, 0.6, z - 1.0); QN_MG.bspot = new THREE.Vector3(bx, 0.6, bz - 0.9);
+LADDERS.quiz = {key: 'quiz', title: 'Quiz Night at The Plucky Duck',
+  levels: [
+    {id: 'qz0', name: 'Monday: The Village', pay: 10, xp: 40},
+    {id: 'qz1', name: 'Wednesday: New Yolk', pay: 15, xp: 60, loot: {roll: 1, floor: 1}},
+    {id: 'qz2', name: 'Friday: Abroad', pay: 25, xp: 90, loot: {legend: 'The Plucky Duck Beer Mat', base: 'coin', r: 2, st: {charm: 12, xp: 10}}},
+    {id: 'qz3', name: 'Sunday: The Yolkheads', pay: 40, xp: 140, loot: {legend: 'The Yolkheads\' Spare Egg Cup', base: 'marble', r: 3, st: {xp: 18, luck: 16, charm: 14}}},
+    {id: 'qz4', name: 'The Christmas Special', pay: 300, xp: 400, loot: {legend: 'Encyclopaedia Birdtannica', base: 'watch', b: 'bookmg', s: 'charm', uq: 'encyclo', r: 4, v: 60, st: {xp: 30, charm: 15, luck: 10}}},
+  ],
+  at: () => QN_MG.spot,
+  text: i => `${QZ_ROUNDS[i].name}: quiz night with Jeremy Pecksman outside The Plucky Duck, Little Pecking.`,
+  hint: st => st.beat === 4 ? 'Jeremy Pecksman: <i>"Everything I ask is written down somewhere. On a sign, on a menu, in somebody\'s mouth. Go and look."</i>' : null};
+addNamedTalker(() => ladState('quiz').beat === 0 ? 'Talk to Jeremy Pecksman (quiz night)' : 'Talk to Jeremy Pecksman', 'Jeremy Pecksman', () => QN_MG.spot, () => { const st = ladState('quiz'), b = st.beat, tries = st.tries || 0, first = !st.met; st.met = 1;
+  const lines = first ? [JP('A pigeon. At quiz night. Fine. Dougal\'s team is a sheep.'), JP('Five rounds. Monday, the village. Wednesday, New Yolk. Friday, abroad. Sunday, the Yolkheads, who have not lost since 1987. And at Christmas, the Special. Nobody wins the Special.')] : [];
+  if (b >= 5) lines.push(JP(mpick(['The Encyclopaedia. Is it heavy? It looks heavy.', 'Ten out of ten. I still lie awake about it.'])));
+  else if (b === 4){ lines.push(JP('The Christmas Special. Ten questions, eight seconds each, and you need all ten.'));
+    if (tries >= 3) lines.push(JP('Everything I ask is out there, written down. On a sign, on a menu, in somebody\'s mouth. Go and look.'));
+    if (tries >= 6) lines.push(JP('And I\'m a creature of habit. The ones you got wrong, I ask again.'));
+    if (tries >= 9) lines.push(JP('...Oh, for heaven\'s sake. I\'ve put last time\'s answers on the chalkboard. Don\'t tell the Yolkheads.')); }
+  else lines.push(JP(`Next: ${QZ_ROUNDS[b].name}. ${QZ_ROUNDS[b].fee} crumbs a head.`));
+  const ch = []; for (let i = Math.min(b, 4); i >= 0; i--) ch.push({label: `${QZ_ROUNDS[i].name}${QZ_ROUNDS[i].fee ? ` (${QZ_ROUNDS[i].fee} crumbs)` : ''}`, fn: () => qzOpen(i)});
+  ch.push({label: 'Not tonight.', fn: () => {}});
+  save(); say([...lines, JP('Well?', ch)]); }, 2.2);
+addNamedTalker(() => 'Read the noticeboard', 'Noticeboard', () => QN_MG.bspot, () => { const W = QQZ().lastWrong || [];
+  if (!W.length) return say([L('Noticeboard', 'QUIZ NIGHT. 2 CRUMBS A HEAD. NO CONFERRING. NO SHEEP. (Dougal.)')]);
+  say(W.slice(0, 10).map(([q, a]) => L('Noticeboard', `${q}  ·  ${a}`))); }, 1.6, () => (ladState('quiz').tries || 0) >= 9 && ladState('quiz').beat === 4);
+QZ_MG.onClose = qnClose;
+SYS52.push(['quizNightMG', () => { const near = player.pos.distanceTo(QN_MG.spot) < 60; if (g.visible !== near) g.visible = near; }]);
+};
+
+/* ---------- the Encyclopaedia Birdtannica ---------- */
+const ld_gameplayEncycloMG_1 = () => {
+aroundHook('lootIcon', function(next, b, r){ if (b !== 'bookmg') return next(b, r); const k = b + r; if (ICON29[k]) return ICON29[k];
+  const c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d'), col = RAR[r].col;
+  px(g, 2, 2, '#6a1a2a', 12, 12); px(g, 3, 3, '#8a2a3a', 10, 10); px(g, 2, 13, '#f4ead2', 12, 2); px(g, 5, 5, col, 6, 1); px(g, 5, 7, col, 6, 1); px(g, 6, 9, '#e0b040', 4, 2);
+  if (r >= 3){ px(g, 0, 0, '#ffffff'); px(g, 15, 2, '#ffffff'); px(g, 13, 14, '#ffffff'); }
+  return ICON29[k] = c.toDataURL(); });
+UNIQUE_MG.encyclo = {name: 'Encyclopaedia Birdtannica',
+  card: () => '<b>Unique.</b> Every edition since 1911, in one volume. Quite heavy.<br>· <b>Local Knowledge</b>: every fly-to place in a city you\'re in goes on your map.<br>· <b>Know-It-All</b>: at quiz night, the right answer glows.',
+  frame: dt => { if ((QN_MG.lk -= dt) > 0 || state !== 'play') return; QN_MG.lk = 3; const here = worldOf49(player.pos); if (!here) return; S.visited = S.visited || {}; let n = 0;
+    for (const p of wmPlaces()){ if (S.visited[p.key] || worldOf49({x: p.p[0], z: p.p[2]}) !== here) continue; S.visited[p.key] = true; n++; }
+    if (n){ toast(`<b>Local Knowledge.</b> The Encyclopaedia puts ${n} place${n > 1 ? 's' : ''} on your map.`, '', 3000); save(); } }};
 };
 /* ---------- world: gameplay/feel ---------- */
 // From v120. The ld_* steps are run by boot/world.js, in load order.
@@ -48089,6 +48574,12 @@ step(ld_gameplayChessLadder_1, 900000002); await bootYield("ld_gameplayChessLadd
 // Super Pidge Land (gameplay/pidge-land.js): the Cartridge everywhere, the cabinet in Tokyoo (world/tokyoo/arcade.js)
 step(ld_gameplayCartMG_1, 900000003); await bootYield("ld_gameplayCartMG_1");        // hooks lootIcon, UNIQUE_MG.minuscart, hooks updatePlayer, hooks bust27, hooks knock, addEventListener
 later('tokyoo', ld_tokyooArcade_1, 900000004);   // AR_MG, the cabinet, Nifty-coo, LADDERS.arcade, talkers, PAUSE315, system arcadeMG
+// Tetris on the Elektronika 60 (gameplay/elektronika.js) in Kommunalka No. 7, and Pajitnoo's Cardigan (world/petersbird/pajitnoo.js)
+step(ld_gameplayCardiganMG_1, 900000005); await bootYield("ld_gameplayCardiganMG_1");    // hooks lootIcon, UNIQUE_MG.cardigan, hooks bust27
+step(ld_petersbirdPajitnoo_1, 900000006); await bootYield("ld_petersbirdPajitnoo_1");     // PJ_MG, the terminal, LADDERS.tetris, talker "Use the Elektronika 60", PAUSE315, system pajitnooMG
+// Quiz night at The Plucky Duck (gameplay/pub-quiz.js, world/little-pecking/quiz-night.js) and the Encyclopaedia Birdtannica
+step(ld_gameplayEncycloMG_1, 900000007); await bootYield("ld_gameplayEncycloMG_1");      // hooks lootIcon, UNIQUE_MG.encyclo
+step(ld_littlePeckingQuizNight_1, 900000008); await bootYield("ld_littlePeckingQuizNight_1");  // QN_MG, Jeremy Pecksman, the chalkboard, LADDERS.quiz, talkers, system quizNightMG
 /* ---------- moon: gate ---------- */
 // From v191. The mo_* steps are run by boot/moon.js, in load order.
 // set by the steps below
@@ -54985,6 +55476,20 @@ WHATS_NEW.unshift(['324 · Minus World', 'There is a new cabinet in the SEGA-COO
 GAME_VER.n = 325;
 GAME_VER.name = 'Crowd Control';
 WHATS_NEW.unshift(['325 · Crowd Control', 'Crowds of people and flocks of pigeons now cost the game a fraction of what they did, so busy streets run smoother, Paree most of all. People and birds out of sight no longer move their arms and wings for nobody, Bangcluck draws only the street details you can see (much less work for the graphics card), and arriving in a city stutters less. The picture is exactly the same.']);
+/* =====================================================================
+   v326 · KILL SCREEN: Tetris on an Elektronika 60 in Kommunalka No. 7
+   ===================================================================== */
+// v326
+GAME_VER.n = 326;
+GAME_VER.name = 'Kill Screen';
+WHATS_NEW.unshift(['326 · Kill Screen', 'In Kommunalka No. 7 in St. Petersbird, Lyosha the student has an Elektronika 60 in the corner of the kitchen, and he is not who Klavdia thinks he is. He is writing a game: shapes fall, you fit them together, a full row disappears. Five runs, from ten lines to the kill screen at level 29, where the pieces fall faster than a held key can repeat. Every run pays the first time. Nobody at the computer club can do the last one. Ask Alexey why, a few times.']);
+/* =====================================================================
+   v327 · QUIZ NIGHT: Jeremy Pecksman at The Plucky Duck
+   ===================================================================== */
+// v327
+GAME_VER.n = 327;
+GAME_VER.name = 'Quiz Night';
+WHATS_NEW.unshift(['327 · Quiz Night', 'Quiz night at The Plucky Duck in Little Pecking, with Jeremy Pecksman. Monday is the village, Wednesday New Yolk, Friday abroad, and on Sunday you take on the Yolkheads, who have not lost since 1987. Every question is about this world, so the way to win is to have looked: signs, menus, plaques, what people say. And at Christmas, the Special: ten questions, eight seconds each, all ten right. Nobody wins the Special.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
