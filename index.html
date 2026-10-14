@@ -7012,11 +7012,11 @@ function sbInit(){
   SBATCH = {first: new WeakMap(), moved: new WeakSet(), src: new Map(), anc: new WeakMap(), buckets: new Map(), proxies: new Map(), rebuild: new Set(), big: new Set(), hid: new WeakMap(), cool: new WeakMap(), ghid: new WeakMap(), frame: 0, bundles: new Map()};
   // a batched mesh (or a group with batched meshes in it) taken out of the scene leaves its batch at once
   const rem = THREE.Object3D.prototype.remove;
-  THREE.Object3D.prototype.remove = function(...objs){ for (const o of objs) if (o && o.isObject3D) sbGone(o, true); return rem.apply(this, objs); };
+  THREE.Object3D.prototype.remove = function(...objs){ for (const o of objs) if (o && o.isObject3D) sbGone(o, true); for (let q = this; q; q = q.parent) q.__sbA = (q.__sbA | 0) + 1; return rem.apply(this, objs); };   // (__sbA: v323, what's in a group changed: render/crowd-batch.js)
   // and one added (or moved to another parent) gets its world matrix redone, though its own transform didn't change
   const add = THREE.Object3D.prototype.add;
   // (v319: and its new parents are walked again from the next frame: a quiet one is walked one frame in four, sbMatrices)
-  THREE.Object3D.prototype.add = function(...objs){ for (const o of objs) if (o && o.isObject3D) o.matrixWorldNeedsUpdate = true; for (let q = this; q; q = q.parent){ q.__sbQ = 0; q.__sbV = (q.__sbV | 0) + 1; if (q.__lod317 !== undefined) q.__lod317 = undefined; } return add.apply(this, objs); };
+  THREE.Object3D.prototype.add = function(...objs){ for (const o of objs) if (o && o.isObject3D) o.matrixWorldNeedsUpdate = true; for (let q = this; q; q = q.parent){ q.__sbQ = 0; q.__sbV = (q.__sbV | 0) + 1; q.__sbA = (q.__sbA | 0) + 1; if (q.__lod317 !== undefined) q.__lod317 = undefined; } return add.apply(this, objs); };
   camera.layers.enable(SB_LAYER);
   sun.shadow.camera.layers.enable(SB_PROXY);
   // the renderer walks the whole visible scene for every pass; batched originals are skipped outright (their children,
@@ -7031,6 +7031,11 @@ function sbInit(){
       else if (object.__gs !== undefined && object.isMesh !== true){ const g = object.__gs;
         if (g.v === object.__sbV && g.big === false && SB_FR - g.f < 900 && window.__noGc321 !== true && (g.s === null || (camera.__gf321 !== undefined && !camera.__gf321.intersectsSphere(g.s)))) return; }
       if (PERF !== null && PERF.vis !== null) PERF.vis.v++;   // v321: objects walked, by pass (?perf=1)
+      // v323: a rig drawn by the crowd batches this frame (render/crowd-batch.js), whole, or one of its parts
+      if (object.__cbAll323 === SB_FR) return;
+      // v323: an instanced mesh dealt into cells (render/instance-split.js): the cells, its children, draw it
+      if (object.__imSplit === true){ if (object.visible === false) return; const ch = object.children; for (let i = 0; i < ch.length; i++) this._projectObject(ch[i], camera, groupOrder, renderList, clippingContext); return; }
+      if (object.__cb323 === SB_FR){ if (object.visible === false) return; const ch = object.children; for (let i = 0; i < ch.length; i++) this._projectObject(ch[i], camera, groupOrder, renderList, clippingContext); return; }
       if (object.__sbS !== undefined){ if (object.visible === false) return; const ch = object.children; for (let i = 0; i < ch.length; i++) this._projectObject(ch[i], camera, groupOrder, renderList, clippingContext); return; }
       // v321: a person in the middle distance or far (cast/lod.js setLOD317): the parts are on layers 4 and 2, which no
       // camera draws, so a camera without those layers sees only the one-mesh body, if any
@@ -7045,7 +7050,25 @@ function sbInit(){
       else if (object.castShadow === false && (object.isMesh === true || object.isSprite === true)){ const m = object.material;
         if (m && m.opacity === 0 && m.blending === THREE.AdditiveBlending && m.transparent === true && m.depthWrite === false && m.premultipliedAlpha === false && !m.opacityNode && !m.outputNode && window.__noOp0321 !== true){
           if (object.visible === false) return; const ch = object.children; for (let i = 0; i < ch.length; i++) this._projectObject(ch[i], camera, groupOrder, renderList, clippingContext); return; } }
-      return orig.call(this, object, camera, groupOrder, renderList, clippingContext); }; }
+      if (window.__noFuse323 === true || camera.isArrayCamera === true || object.isBundleGroup === true || object.isClippingGroup === true) return orig.call(this, object, camera, groupOrder, renderList, clippingContext);
+      // v323: three's own projection of the object, line for line, in this same call (it used to be a second call per object
+      // walked, and its children came back through this one: the walk was a third of the main pass). The frustum and the
+      // sort depth are worked out as three does (render/static-batch.js sets them up at the walk's root, from the same
+      // camera matrices)
+      if (object.visible === false) return;
+      if (object.layers.test(camera.layers)){
+        if (object.isGroup === true) groupOrder = object.renderOrder;
+        else if (object.isLOD === true){ if (object.autoUpdate === true) object.update(camera); }
+        else if (object.isLight === true) renderList.pushLight(object);
+        else if (object.isSprite === true){ if (!object.frustumCulled || object.intersectsFrustum(camera.__gf321)){ if (this.sortObjects === true) _sbV4.setFromMatrixPosition(object.matrixWorld).applyMatrix4(_sbGM);
+            const m = object.material; if (m.visible) renderList.push(object, object.geometry, m, groupOrder, _sbV4.z, null, clippingContext); } }
+        else if (object.isLineLoop === true) return orig.call(this, object, camera, groupOrder, renderList, clippingContext);
+        else if (object.isMesh === true || object.isLine === true || object.isPoints === true){
+          if (!object.frustumCulled || object.intersectsFrustum(camera.__gf321)){ const g = object.geometry, m = object.material;
+            if (this.sortObjects === true){ if (g.boundingSphere === null) g.computeBoundingSphere(); _sbV4.copy(g.boundingSphere.center).applyMatrix4(object.matrixWorld).applyMatrix4(_sbGM); }
+            if (Array.isArray(m)){ const G = g.groups; for (let i = 0, l = G.length; i < l; i++){ const gr = G[i], gm = m[gr.materialIndex]; if (gm && gm.visible) renderList.push(object, g, gm, groupOrder, _sbV4.z, gr, clippingContext); } }
+            else if (m.visible) renderList.push(object, g, m, groupOrder, _sbV4.z, null, clippingContext); } } }
+      const ch = object.children; for (let i = 0, l = ch.length; i < l; i++) this._projectObject(ch[i], camera, groupOrder, renderList, clippingContext); }; }
   return SBATCH;
 }
 
@@ -7061,7 +7084,7 @@ const SB_LIGHTS = [];
 // changes is walked every frame again at once. The lights a skipped group holds are kept from its last walk.
 // It returns whether anything in the subtree changed. (window.__sbAll walks everything every frame, for tools/perf.mjs)
 let SB_FR = 0;
-function sbMatrices(o, force){
+function sbMatrices(o, force, self){
   if (o.isLight === true) SB_LIGHTS.push(o);
   let changed = false;
   if (o.matrixAutoUpdate){ const p = o.position, q = o.quaternion, sc = o.scale; let t = o.__sbT;
@@ -7074,8 +7097,13 @@ function sbMatrices(o, force){
     o.matrixWorldNeedsUpdate = false; force = true; moved = true; changed = true; }
   const s = o.__sbS;   // batched: leaves its batch when it moved or got another material or geometry
   if (s !== undefined && (o.material !== s.mat || o.geometry !== s.geo || (moved && !sbSame(o.matrixWorld.elements, s.e)))){ sbRelease(o, true); changed = true; }
+  if (self === true) return changed;   // (v323: a frozen rig: its own matrix only)
   const ch = o.children, all = window.__sbAll === 1;
   for (let i = 0; i < ch.length; i++){ const c = ch[i];
+    // v323: a rig nobody can see (out of the main view and the near shadow cascade, or too far to draw: render/crowd-batch.js
+    // decided so last frame) keeps its own place up to date, not its limbs': they are brought up to date the frame it
+    // shows again, before anything of it is drawn. (window.__noFreeze323 = true: every frame, live)
+    if (c.__cbOff === SB_FR - 1 && window.__noFreeze323 !== true){ if (sbMatrices(c, force, true)) changed = true; c.__cbFrozen = true; continue; }
     if (c.visible === false){ if (c.__sbStale !== true){ c.__sbStale = true; changed = true; if (SBATCH) sbHide(c); } continue; }   // hidden: whatever of it was batched elsewhere leaves the batch
     if (c.__sbL === true && force === false && c.children.length === 0) continue;   // a batched leaf: watched below
     if (c.__sbStale === true){ c.__sbStale = false; sbMatrices(c, true); c.__sbQ = 0; c.__sbV = (c.__sbV | 0) + 1; changed = true; continue; }
@@ -7155,6 +7183,7 @@ function sbScan(){
   const hd = typeof PIPE !== 'undefined' && PIPE && PIPE.hd; if (hd) PIPE.waterUntil = now + 3;
   scene.traverseVisible(o => {
     if (o.isMesh){ if (hd) waterOne312(o); trimOne312(o, mine); }
+    if (o.isInstancedMesh === true && o.__imSplit !== true) splitSeen323(o);   // v323: city-wide instanced meshes into cells (render/instance-split.js)
     if (B.src.has(o) || B.moved.has(o) || !sbEligible(o) || mine.has(o) || (o.parent && o.parent.userData.sbLively)) return;
     { const c = B.cool.get(o); if (c !== undefined && performance.now() < c) return; }   // v294: shown again after a hide: it rejoins once its cool-down is over
     const root = sbRoot(o); if (!root || !sbShown(o, root)) return;
@@ -7245,6 +7274,7 @@ const sbGlowMoved = (bm, r) => Math.abs(bm.emissiveIntensity - r.emissiveIntensi
   (r.emissive && bm.emissive && (Math.abs(bm.emissive.r - r.emissive.r) > 0.01 || Math.abs(bm.emissive.g - r.emissive.g) > 0.01 || Math.abs(bm.emissive.b - r.emissive.b) > 0.01));
 function sbCheck(){
   const B = SBATCH; if (!B) return; B.frame++;
+  if (SPLIT323.list.size) splitCheck323();
   const out = [];
   for (const [, b] of B.buckets){ if (!b.mesh || !b.root.visible) continue; const r = b.rep, bm = b.mesh.material;
     // the glow follows the representative, but a drift too small to see (the evening light creeping up a little every
@@ -7364,7 +7394,7 @@ function sbBundleWorld(u){
 // sbMatrices) and made again at most every 900 frames regardless. A group holding a light, a level of detail, a
 // skinned or never-culled mesh, points or a bundle is never skipped. Made during sbScan, 3 ms a scan
 // at most (unfinished groups wait for the next scan, and aren't skipped meanwhile). (window.__noGc321 = true: none)
-const _sbGM = new THREE.Matrix4(), _sbGT = new THREE.Sphere(), _sbGV = new THREE.Vector3(), _sbGQ = new THREE.Quaternion(), _sbGS = new THREE.Vector3(), SB_GINC = {};
+const _sbGM = new THREE.Matrix4(), _sbV4 = new THREE.Vector4(), _sbGT = new THREE.Sphere(), _sbGV = new THREE.Vector3(), _sbGQ = new THREE.Quaternion(), _sbGS = new THREE.Vector3(), SB_GINC = {};
 // returns the subtree's sphere, null (nothing to draw), true (never skipped) or SB_GINC (out of time, not finished)
 function sbGroupSphere321(o, until){
   if (o.visible === false) return null;
@@ -7388,6 +7418,57 @@ function sbGroupSphere321(o, until){
   if (o === scene) return null;
   o.__gs = {s: big ? null : s, big, v: o.__sbV | 0, f: SB_FR};
   return big ? true : s;
+}
+/* ---------- render: instance-split ---------- */
+// v323: a city-wide instanced mesh (Bangcluck's street detail: 12,760 copies of an 1,872-vertex shape across the whole
+// city, 24 million vertices a pass; New Yolk's trees) was culled as one sphere, so all of it was drawn in every pass,
+// wherever the camera looked: Bangcluck's main pass was 40 ms on the GPU, 7 of them for everything else. Once one of over half a
+// million vertices has held still, its instances are dealt into 160 m cells, an instanced mesh each (its children, sharing its geometry and
+// material, the instances in their own order), and each cell is culled by itself; the original draws nothing itself
+// but stays as it is for the game and for raycasts. Anything about the original changing (its instances, colours, count,
+// material, geometry or place) puts it back as it was, for good. (window.__noSplit323 = true: none, live, for A/B)
+const SPLIT323 = {list: new Set(), seen: new WeakMap(), never: new WeakSet()}, SPLIT_CELL = 160, SPLIT_VERTS = 500000;
+const _spM = new THREE.Matrix4(), _spV = new THREE.Vector3(), _spC = new THREE.Color();
+// sbScan, once a second: a big, still, static instanced mesh is split once it has held still over two scans
+function splitSeen323(o){
+  if (o.__imSplit === true || SPLIT323.never.has(o) || window.__noSplit323 === true || o.userData.sbOwn || o.userData.cb323 || o.userData.split323) return;
+  if (o.count < 32 || o.instanceMatrix.usage !== THREE.StaticDrawUsage || (o.instanceColor && o.instanceColor.usage !== THREE.StaticDrawUsage) || o.morphTexture || o.onBeforeRender !== SB_PLAIN || o.isBatchedMesh) return;
+  const m = o.material; if (!m || Array.isArray(m) || m.transparent) return;
+  // (only the heavy ones, over half a million vertices a pass: every cell is a draw, and draws cost the CPU)
+  if (o.count*o.geometry.attributes.position.count < SPLIT_VERTS) return;
+  if (!o.boundingSphere) o.computeBoundingSphere(); if (o.boundingSphere.radius < 120) return;
+  const S = SPLIT323.seen, v = o.instanceMatrix.version, cv = o.instanceColor ? o.instanceColor.version : -1, e = o.matrixWorld.elements, f = S.get(o);
+  if (!f || f.v !== v || f.cv !== cv || f.n !== o.count || !sbSame(f.e, e)){ if (f && f.k > 0) SPLIT323.never.add(o); else S.set(o, {v, cv, n: o.count, e: e.slice(), k: 0}); return; }
+  if (++f.k < 2) return;
+  split323(o);
+}
+function split323(o){
+  const n = o.count, cells = new Map(), A = o.instanceMatrix.array, C = o.instanceColor ? o.instanceColor.array : null;
+  // which cell each instance is in (by its place in the world), keeping their order
+  for (let i = 0; i < n; i++){ _spM.fromArray(A, i*16).premultiply(o.matrixWorld); _spV.setFromMatrixPosition(_spM);
+    const k = Math.floor(_spV.x/SPLIT_CELL) + ',' + Math.floor(_spV.z/SPLIT_CELL); let L = cells.get(k); if (!L){ L = []; cells.set(k, L); } L.push(i); }
+  if (cells.size < 2) { SPLIT323.never.add(o); return; }
+  const kids = [];
+  for (const L of cells.values()){ const c = new THREE.InstancedMesh(o.geometry, o.material, L.length);
+    for (let j = 0; j < L.length; j++){ const i = L[j]; for (let q = 0; q < 16; q++) c.instanceMatrix.array[j*16 + q] = A[i*16 + q]; if (C){ c.setColorAt(j, _spC.fromArray(C, i*3)); } }
+    if (c.instanceColor) c.instanceColor.needsUpdate = true;
+    c.computeBoundingSphere(); c.castShadow = o.castShadow; c.receiveShadow = o.receiveShadow; c.layers.mask = o.layers.mask; c.renderOrder = o.renderOrder; c.frustumCulled = true;
+    c.raycast = () => {}; c.userData.split323 = true; c.name = 'instanceCell'; kids.push(c); }
+  o.__imSplit = true; o.__split = {kids, v: o.instanceMatrix.version, cv: o.instanceColor ? o.instanceColor.version : -1, n, mat: o.material, geo: o.geometry, e: o.matrixWorld.elements.slice()};
+  for (const c of kids) o.add(c);   // (children of the original: they follow its place and its visibility)
+  SPLIT323.list.add(o);
+}
+function unsplit323(o, never){
+  const s = o.__split; if (!s) return; o.__imSplit = false; o.__split = undefined; SPLIT323.list.delete(o);
+  for (const c of s.kids){ o.remove(c); c.dispose(); }
+  if (never) SPLIT323.never.add(o); else SPLIT323.seen.delete(o);
+}
+// every frame (sbCheck): a split instanced mesh that changed is put back at once
+function splitCheck323(){
+  const off = window.__noSplit323 === true;
+  for (const o of SPLIT323.list){ const s = o.__split;
+    if (off){ unsplit323(o, false); continue; }
+    if (o.instanceMatrix.version !== s.v || (o.instanceColor ? o.instanceColor.version : -1) !== s.cv || o.count !== s.n || o.material !== s.mat || o.geometry !== s.geo || !sbSame(o.matrixWorld.elements, s.e)) unsplit323(o, true); }
 }
 /* ---------- render: pipeline ---------- */
 // The frame on r186's WebGPU renderer, built from nodes (TSL). One scene pass writes colour, normals and a water mask;
@@ -7424,10 +7505,12 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
   if (!PIPE){
     const DT = detailTex(), lib = renderer.library, from = lib.fromMaterial.bind(lib), LIT = new Set(['MeshToonMaterial', 'MeshLambertMaterial', 'MeshPhongMaterial', 'MeshStandardMaterial']);
     // projected along the surface's main axis (walls get it sideways, floors from above): three samples, not nine
-    const detail = Fn(() => { const P = positionLocal.mul(modelScale), n = abs(normalLocal);
-      const q = T.select(n.y.greaterThan(max(n.x, n.z)), P.xz, T.select(n.x.greaterThan(n.z), P.zy, P.xy));
+    // (v323: from any position and normal: render/crowd-batch.js draws rigs' parts batched, where they come from the
+    // part's own geometry and world scale)
+    const detailAt = (P, n) => { const q = T.select(n.y.greaterThan(max(n.x, n.z)), P.xz, T.select(n.x.greaterThan(n.z), P.zy, P.xy));
       const v = texture(DT, q.div(4.5)).r.mul(0.5).add(texture(DT, q.div(1.1)).r.mul(0.3)).add(texture(DT, q.div(0.3)).r.mul(0.2));
-      return float(1).add(v.sub(0.5).mul(0.42)); })();
+      return float(1).add(v.sub(0.5).mul(0.42)); };
+    const detail = Fn(() => detailAt(positionLocal.mul(modelScale), abs(normalLocal)))();
     const water = mrt({normal: T.vec4(directionToColor(normalView), 1)});   // water: the normal's alpha is 1
     // v321: three refreshes every object of a material with a node in it in full, every frame and every pass (static
     // bundles too), in case a node changed on its own: the cheaper check (the object's matrix, its material's and
@@ -7475,7 +7558,7 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
         if (PIPE.hd && !n.colorNode){ n.colorNode = materialColor.mul(detail); n.colorNode.__still321 = true; }
         if (m.userData && m.userData.water) n.mrtNode = water; }
       return n; };
-    PIPE = {lib, scanned: new WeakSet(), scanT: 2};
+    PIPE = {lib, scanned: new WeakSet(), scanT: 2, detailAt};
   }
   PIPE.hd = hd;
 
@@ -7587,7 +7670,7 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
     // matrices once a frame, hidden subtrees skipped (the renderer would redo the whole scene for every pass), then the
     // static batches (render/static-batch.js)
     // (the pass also lists the lights it passes); the upkeep below looks at the shown world only, one job a frame
-    scene.matrixWorldAutoUpdate = false; SB_LIGHTS.length = 0; if (SBATCH) sbLeafCheck(SBATCH.frame); SB_FR++; sbMatrices(scene, false); sbCheck(); sbFlush(); lights = SB_LIGHTS.slice();
+    scene.matrixWorldAutoUpdate = false; SB_LIGHTS.length = 0; if (SBATCH) sbLeafCheck(SBATCH.frame); SB_FR++; sbMatrices(scene, false); sbCheck(); sbFlush(); crowdBatch323(); lights = SB_LIGHTS.slice();
     // v299: by the clock, not every 90 frames (a slow machine waited 3 s and more between scans, so new things took ten
     // seconds and more to be batched): a job every third of a second, the scan once a second
     // v312: one walk a second does all three jobs (sbScan calls waterOne312 and trimOne312 as it goes): it was three
@@ -9453,6 +9536,154 @@ function addWalker(b, o={}){
   H.snack.visible = h.snack;
   humans.push(h);
   return h;
+}
+/* ---------- render: crowd-batch ---------- */
+// v323: pigeons and people drawn from a few batched meshes (WebGPU). A rig is a dozen meshes or more that move every frame,
+// so none of them can go into the static batches, and the renderer paid in full for each one, every frame and every
+// pass: a flock and a crowd in Paree were 500 of its 960 draws and 15 ms of the frame. Each part now has a place of its
+// own, kept, in a batched mesh for its look (the material, colour aside, and its shadow flags); every frame, after the
+// matrices, a shown part's world matrix and colour are copied there and the passes skip the part (and a rig all of
+// whose parts went in, whole). The rigs stay as they are, so game code, raycasts and the LOD go on working on them.
+// The same picture: the same geometry, matrix, colour and material; the detail texture (render/pipeline.js) from the
+// part's own geometry and world scale, as for a mesh of its own. Pidge is never batched.
+// A part goes in when it is a plain mesh with one opaque material, without nodes of its own, on layer 0.
+// (window.__noCrowd323 = true: drawn as before, live, for A/B)
+const CROWD323 = {rigs: new Set(), batches: new Map(), plain: new WeakMap(), looks: new WeakMap(), sigs: new WeakMap(), hd: null, tops: new Map(), at: -1};
+// every pigeon and person made from here on
+{ const mp = makePigeon; makePigeon = function(o){ const P = mp(o); if (P && P.g) CROWD323.rigs.add(P.g); return P; }; }
+{ const mh = makeHuman; makeHuman = function(o){ const H = mh(o); if (H && H.g) CROWD323.rigs.add(H.g); return H; }; }
+
+const CB_MIRROR = new THREE.Matrix4().makeScale(-1, 1, 1), _cbM = new THREE.Matrix4();
+// a part that can go in (kept per material until the material is updated)
+function cbPlain(o){
+  if (o.isInstancedMesh === true || o.isSkinnedMesh === true || o.isBatchedMesh === true || o.__sbS !== undefined || o.userData.sbOwn || o.renderOrder !== 0 || o.onBeforeRender !== SB_PLAIN) return false;
+  const m = o.material, g = o.geometry; if (!m || Array.isArray(m) || m.transparent || !m.visible || !g || !g.attributes.position || g.morphAttributes.position) return false;
+  const P = CROWD323.plain; let e = P.get(m);
+  if (e === undefined || e.v !== m.version){ let ok = !m.isShaderMaterial && !m.userData.water && (m.isMeshToonMaterial || m.isMeshLambertMaterial || m.isMeshPhongMaterial || m.isMeshStandardMaterial || m.isMeshBasicMaterial);
+    if (ok) for (const k in m) if (k.endsWith('Node') && m[k] && m[k].isNode){ ok = false; break; }
+    e = {ok, v: m.version}; P.set(m, e); }
+  return e.ok && cbSig(g) !== null;
+}
+// what a material looks like, colour aside (that is each instance's own)
+function cbLook(m){ const L = CROWD323.looks; let e = L.get(m);
+  if (e === undefined || e.v !== m.version){ e = {v: m.version, key: [m.type, m.emissive ? m.emissive.getHex() : '-', m.emissiveIntensity, m.map ? m.map.id : '-', m.emissiveMap ? m.emissiveMap.id : '-', m.gradientMap ? m.gradientMap.id : '-', m.alphaMap ? m.alphaMap.id : '-', m.side, m.vertexColors, m.flatShading, m.alphaTest, m.fog, m.depthWrite, m.depthTest, m.colorWrite, m.polygonOffset ? m.polygonOffsetFactor + '/' + m.polygonOffsetUnits : 0, m.wireframe, m.toneMapped, m.blending, m.shininess, m.roughness, m.metalness].join('|')}; L.set(m, e); }
+  return e.key; }
+// the geometry's attributes (a batch holds geometries of one kind), or null for one a batch can't take
+function cbSig(g){ const S = CROWD323.sigs; let e = S.get(g); if (e !== undefined) return e;
+  e = (g.index ? 'i|' : 'n|') + Object.keys(g.attributes).sort().map(k => { const a = g.attributes[k]; return a.isInterleavedBufferAttribute ? null : k + a.itemSize + a.array.constructor.name + (a.normalized ? 'n' : ''); }).join('|');
+  if (e.includes('null')) e = null; S.set(g, e); return e; }
+
+// a batch: a fixed number of places (its textures never grow: the shader reads them), more batches of the same kind when full
+const CB_CAP = 128, CB_VERTS = 160000;   // (128: each batch uploads its whole matrices texture every frame it draws)
+function cbBatch(key, o, mirror){
+  for (let k = 0; ; k++){ const B = CROWD323.batches.get(key + '~' + k); if (!B){ return cbNewBatch(key + '~' + k, o, mirror); } if (B.free.length || B.n < CB_CAP) return B; }
+}
+function cbNewBatch(key, o, mirror){
+  const m = o.material, mat = m.clone(); if (mat.color) mat.color.setRGB(1, 1, 1);
+  const bm = new THREE.BatchedMesh(CB_CAP, CB_VERTS, CB_VERTS*2, mat);
+  bm.perObjectFrustumCulled = false; bm.sortObjects = false;   // (culled here, once a frame, for every pass: see crowdBatch323) bm.frustumCulled = false; bm.castShadow = o.castShadow; bm.receiveShadow = o.receiveShadow;
+  bm.matrixAutoUpdate = false; if (mirror){ bm.matrix.copy(CB_MIRROR); bm.matrixWorld.copy(CB_MIRROR); }   // (three turns a mirrored object's faces round: so the whole batch is mirrored)
+  bm.userData.cb323 = true; bm.name = 'crowdBatch';
+  bm.setColorAt(bm.addInstance(bm.addGeometry(o.geometry)), _cbC.setRGB(1, 1, 1)); bm.setVisibleAt(0, false);   // (the colours texture exists before the first draw, so the shader reads it)
+  // the detail texture from the part's own geometry and its world scale (the lengths of its matrix's columns, as three's
+  // modelScale): each instance's matrix is read back from the batch's own matrices texture
+  if (PIPE.hd && PIPE.detailAt && !mat.isMeshBasicMaterial){ const T = THREE.TSL, tex = bm._matricesTexture, W = tex.image.width;
+    const j = T.int(T.batchIndirectIndex).mul(4), x = j.mod(W), y = j.div(W);
+    const col = k => T.textureLoad(tex, T.ivec2(x.add(k), y)).xyz.length();
+    mat.colorNode = T.materialColor.mul(PIPE.detailAt(T.positionGeometry.mul(T.vec3(col(0), col(1), col(2))), T.abs(T.normalGeometry))); mat.colorNode.__still321 = true; }
+  const B = {key, bm, mat, src: m, mirror, geos: new Map([[o.geometry, 0]]), n: 1, free: [], part: [null], seen: new Int32Array(CB_CAP).fill(-1), vis: new Uint8Array(CB_CAP), on: [], used: 0, full: false};
+  CROWD323.batches.set(key, B); scene.add(bm); return B;
+}
+const _cbC = new THREE.Color();
+// a part's place: in the batch for its look, geometry kind, shadow flags and mirroring (made again when one changes)
+function cbPlace(c, mirror){
+  const f = (c.castShadow ? 1 : 0) | (c.receiveShadow ? 2 : 0) | (mirror ? 4 : 0); let s = c.__cbP;
+  if (s !== undefined && s.mat === c.material && s.geo === c.geometry && s.f === f && s.B.bm.parent !== null) return s;
+  if (s !== undefined) cbFree(c);
+  const key = cbLook(c.material) + '#' + cbSig(c.geometry) + '#' + f;
+  for (let tries = 0; tries < 8; tries++){ const B = cbBatch(key + (tries ? '+' + tries : ''), c, mirror);
+    let gid = B.geos.get(c.geometry);
+    if (gid === undefined){ try { gid = B.bm.addGeometry(c.geometry); B.geos.set(c.geometry, gid); } catch (e){ B.free.length = 0; B.n = CB_CAP; continue; } }   // (out of room for vertices: the next batch of this kind)
+    let id; if (B.free.length){ id = B.free.pop(); B.bm.setGeometryIdAt(id, gid); } else { id = B.bm.addInstance(gid); B.n++; }
+    B.part[id] = c; B.vis[id] = 0; B.bm.setVisibleAt(id, false);
+    s = c.__cbP = {B, id, mat: c.material, geo: c.geometry, f, r: -1, g: -1, b: -1};
+    return s; }
+  return null;
+}
+function cbFree(c){ const s = c.__cbP; if (!s) return; c.__cbP = undefined; const B = s.B; if (B.vis[s.id]){ B.bm.setVisibleAt(s.id, false); B.vis[s.id] = 0; } B.part[s.id] = null; B.free.push(s.id); }
+
+// a rig's parts, walked once a frame: shown ones go in; CB_ALL stays true while every part that draws went in
+let CB_ALL = true, CB_OTHER = false;   // (CB_OTHER: the rig has something else to draw or a light: never skipped unlooked at)
+function cbWalk(o){
+  const ch = o.children;
+  for (let i = 0, l = ch.length; i < l; i++){ const c = ch[i]; if (c.visible === false) continue;
+    if (c.isMesh === true){
+      // (whether it can go in is kept on the part, for its material, version and geometry)
+      const m = c.material; let ok = c.__cbOk; if (c.__cbOkM !== m || c.__cbOkG !== c.geometry || (m && c.__cbOkV !== m.version)){ ok = c.__cbOk = cbPlain(c); c.__cbOkM = m; c.__cbOkG = c.geometry; c.__cbOkV = m ? m.version : -1; }
+      if ((c.layers.mask & 1) !== 0 && ok && m.visible){ const mw = c.matrixWorld, E = mw.elements, mirror = E[0]*(E[5]*E[10] - E[6]*E[9]) - E[4]*(E[1]*E[10] - E[2]*E[9]) + E[8]*(E[1]*E[6] - E[2]*E[5]) < 0, s = cbPlace(c, mirror);
+        if (s === null){ CB_ALL = false; CB_OTHER = true; }
+        else { const B = s.B, id = s.id, d = B.bm._matricesTexture.image.data, e = mirror ? _cbM.multiplyMatrices(CB_MIRROR, mw).elements : mw.elements, k = id*16;
+          for (let q = 0; q < 16; q++) d[k + q] = e[q];
+          const col = c.material.color; if (col.r !== s.r || col.g !== s.g || col.b !== s.b){ s.r = col.r; s.g = col.g; s.b = col.b; B.bm.setColorAt(id, col); }
+          if (B.vis[id] === 0){ B.vis[id] = 1; B.bm.setVisibleAt(id, true); B.on.push(id); }
+          B.seen[id] = SB_FR; B.used = SB_FR; c.__cb323 = SB_FR; } }
+      else if ((c.layers.mask & 1) !== 0){ CB_ALL = false; CB_OTHER = true; } }
+    else if (c.isLight === true || c.isSprite === true || c.isLine === true || c.isPoints === true || c.isLOD === true){ CB_ALL = false; CB_OTHER = true; }
+    if (c.children.length !== 0) cbWalk(c); }
+}
+// once a frame, after the matrices (render/pipeline.js), before the passes
+function crowdBatch323(){
+  const C = CROWD323; if (!window.__GPU || !PIPE) return;
+  // (quality changed the materials' detail: everything made again)
+  if (C.hd !== PIPE.hd){ C.hd = PIPE.hd; for (const B of C.batches.values()){ for (const c of B.part) if (c) c.__cbP = undefined; scene.remove(B.bm); B.bm.dispose(); } C.batches.clear(); }
+  const off = window.__noCrowd323 === true, me = player && player.P ? player.P.g : null;
+  if (off || window.__noFreeze323 === true) for (const g of C.rigs) if (g.__cbFrozen === true){ g.__cbFrozen = false; sbMatrices(g, true); }
+  // a rig out of the main view and of the near shadow cascade (their sides, with room to spare) isn't looked at: three
+  // would have culled each of its parts anyway. (The batches themselves aren't culled per instance by three: the shadow
+  // passes run inside the main one, and a batch's list for one pass could have been drawn in the other)
+  // (the rigs by the top-level group they're in, made again every 30 frames: a city that's away isn't looked through)
+  if (SB_FR - C.at >= 30){ C.at = SB_FR; C.tops.clear(); for (const g of C.rigs){ if (g.parent === null) continue; let t = g; while (t.parent && t.parent !== scene) t = t.parent; if (t.parent !== scene) continue; let L = C.tops.get(t); if (!L){ L = []; C.tops.set(t, L); } L.push(g); } }
+  if (!off){ cbViews();
+    for (const [top, L] of C.tops){ if (top.visible === false || top.parent !== scene) continue;
+    for (const g of L){
+      if (g === me || g.parent === null) continue;
+      let shown = true; for (let p = g; p !== null; p = p.parent) if (p.visible === false){ shown = false; break; }
+      if (!shown) continue;
+      // (a person in the middle distance or far has nothing on layer 0 but the one-mesh body: cast/lod.js, and the passes
+      // look only at that: render/static-batch.js)
+      // (a rig nobody can see, or a person too far to draw, needn't have its limbs' matrices made next frame: it's
+      // frozen, render/static-batch.js sbMatrices; one about to be drawn again is brought up to date first)
+      const far = g.__lod317 === 2, seen = far ? false : g.__lod317 !== undefined || cbInView(g), freeze = !seen && g.__cbOther !== true;
+      if (freeze) g.__cbOff = SB_FR; else if (g.__cbFrozen === true){ g.__cbFrozen = false; sbMatrices(g, true); }
+      if (g.__lod317 !== undefined){ g.__cbAll323 = -1; continue; }
+      if (!seen){ if (g.__cbOther !== true) g.__cbAll323 = SB_FR; continue; }
+      CB_ALL = true; CB_OTHER = false; cbWalk(g); g.__cbOther = CB_OTHER; g.__cbAll323 = CB_ALL ? SB_FR : -1; } } }
+  // what wasn't seen this frame is hidden; the matrices go up once a batch
+  for (const B of C.batches.values()){ const bm = B.bm;
+    { const on = B.on; let w = 0; for (let r = 0; r < on.length; r++){ const i = on[r]; if (B.vis[i] !== 1) continue; if (B.seen[i] !== SB_FR){ B.vis[i] = 0; bm.setVisibleAt(i, false); } else on[w++] = i; } on.length = w; }
+    if (B.used === SB_FR){ bm._matricesTexture.needsUpdate = true; cbSync(B.src, B.mat); }
+    bm.visible = B.used === SB_FR; }
+}
+// what can change on a material while it's in use (a glow, a texture): the batch's copy follows (colour is per instance)
+function cbSync(m, c){
+  if (m.emissive && !c.emissive.equals(m.emissive)) c.emissive.copy(m.emissive);
+  if (c.emissiveIntensity !== m.emissiveIntensity) c.emissiveIntensity = m.emissiveIntensity; if (c.opacity !== m.opacity) c.opacity = m.opacity;
+  if (c.map !== m.map){ c.map = m.map; c.needsUpdate = true; }
+}
+// the main camera's and the near cascade's side planes for this frame (the far plane left out: High quality draws
+// further than the camera's own), and whether a rig's sphere, with a metre to spare, touches either
+const CB_VIEW = [new THREE.Frustum(), new THREE.Frustum()], _cbPV = new THREE.Matrix4(), _cbSp = new THREE.Sphere(), _cbB = new THREE.Box3();
+let CB_NV = 0;
+function cbViews(){
+  camera.updateMatrixWorld(); camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+  _cbPV.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); CB_VIEW[0].setFromProjectionMatrix(_cbPV, camera.coordinateSystem, camera.reversedDepth); CB_NV = 1;
+  const C = sun.shadow.shadowNode, L = C && C.lights && C.lights[0]; if (L && sun.castShadow){ const sc = L.shadow.camera; _cbPV.multiplyMatrices(sc.projectionMatrix, sc.matrixWorldInverse); CB_VIEW[1].setFromProjectionMatrix(_cbPV, sc.coordinateSystem, sc.reversedDepth); CB_NV = 2; }
+}
+function cbInView(g){
+  let r = g.__cbR; if (r === undefined){ _cbB.setFromObject(g); r = g.__cbR = _cbB.isEmpty() ? 2 : _cbB.getBoundingSphere(_cbSp).radius*1.5 + 1; }   // (once: the rig's reach, generously)
+  _cbSp.center.setFromMatrixPosition(g.matrixWorld); _cbSp.radius = r*Math.max(1, g.scale.x);
+  for (let v = 0; v < CB_NV; v++){ const P = CB_VIEW[v].planes; let inside = true; for (let k = 0; k < 4; k++) if (P[k].distanceToPoint(_cbSp.center) < -_cbSp.radius){ inside = false; break; } if (inside) return true; }
+  return false;
 }
 /* ---------- base: cast/sitters ---------- */
 // From 011-sitters. The bs_* steps are run by boot/base.js, in load order.
@@ -45339,7 +45570,9 @@ function sgrid321(L, x, z){
     if (moved){ const reg = (px, pz) => px > 2500 ? SREG48.pb : px < -3000 ? SREG48.bk : pz > 1500 ? SREG48.vil : pz < -3000 ? SREG48.tk : SREG48.ny;
       for (const s of moved){ s.__mv321 = true; if (reg((s.minX + s.maxX)/2, (s.minZ + s.maxZ)/2) !== L) SDIRTY48 = true; }
       if (SDIRTY48) return solidsAt48(x, z);   // (filed again, by city)
-      return sgridBuild321(L) && sgrid321(L, x, z); } }
+      // v323: into the shared list, in the city's order (not a whole new grid: a city's movers turning up one by one had it
+      // built again each time, 10-20 ms apiece). Where it was filed it stays too: listed twice, every test comes out the same
+      for (const s of moved){ const A = G.always; let k = A.length; while (k > 0 && A[k - 1].__i321 > s.__i321) k--; if (A[k - 1] !== s) A.splice(k, 0, s); } } }
   const c = G.cells.get(Math.floor(x/SG321)*100003 + Math.floor(z/SG321)) || SGEMPTY321, A = G.always;
   if (A.length === 0) return c;
   if (c.length === 0) return A;
@@ -45353,7 +45586,7 @@ function sgrid321(L, x, z){
 // ?perf=1: every solid within 1 m of the point must be in the answer, in the city's order
 function sgridCheck321(L, out, x, z){
   let last = -1, k = 0;
-  for (const s of out){ if (s.__i321 <= last){ sgridBad321('order', x, z); return; } last = s.__i321; }
+  for (const s of out){ if (s.__i321 < last){ sgridBad321('order', x, z); return; } last = s.__i321; }   // (a mover may be listed twice, side by side)
   for (const s of L){ if (x < s.minX - 1 || x > s.maxX + 1 || z < s.minZ - 1 || z > s.maxZ + 1) continue; while (k < out.length && out[k].__i321 < s.__i321) k++; if (out[k] !== s){ sgridBad321('missing ' + (s.tag || ''), x, z); return; } }
 }
 function sgridBad321(what, x, z){ const E = window.__errs || (window.__errs = []); if (E.filter(e => e.startsWith('grid321')).length < 5) E.push(`grid321: ${what} at ${x.toFixed(1)}, ${z.toFixed(1)}`); }
@@ -54745,6 +54978,13 @@ WHATS_NEW.unshift(['323 · Your Move', 'The chess tables in Pigeon Park are a la
 GAME_VER.n = 324;
 GAME_VER.name = 'Minus World';
 WHATS_NEW.unshift(['324 · Minus World', 'There is a new cabinet in the SEGA-COO game centre in Akihabirda: Super Pidge Land, four little worlds in four shades of green. Play as Pidge (flap and glide) or Boris (cane and slide) across the rooftops, the Crumb Line, Red Crook Docks and the Hotel Kempinski-Pinski, where Countess Octavia holds the drawbridge. Every world pays the first time you clear it. Nifty-coo, on the stool beside it, has held the 1-4 record since 1989: twenty-five seconds. You cannot run it that fast. He did. Ask him how, a few times. Also: fast travel to Pigeon Park works again.']);
+/* =====================================================================
+   v325 · CROWD CONTROL: crowds and flocks batched, unseen rigs frozen, city-wide details in cells (WebGPU)
+   ===================================================================== */
+// v325
+GAME_VER.n = 325;
+GAME_VER.name = 'Crowd Control';
+WHATS_NEW.unshift(['325 · Crowd Control', 'Crowds of people and flocks of pigeons now cost the game a fraction of what they did, so busy streets run smoother, Paree most of all. People and birds out of sight no longer move their arms and wings for nobody, Bangcluck draws only the street details you can see (much less work for the graphics card), and arriving in a city stutters less. The picture is exactly the same.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a

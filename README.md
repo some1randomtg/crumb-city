@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v324 (two new minigames: a chess ladder in Pigeon Park, ending with Bobby Flapper playing for real, and Super Pidge Land, a pocket-sized platformer on a cabinet in Tokyoo's SEGA-COO game centre, with a record nobody beats the honest way).
+Current version: v325 (busy streets and flocks run smoother, Paree most of all, Bangcluck is far lighter on the graphics card, arriving in a city stutters less, and the chess ladder and the Super Pidge Land cabinet from v323 and v324).
