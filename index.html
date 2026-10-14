@@ -9581,7 +9581,7 @@ function cbBatch(key, o, mirror){
 function cbNewBatch(key, o, mirror){
   const m = o.material, mat = m.clone(); if (mat.color) mat.color.setRGB(1, 1, 1);
   const bm = new THREE.BatchedMesh(CB_CAP, CB_VERTS, CB_VERTS*2, mat);
-  bm.perObjectFrustumCulled = false; bm.sortObjects = false;   // (culled here, once a frame, for every pass: see crowdBatch323) bm.frustumCulled = false; bm.castShadow = o.castShadow; bm.receiveShadow = o.receiveShadow;
+  bm.perObjectFrustumCulled = false; bm.sortObjects = false; bm.frustumCulled = false; bm.castShadow = o.castShadow; bm.receiveShadow = o.receiveShadow;   // (culled here, once a frame, for every pass: see crowdBatch323; v325.1: these last three had been lost behind this note, so a batch was culled by where its parts first were, and drew no shadows)
   bm.matrixAutoUpdate = false; if (mirror){ bm.matrix.copy(CB_MIRROR); bm.matrixWorld.copy(CB_MIRROR); }   // (three turns a mirrored object's faces round: so the whole batch is mirrored)
   bm.userData.cb323 = true; bm.name = 'crowdBatch';
   bm.setColorAt(bm.addInstance(bm.addGeometry(o.geometry)), _cbC.setRGB(1, 1, 1)); bm.setVisibleAt(0, false);   // (the colours texture exists before the first draw, so the shader reads it)
