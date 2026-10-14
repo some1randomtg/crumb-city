@@ -5790,7 +5790,7 @@ await window.__THREE_READY;
 // v301: the load yields to the browser every ~200 ms (the build puts `await bootYield(name)` after every load step), so
 // the title screen can show how far it has got instead of freezing for ten seconds and more. Timers that load steps set
 // were written for a load in one go (they ran once everything was built): they are held until the load is done.
-const BOOT = {on: true, t: performance.now(), held: [], total: 532};
+const BOOT = {on: true, t: performance.now(), held: [], total: 536};
 { const st = window.setTimeout.bind(window), ct = window.clearTimeout.bind(window);
   window.setTimeout = function(fn, ms, ...a){ if (BOOT.on && typeof fn === 'function'){ BOOT.held.push([fn, ms, a]); return -BOOT.held.length; } return st(fn, ms, ...a); };
   window.clearTimeout = function(id){ if (typeof id === 'number' && id < 0){ const h = BOOT.held[-id - 1]; if (h) h[0] = null; return; } return ct(id); };
@@ -41833,6 +41833,584 @@ addEventListener('keydown', e => { if (e.code === 'KeyZ' && !e.repeat && state =
 if (isTouch){ const b = document.createElement('button'); b.id = 'retroMG'; b.type = 'button'; b.textContent = '▲'; b.hidden = true; b.style.cssText = 'position:absolute;right:12px;top:calc(46% - 52px);width:44px;height:44px;border-radius:50%;z-index:15;font:700 16px system-ui;border:2px solid #ffd166;background:rgba(20,20,30,.7);color:#ffd166'; b.addEventListener('click', retroBurn); document.getElementById('app').appendChild(b);
   SYS52.push(['retroBtnMG', () => { const on = state === 'play' && wearingMG('lmkey'); if (b.hidden === on) b.hidden = !on; }]); }
 };
+/* ---------- gameplay/tour-de-fromage ---------- */
+// Le Tour de Fromage: a bike race seen from the TV helicopter, raced from a sponsor's tent beside the Tour director in
+// Paree (world/paree/fromage.js). Real-ish cycling physics per kilo: rolling resistance, gravity on the climbs, air drag
+// that grows with the square of the air speed, and a slipstream behind every rider that takes up to 42% of it away.
+// The legs are the W' model sports scientists use: above your critical power (CP) you spend a reserve, below it the
+// reserve comes back; spend it all and you can't go over 85% of CP until it has. Four stages: a time trial, a bunch
+// sprint, a climb behind an attacker who blows up, and Les Bordures, a crosswind stage behind Lance Wingstrong. In a
+// crosswind the slipstream doesn't trail straight back, it blows downwind: the shelter is behind him and to the side,
+// the echelon, and straight behind his wheel there's almost none. Fixed 60 Hz steps on its own frame loop, the world
+// paused behind it; state in S.v900mg.tf.
+const TF_MG = {built: false, on: false, el: null, cv: null, g: null, acc: 0, st: null, k: {}, pk: {}, kb: {}, touch: {}, scr: 'race', t: 0, result: null, script: null};
+const QTF = () => { const q = QMG(); return q.tf || (q.tf = {}); };
+const TF_W = 7, TF_K = 0.0023, TF_CRR = 0.039, TF_G = 9.81, TF_LEN = 1.7, TF_SH = 0.42;
+const TF_EFF = [['Soft-pedal', 0.55], ['Steady', 0.8], ['Tempo', 0.95], ['Threshold', 1.05], ['Hard', 1.2]];
+const TF_ME = {n: 'Pidge', col: '#8a8a96', cp: 4.4, wp: 180, sprint: 2.4};
+const TF_STAGES = [
+  {name: 'Le Prologue', sub: 'Time trial · 2 km, flat', len: 2000, ts: 2, wind: {h: 0, c: 0}, target: 168, riders: [], x: 3.5},
+  {name: 'Étape de Plaine', sub: 'Flat · 3 km · sprint · headwind', len: 3000, ts: 2, wind: {h: 4, c: 0}, x: 4.6, s: -14, v0: 10, riders: [
+    {n: 'Tom Boonen-Gouda', col: '#ff8a2a', cp: 4.6, wp: 900, x: 3.2, s: 0, ai: 'lead', p: 1.12, pullTo: 450},
+    {n: 'Erik Zabèl', col: '#e83a8a', cp: 4.1, wp: 190, x: 3.2, s: -2, ai: 'wheel', sprintAt: 230, sprintMul: 2.35},
+    {n: 'Djamolidin Brie', col: '#3aa858', cp: 4.2, wp: 175, x: 4.0, s: -4, ai: 'wheel', sprintAt: 210, sprintMul: 2.4},
+    {n: 'Robbie McFeta', col: '#f4f4f0', cp: 4.0, wp: 185, x: 2.6, s: -6, ai: 'wheel', sprintAt: 190, sprintMul: 2.45},
+    {n: 'Mario Chèvrini', col: '#3ab8e8', cp: 4.2, wp: 170, x: 3.6, s: -8, ai: 'wheel', sprintAt: 260, sprintMul: 2.3},
+    {n: 'Jacques Comté', col: '#8a3ad8', cp: 4.0, wp: 150, x: 3.0, s: -10, ai: 'wheel', sprintAt: 240, sprintMul: 2.2},
+  ]},
+  {name: 'Mont Ventouffle', sub: 'Mountain · 1.8 km at 7.5%', len: 1800, ts: 3, wind: {h: 0, c: 0}, grade: s => s < 120 ? 0.03 : 0.075, x: 4.2, s: -6, v0: 5, riders: [
+    {n: 'Marco Pantoufle', col: '#d8302a', cp: 4.5, wp: 150, x: 3.4, s: 0, ai: 'lead', p: 0.97, attackAt: 1300, attackMul: 1.45, crackP: 0.78, sprintAt: 180, sprintMul: 1.8},
+    {n: 'Richard Virenque-Reblochon', col: '#f4f4f0', cp: 4.35, wp: 150, x: 3.0, s: -2, ai: 'wheel', p: 1.0, cap: 1.0, sprintAt: 260, sprintMul: 2.0},
+    {n: 'Lucien Vanilla', col: '#2a6ad8', cp: 4.3, wp: 150, x: 2.4, s: -4, ai: 'wheel', p: 1.0, cap: 1.0, sprintAt: 220, sprintMul: 2.0},
+  ]},
+  {name: 'Les Bordures', sub: 'Crosswind · 3 km · wind from the left', len: 3000, ts: 2, wind: {h: 0, c: 11}, final: 1, x: 3.6, s: -4, v0: 11, riders: [
+    {n: 'Lance Wingstrong', col: '#ffd23a', cp: 6.2, wp: 260, x: 0.7, s: 0, ai: 'lead', p: 0.95, sprintAt: 240, sprintMul: 1.55, lance: 1},
+  ]},
+];
+const tfGrade = s => (TF_MG.st.grade ? TF_MG.st.grade(s) : 0);
+
+function tfStart(i){ const D = TF_STAGES[i], st = {i, name: D.name, len: D.len, ts: D.ts, wind: D.wind, grade: D.grade, final: D.final, target: D.target, t: 0, go: -3, fin: [], over: false};
+  const mk = (d, me) => ({n: d.n, col: d.col, cp: d.cp, wp: d.wp, w: d.wp, x: d.x, s: d.s || 0, v: D.v0 || 0, p: 0, empty: false, me, d, sh: 0, fin: 0, sprinting: false, attacking: false, cracked: false});
+  st.me = mk(Object.assign({}, TF_ME, {x: D.x, s: D.s || 0}), true); st.eff = 2; st.riders = [st.me, ...D.riders.map(d => mk(d, false))];
+  TF_MG.st = st; TF_MG.scr = 'race'; TF_MG.t = 0; TF_MG.result = null; }
+
+// how much of a rider's air the others take away: a wake behind each, blown downwind in a crosswind
+function tfShelter(r, st){ let open = 1; const W = st.wind;
+  for (const o of st.riders){ if (o === r || o.fin) continue; const d = o.s - r.s; if (d < 0.3 || d > 12) continue;
+    const wake = o.x + d*W.c/Math.max(3, o.v + W.h), f = d <= 1.5 ? 1 : Math.exp(-(d - 1.5)/2.5), g = Math.exp(-(((r.x - wake)/0.42)**2));
+    open *= 1 - TF_SH*f*g; }
+  return Math.min(0.6, 1 - open); }
+// power needed to hold speed v with this much shelter
+const tfNeed = (v, sh, st, s) => v*(TF_CRR + TF_G*tfGrade(s) + TF_K*(1 - sh)*((v + st.wind.h)*Math.abs(v + st.wind.h) + 0.5*st.wind.c**2));
+
+function tfAi(r, st){ const d = r.d, togo = st.len - r.s; let want, lat = r.x;
+  if (d.sprintAt && !r.sprinting && togo < d.sprintAt && r.w > r.wp*0.2) r.sprinting = true;
+  if (d.attackAt && !r.attacking && !r.cracked && togo < d.attackAt){ r.attacking = true; }
+  if (r.attacking && r.w < r.wp*0.04){ r.attacking = false; r.cracked = true; }
+  if (r.sprinting){ want = d.sprintMul*r.cp; const block = st.riders.find(o => o !== r && !o.fin && o.s > r.s && o.s - r.s < 4 && Math.abs(o.x - r.x) < 0.7); if (block) lat = r.x + (r.x < TF_W/2 ? 1 : -1)*1.2; }
+  else if (r.attacking) want = d.attackMul*r.cp;
+  else if (r.cracked) want = d.crackP*r.cp;
+  else if (d.ai === 'lead' && !(d.pullTo && togo < d.pullTo)){ want = d.p*r.cp; lat = d.x; }
+  else if (d.pullTo){ want = 0.55*r.cp; lat = TF_W - 0.5; }
+  else { // on a wheel: the nearest rider ahead
+    let tg = null; for (const o of st.riders){ if (o === r || o.fin) continue; const dd = o.s - r.s; if (dd > 0.2 && dd < 45 && (!tg || dd < tg.s - r.s)) tg = o; }
+    if (!tg) want = (d.p || 0.9)*r.cp;
+    else { const gap = tg.s - r.s, g0 = 1.1; lat = tg.x + g0*st.wind.c/Math.max(3, tg.v + st.wind.h); lat += (lat > TF_W - 0.4 ? -0.6 : 0);
+      want = tfNeed(Math.max(0, tg.v + (gap - g0)*0.6), r.sh, st, r.s) + (tg.v - r.v)*3; want = Math.max(0, Math.min((d.cap || 1.35)*r.cp, want)); } }
+  r.want = want; r.lat = Math.max(0.35, Math.min(TF_W - 0.35, lat)); }
+
+const TFKEY = {ArrowUp: 'up', KeyW: 'up', ArrowDown: 'dn', KeyS: 'dn', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', Space: 'go', ShiftLeft: 'go', ShiftRight: 'go', Enter: 'ok'};
+function tfInput(){ const k = {}, kb = TF_MG.kb, tc = TF_MG.touch; for (const n of ['up', 'dn', 'l', 'r', 'go', 'ok']) k[n] = !!(kb[n] || tc[n]);
+  const gp = [...(typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [])].find(p => p && p.connected && p.mapping === 'standard');
+  if (gp){ const B = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.5)), ax = gp.axes[0] || 0; k.up = k.up || B(12) || B(3); k.dn = k.dn || B(13) || B(2); k.l = k.l || B(14) || ax < -0.4; k.r = k.r || B(15) || ax > 0.4; k.go = k.go || B(0) || B(7); k.ok = k.ok || B(9); if (B(8)) tfEnd(); }
+  if (TF_MG.script){ const s = TF_MG.script(TF_MG.st, TF_MG.t); if (s) Object.assign(k, s); }
+  TF_MG.pk = TF_MG.k; TF_MG.k = k; }
+
+function tfStep(){ tfInput(); const st = TF_MG.st, k = TF_MG.k, pk = TF_MG.pk, me = st.me; TF_MG.t++;
+  if (TF_MG.scr !== 'race'){ if (TF_MG.t > 60 && (k.ok && !pk.ok || k.go && !pk.go)) tfEnd(); return; }
+  if (k.up && !pk.up) st.eff = Math.min(TF_EFF.length - 1, st.eff + 1); if (k.dn && !pk.dn) st.eff = Math.max(0, st.eff - 1);
+  if (st.go < 0){ st.go += 1/60; if (st.go >= 0) tfBeep(880, 0.3); else if (Math.ceil(st.go) !== Math.ceil(st.go - 1/60)) tfBeep(440, 0.12); return; }
+  const dt = st.ts/60; st.t += dt;
+  me.want = k.go ? TF_ME.sprint*me.cp : TF_EFF[st.eff][1]*me.cp; me.lat = me.x + (k.r ? 1 : 0) - (k.l ? 1 : 0); me.steer = k.r || k.l;
+  for (const r of st.riders){ if (r.fin) continue; r.sh = tfShelter(r, st); if (!r.me) tfAi(r, st); }
+  for (const r of st.riders){ if (r.fin){ r.s += r.v*dt; r.v = Math.max(0, r.v - 1.2*dt); continue; }
+    let P = r.want; if (r.empty) P = Math.min(P, 0.85*r.cp); r.p = P;
+    if (P > r.cp) r.w -= (P - r.cp)*dt; else r.w = Math.min(r.wp, r.w + (r.cp - P)*dt*0.7);
+    if (r.w <= 0){ r.w = 0; r.empty = true; } else if (r.empty && r.w > r.wp*0.3) r.empty = false;
+    const va = r.v + st.wind.h, drag = TF_K*(1 - r.sh)*(va*Math.abs(va) + 0.5*st.wind.c**2);
+    const a = (P/Math.max(r.v, 2.5) - TF_CRR - TF_G*tfGrade(r.s) - drag)/1.06; r.v = Math.max(0, r.v + a*dt); r.s += r.v*dt;
+    const ls = r.me ? 1.6 : 1.1, dx = r.lat - r.x; r.x += Math.max(-ls*dt, Math.min(ls*dt, r.me ? (r.steer ? dx : 0) : dx)); r.x = Math.max(0.35, Math.min(TF_W - 0.35, r.x)); }
+  // nobody rides through anybody: a wheel in front stops you, a shoulder beside you pushes
+  const R = st.riders.filter(r => !r.fin);
+  for (const a of R) for (const b of R){ if (a === b) continue; const ds = b.s - a.s, dx = b.x - a.x;
+    if (ds >= 0 && ds < TF_LEN && Math.abs(dx) < 0.55){ if (ds > TF_LEN*0.55){ a.s = b.s - TF_LEN; a.v = Math.min(a.v, b.v); } else { const push = (0.56 - Math.abs(dx))/2, sg = dx >= 0 ? 1 : -1; a.x -= sg*push; b.x += sg*push; a.x = Math.max(0.35, Math.min(TF_W - 0.35, a.x)); b.x = Math.max(0.35, Math.min(TF_W - 0.35, b.x)); } } }
+  for (const r of st.riders) if (!r.fin && r.s >= st.len){ const over = (r.s - st.len)/Math.max(0.1, r.v); r.fin = st.t - over; st.fin.push(r); }
+  // over: Pidge across the line, or (in Les Bordures) forty metres off Lance's wheel, which is that
+  const lance = st.riders.find(r => r.d.lance), gap = lance ? lance.s - me.s : 0;
+  if (me.fin || (st.final && !lance.fin && gap > 40)){ const place = st.fin.indexOf(me) + 1, first = st.fin[0];
+    const res = {i: st.i, time: me.fin ? +me.fin.toFixed(1) : 0, place: me.fin ? place : 0};
+    if (st.target) Object.assign(res, {won: me.fin <= st.target, why: me.fin <= st.target ? '' : `${tfClock(me.fin)}: ${(me.fin - st.target).toFixed(1)} s over ${tfClock(st.target)}`});
+    else if (!me.fin) Object.assign(res, {won: false, dropped: 1, why: 'dropped: the echelon rode away'});
+    else Object.assign(res, {won: place === 1, why: place === 1 ? '' : `${tfOrd(place)}, ${(me.fin - first.fin).toFixed(1)} s behind ${first.n}`});
+    TF_MG.result = res; TF_MG.scr = 'over'; TF_MG.t = 0; if (res.won){ tfBeep(523, 0.12); tfBeep(784, 0.3, 0.12); } else tfBeep(196, 0.5);
+    if (TF_MG.onResult) try { TF_MG.onResult(res); } catch(e){ console.error(e); } }
+}
+const tfClock = t => `${Math.floor(t/60)}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+const tfOrd = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
+function tfBeep(f, d, delay = 0){ try { tone(f, d, 'square', 0.04, null, delay); } catch(e){} }
+
+/* ---------- drawing ---------- */
+// the TV helicopter's view: the road runs up the screen, Pidge low in the frame, the graphics down the right
+const TF_PX = 44, TF_PY = 13, TF_RW = 440;
+function tfDraw(){ const g = TF_MG.g, W = TF_MG.cv.width, H = TF_MG.cv.height, st = TF_MG.st, me = st.me, D = TF_STAGES[st.i], climb = !!st.grade;
+  const X0 = (TF_RW - TF_W*TF_PX)/2, sx = x => X0 + x*TF_PX, sy = s => H*0.72 - (s - me.s)*TF_PY;
+  // verges, scrolling: grass or rock, the crowd, cheese wheels, flags in the wind
+  g.fillStyle = climb ? '#8a8478' : '#4f8a3a'; g.fillRect(0, 0, TF_RW, H);
+  const wob = TF_MG.t*0.25, lean = Math.max(-1, Math.min(1, st.wind.c/12)), m0 = Math.floor(me.s - 16);
+  for (let m = m0 - (((m0 % 3) + 3) % 3); m < me.s + 36; m += 3){ const y = sy(m), h = ((m*7919) % 97 + 97) % 97;
+    for (const side of [0, 1]){ const bx = side ? sx(TF_W) + 10 + 4*(h % 4) : sx(0) - 18 - 8*(h % 5);
+      if (h % 3 === 0){ g.fillStyle = ['#d8302a', '#2a6ad8', '#ffd23a', '#f4f4f0', '#3aa858'][h % 5]; g.fillRect(bx, y, 7, 7); g.fillStyle = '#e8c0a0'; g.fillRect(bx + 1, y - 4 + Math.sin(wob + h)*1.2, 5, 4); }
+      if (h % 23 === 0){ g.fillStyle = '#f2c94c'; g.beginPath(); g.arc(bx + 3, y + 14, 6, 0, PI*2); g.fill(); g.fillStyle = '#d8a83a'; g.fillRect(bx - 1, y + 13, 8, 2); }
+      if (h % 17 === 0 && st.wind.c){ g.strokeStyle = '#d8d8d0'; g.beginPath(); g.moveTo(bx, y); g.lineTo(bx, y - 16); g.stroke(); g.fillStyle = h % 2 ? '#2a6ad8' : '#d8302a'; g.beginPath(); g.moveTo(bx, y - 16); g.lineTo(bx + 14*lean, y - 14 + Math.sin(wob*3 + h)*2); g.lineTo(bx, y - 10); g.fill(); } } }
+  // the road, its markings and the words painted on it
+  g.fillStyle = climb ? '#4a4a50' : '#55565c'; g.fillRect(sx(0), 0, TF_W*TF_PX, H); g.fillStyle = '#e8e8e0'; g.fillRect(sx(0), 0, 3, H); g.fillRect(sx(TF_W) - 3, 0, 3, H);
+  const m8 = Math.floor(me.s - 16); for (let m = m8 - (((m8 % 8) + 8) % 8); m < me.s + 40; m += 8){ const y = sy(m); g.fillStyle = '#e8e8e0'; g.fillRect(sx(TF_W/2) - 1, y - 30, 2, 30);
+    if (m % 96 === 0 && m > 0){ g.save(); g.globalAlpha = 0.45; g.fillStyle = '#f4f4f0'; g.font = 'bold 22px system-ui'; g.textAlign = 'center'; g.fillText(['ALLEZ PIDGE', 'FROMAGE', 'CROTTIN', 'ALLEZ', 'COMTÉ', 'ROQUEFORT'][(m/96) % 6 | 0], sx(TF_W/2), y - 40); g.restore(); } }
+  // the flamme rouge at a kilometre to go, and the line
+  const fy = sy(st.len - 1000); if (st.len > 1000 && fy > -20 && fy < H + 20){ g.fillStyle = '#d8302a'; g.fillRect(sx(0) - 6, fy - 5, TF_W*TF_PX + 12, 10); g.fillStyle = '#fff'; g.font = 'bold 10px system-ui'; g.textAlign = 'center'; g.fillText('FLAMME ROUGE · 1 KM', sx(TF_W/2), fy + 3.5); }
+  const ly = sy(st.len); if (ly > -20 && ly < H + 20) for (let i = 0; i < TF_W*TF_PX/8; i++) for (let j = 0; j < 2; j++){ g.fillStyle = (i + j) % 2 ? '#111' : '#f4f4f0'; g.fillRect(sx(0) + i*8, ly - 8 + j*8, 8, 8); }
+  // the riders, back to front; a name over the ones that matter
+  const R = [...st.riders].sort((a, b) => a.s - b.s);
+  for (const r of R){ const X = sx(r.x), Y = sy(r.s); if (Y < -30 || Y > H + 30) continue; const pedal = Math.sin(r.s*2.2);
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(X + 3, Y + 4, 8, 13, 0, 0, PI*2); g.fill();
+    g.fillStyle = '#1a1a1e'; g.fillRect(X - 1.5, Y - 12, 3, 24); g.fillStyle = '#888'; g.fillRect(X - 6, Y - 9, 12, 2);
+    g.fillStyle = r.col; g.beginPath(); g.ellipse(X, Y + 1, 7, 9, 0, 0, PI*2); g.fill(); g.fillStyle = '#1a1a1e'; g.fillRect(X - 7, Y + 6 + pedal*2, 3, 5); g.fillRect(X + 4, Y + 6 - pedal*2, 3, 5);
+    if (r.me){ g.fillStyle = '#9a9aa8'; g.beginPath(); g.arc(X, Y - 7, 5, 0, PI*2); g.fill(); g.fillStyle = '#e8b03a'; g.beginPath(); g.moveTo(X - 2, Y - 11); g.lineTo(X, Y - 15); g.lineTo(X + 2, Y - 11); g.fill(); g.fillStyle = '#3aa858'; g.fillRect(X - 4, Y - 6, 8, 2); }
+    else { g.fillStyle = r.d.lance ? '#1a1a1e' : '#f4f4f0'; g.beginPath(); g.arc(X, Y - 7, 4.5, 0, PI*2); g.fill(); g.fillStyle = r.col; g.fillRect(X - 1, Y - 11, 2, 7); }
+    if (r.sprinting || r.attacking || (r.me && TF_MG.k.go && TF_MG.scr === 'race')){ g.strokeStyle = 'rgba(255,255,255,.6)'; g.beginPath(); for (const o of [-6, 0, 6]){ g.moveTo(X + o, Y + 14); g.lineTo(X + o, Y + 24 + Math.random()*6); } g.stroke(); }
+    if (!r.me && (r.d.lance || r.d.attackAt || st.riders.length < 5 || Math.abs(r.s - me.s) < 6)){ g.font = '10px system-ui'; g.textAlign = 'center'; const nm = r.n.split(' ').slice(-1)[0], w = g.measureText(nm).width + 6; g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(X - w/2, Y - 30, w, 13); g.fillStyle = '#fff'; g.fillText(nm, X, Y - 20); } }
+  // wind streaks
+  if (st.wind.c){ g.strokeStyle = 'rgba(255,255,255,.2)'; g.beginPath(); for (let i = 0; i < 16; i++){ const y = ((i*53 + TF_MG.t*(2 + me.v*0.5)) % (H + 40)) - 20, x = ((i*131 + TF_MG.t*st.wind.c*0.9) % (TF_RW + 60)) - 30; g.moveTo(x, y); g.lineTo(x + st.wind.c*2.4, y + 4 + me.v*0.5); } g.stroke(); }
+  // the graphics
+  g.fillStyle = '#101418'; g.fillRect(TF_RW, 0, W - TF_RW, H); const P = (t, x, y, c = '#e8ecf0', f = '12px') => { g.fillStyle = c; g.font = f + ' system-ui'; g.fillText(t, x, y); };
+  g.textAlign = 'left'; const L0 = TF_RW + 14;
+  g.fillStyle = '#d8302a'; g.fillRect(L0, 10, 34, 16); P('LIVE', L0 + 4, 22, '#fff', 'bold 11px'); P('FRANCE TÉLÉCOO', L0 + 42, 22, '#8fa0b0', 'bold 10px');
+  P(`${st.i + 1}. ${st.name}`, L0, 48, '#ffd23a', 'bold 15px'); P(D.sub, L0, 64, '#8fa0b0', '10px');
+  const togo = Math.max(0, st.len - me.s); P(togo >= 1000 ? (togo/1000).toFixed(2) + ' km' : togo.toFixed(0) + ' m', L0, 96, '#fff', 'bold 24px'); P(tfClock(Math.max(0, st.t)), L0 + 120, 96, '#e8ecf0', '13px');
+  P(`${(me.v*3.6).toFixed(1)} km/h`, L0, 120, '#e8ecf0', 'bold 15px'); if (climb) P(`${(tfGrade(me.s)*100).toFixed(1)}% up`, L0 + 112, 120, '#ffb070', 'bold 13px');
+  // effort, legs, shelter
+  const sprint = TF_MG.k.go && TF_MG.scr === 'race'; P('EFFORT', L0, 146, '#8fa0b0', 'bold 10px'); P(`${sprint ? 'SPRINT' : TF_EFF[st.eff][0]} · ${me.p.toFixed(1)} W/kg`, L0 + 52, 146, sprint ? '#ff8a5a' : '#e8ecf0', 'bold 11px');
+  for (let j = 0; j < TF_EFF.length; j++){ g.fillStyle = j <= st.eff ? (j >= 3 ? '#ff9a4a' : '#4ac8e8') : '#2a3038'; g.fillRect(L0 + j*35, 152, 31, 6); }
+  const bar = (y, label, f, col, txt) => { P(label, L0, y, '#8fa0b0', 'bold 10px'); g.fillStyle = '#2a3038'; g.fillRect(L0 + 52, y - 9, 120, 10); g.fillStyle = col; g.fillRect(L0 + 52, y - 9, 120*Math.max(0, Math.min(1, f)), 10); g.font = 'bold 9px system-ui'; P(txt, L0 + 170 - g.measureText(txt).width, y - 0.5, '#fff', 'bold 9px'); };
+  const lf = me.w/me.wp; bar(180, 'LEGS', lf, me.empty ? (TF_MG.t % 30 < 15 ? '#ff4a3a' : '#5a1a1a') : lf < 0.25 ? '#ff7a3a' : '#5ad86a', me.empty ? 'EMPTY' : Math.round(lf*100) + '%');
+  bar(200, 'SHELTER', me.sh/0.6, '#7ab8ff', Math.round(me.sh*100) + '% less air');
+  // the wind
+  P('WIND', L0, 226, '#8fa0b0', 'bold 10px'); const ws = Math.hypot(st.wind.c, st.wind.h);
+  if (ws < 0.5) P('calm', L0 + 52, 226, '#e8ecf0', '11px');
+  else { g.save(); g.translate(L0 + 62, 221); g.rotate(Math.atan2(-st.wind.c, st.wind.h)); g.strokeStyle = '#e8ecf0'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -8); g.lineTo(0, 8); g.moveTo(-4, 3); g.lineTo(0, 8); g.lineTo(4, 3); g.stroke(); g.restore(); g.lineWidth = 1;
+    P(`${(ws*3.6).toFixed(0)} km/h, ${st.wind.c ? 'from the left' : 'head on'}`, L0 + 78, 226, '#e8ecf0', '11px'); }
+  // the race, or the clock
+  let y = 252; P(st.target ? 'THE CLOCK' : 'THE RACE', L0, y, '#8fa0b0', 'bold 10px'); y += 16;
+  if (st.target){ P(`Anquetoil's time   ${tfClock(st.target)}`, L0, y, '#e8ecf0', '11px'); y += 15; const proj = st.t + togo/Math.max(1, me.v); if (me.s > 100 && TF_MG.scr === 'race') P(`On course for   ${tfClock(proj)}`, L0, y, proj <= st.target ? '#5ad86a' : '#ff8a5a', 'bold 11px'); }
+  else { const order = [...st.riders].sort((a, b) => (b.fin ? 1e6 - b.fin : b.s) - (a.fin ? 1e6 - a.fin : a.s)).slice(0, 6);
+    for (const [j, r] of order.entries()){ const d = r.s - me.s; P(`${j + 1}. ${r.me ? 'PIDGE' : r.n.length > 19 ? r.n.slice(0, 18) + '…' : r.n}`, L0, y, r.me ? '#ffd23a' : '#e8ecf0', r.me ? 'bold 11px' : '11px'); if (!r.me && !r.fin && !me.fin) P(`${d >= 0 ? '+' : ''}${d.toFixed(0)} m`, L0 + 140, y, '#8fa0b0', '10px'); y += 15; } }
+  // the profile
+  const py = H - 22, pw = W - TF_RW - 28; g.strokeStyle = '#4a5664'; g.beginPath(); g.moveTo(L0, py); let hgt = 0;
+  for (let k = 0; k <= 40; k++){ const s = st.len*k/40; if (k) hgt += tfGrade(s)*st.len/40; g.lineTo(L0 + pw*k/40, py - hgt*0.3); } g.stroke();
+  const mf = Math.min(1, Math.max(0, me.s/st.len)); let mh = 0; for (let k = 1; k <= 40*mf; k++) mh += tfGrade(st.len*k/40)*st.len/40; g.fillStyle = '#ffd23a'; g.beginPath(); g.arc(L0 + pw*mf, py - mh*0.3, 3.5, 0, PI*2); g.fill();
+  // the countdown, and the end
+  g.textAlign = 'center';
+  if (st.go < 0){ g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(0, H*0.3, TF_RW, 70); P(String(Math.ceil(-st.go)), TF_RW/2, H*0.3 + 50, '#fff', 'bold 44px'); }
+  if (TF_MG.scr === 'over'){ const r = TF_MG.result; g.fillStyle = 'rgba(0,0,0,.62)'; g.fillRect(0, H*0.24, TF_RW, 110); P(r.won ? 'VICTOIRE !' : r.dropped ? 'LÂCHÉ !' : 'BATTU', TF_RW/2, H*0.24 + 40, r.won ? '#ffd23a' : '#ff8a7a', 'bold 30px');
+    P(r.won ? (st.target ? `${tfClock(r.time)}, under Anquetoil's ${tfClock(st.target)}` : `First across the line in ${tfClock(r.time)}`) : r.why, TF_RW/2, H*0.24 + 66, '#fff', '13px'); if (TF_MG.t > 60) P('ENTER / START', TF_RW/2, H*0.24 + 92, '#8fa0b0', '12px'); }
+  g.textAlign = 'left'; }
+
+/* ---------- the broadcast ---------- */
+function tfBuild(){ if (TF_MG.built) return; TF_MG.built = true;
+  const css = document.createElement('style'); css.textContent = `
+  #tfMG{position:fixed;inset:0;z-index:30;background:#0a0d10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;touch-action:none;user-select:none;-webkit-user-select:none}
+  #tfMG canvas{display:block;border-radius:8px;box-shadow:0 0 0 2px #2a3440,0 10px 30px rgba(0,0,0,.6)}
+  #tfMG .help{font:12px/1.4 system-ui;color:#a8b0b8;text-align:center;padding:0 12px}
+  #tfMG .keys{display:none;gap:10px;flex-wrap:wrap;justify-content:center} #tfMG.touch .keys{display:flex}
+  #tfMG .keys button{min-width:58px;height:56px;border:0;border-radius:10px;background:#2a3440;color:#e8ecf0;font:700 16px system-ui;box-shadow:0 4px 0 #141a20}
+  #tfMG .keys button.on{filter:brightness(1.5)} #tfMG .keys .sp{background:#a83a2a;min-width:96px}
+  #tfMG .x{position:absolute;top:10px;right:10px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#e8e8e0;font:700 18px system-ui}`;
+  document.head.appendChild(css);
+  const el = document.createElement('div'); el.id = 'tfMG'; el.hidden = true;
+  el.innerHTML = '<button class="x" type="button" aria-label="Quit">✕</button><canvas width="640" height="420"></canvas><div class="help">↑ ↓: effort · ← →: steer · Space or Shift: sprint · sit behind a rider and the air is his problem · Esc quits</div><div class="keys"><button type="button" data-k="l">◀</button><button type="button" data-k="dn">−</button><button type="button" data-k="go" class="sp">SPRINT</button><button type="button" data-k="up">+</button><button type="button" data-k="r">▶</button></div>';
+  document.body.appendChild(el); TF_MG.el = el; TF_MG.cv = el.querySelector('canvas'); TF_MG.g = TF_MG.cv.getContext('2d');
+  addEventListener('keydown', e => { if (state !== 'miniTF') return; if (e.code === 'Escape'){ e.preventDefault(); e.stopImmediatePropagation(); return tfEnd(); } const n = TFKEY[e.code]; if (n){ TF_MG.kb[n] = true; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  addEventListener('keyup', e => { const n = TFKEY[e.code]; if (n) TF_MG.kb[n] = false; }, true);
+  addEventListener('blur', () => { TF_MG.kb = {}; });
+  el.querySelector('.x').addEventListener('click', tfEnd);
+  for (const b of el.querySelectorAll('[data-k]')){ const n = b.dataset.k; b.addEventListener('pointerdown', ev => { ev.preventDefault(); b.setPointerCapture(ev.pointerId); TF_MG.touch[n] = true; if (n === 'go' && TF_MG.scr !== 'race') TF_MG.touch.ok = true; b.classList.add('on'); }); for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(t, () => { TF_MG.touch[n] = false; TF_MG.touch.ok = false; b.classList.remove('on'); }); }
+  addEventListener('resize', tfFit); }
+function tfFit(){ if (!TF_MG.cv) return; const k = Math.min(1.5, (innerWidth - 24)/640, (innerHeight - (isTouch ? 170 : 80))/420); TF_MG.cv.style.width = Math.floor(640*k) + 'px'; TF_MG.cv.style.height = Math.floor(420*k) + 'px'; TF_MG.el.classList.toggle('touch', isTouch); }
+
+function tfOpen(i){ tfBuild(); try { PAUSE315.add('miniTF'); } catch(e){} TF_MG.on = true; state = 'miniTF'; exitLock(); for (const kk in keys) keys[kk] = false; TF_MG.kb = {}; TF_MG.touch = {}; TF_MG.k = {}; TF_MG.pk = {}; TF_MG.acc = 0;
+  TF_MG.el.hidden = false; tfFit(); tfStart(i); tfDraw();
+  if (typeof post !== 'undefined' && post && !TF_MG.postR){ TF_MG.postR = post.render; post.render = () => {}; }   // (nobody sees Paree behind the broadcast)
+  let last = performance.now(); const loop = now => { if (!TF_MG.on) return; TF_MG.acc = Math.min(0.1, TF_MG.acc + (now - last)/1000); last = now; let n = 0; while (TF_MG.acc >= 1/60 && n < 4){ tfStep(); TF_MG.acc -= 1/60; n++; } if (n && TF_MG.on) tfDraw(); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
+function tfEnd(){ if (!TF_MG.on) return; TF_MG.on = false; TF_MG.el.hidden = true; if (TF_MG.postR){ post.render = TF_MG.postR; TF_MG.postR = null; } if (state === 'miniTF') state = 'play'; for (const kk in keys) keys[kk] = false; if (TF_MG.onClose) try { TF_MG.onClose(); } catch(e){ console.error(e); } save(); }
+/* ---------- world/paree/fromage ---------- */
+// Le Tour de Fromage (the race is gameplay/tour-de-fromage.js): a cheese sponsor's tent beside the Tour director at the
+// foot of the Champs-Élysées, with a bike on a trainer and a television showing the helicopter feed. Madame
+// Brie-Savarin runs it; Eddy Mercoo, the Cannibal, retired, sits on a cheese wheel and knows about wind; and Lance
+// Wingstrong, seven Tours de Fromage (under review), waits for the last stage. A ladder (gameplay/ladders.js) of four
+// stages. The prize, Lance's Wingstrong Band (a leg band): Domestique (a team-mate flies a length ahead of you: you fly
+// faster in his slipstream and your wings tire half as fast) and Le Bidon (run out of wing in the air and he hands you
+// a bottle, once a minute). The ld_* steps are run by boot/world.js (the tent in the Paree region).
+const FR_MG = {dom: null, bidon: 0};
+const FR_FAR = new THREE.Vector3(0, -999, 0);
+const BSAV = (t, c) => L('Madame Brie-Savarin', t, c), EMER = (t, c) => L('Eddy Mercoo', t, c), LWNG = (t, c) => L('Lance Wingstrong', t, c);
+
+function frClose(){ const r = FR_MG.last; FR_MG.last = null; if (!r) return; const st = ladState('tour');
+  if (r.won){ const first = ladderBeat('tour', r.i); if (r.i === 3 && first) setTimeout(() => say([LWNG('...You sat in my echelon. Behind me and to the right, where the air is still. Nobody sits there. Nobody knows it\'s there.'), EMER('Everybody from Flanders knows it is there, Lance.'), LWNG('Fine. Take it. Wear it. It\'s yellow, it means you never give up, and it was in my sock for a week.')]), 1200); }
+  else if (r.i === st.beat) ladderFail('tour'); }
+
+const ld_pareeFromage_1 = () => {
+if (typeof TOUR157 === 'undefined' || !TOUR157) return;
+tfBuild();
+const T = TOUR157, dir = T.dir, side = T.side, base = V48(T.dirX, 0, T.dirZ).addScaledVector(side, 14).addScaledVector(dir, 8), g = new THREE.Group(); paG.add(g); FR_MG.g = g;
+g.position.copy(base); g.rotation.y = Math.atan2(dir.x, dir.z);
+// a pop-up tent, cheese yellow, the sponsor's name on the front
+const yel = mat(0xf2c94c), wh = mat(0xf4f0e2);
+for (const [x, z] of [[-2, -1.6], [2, -1.6], [-2, 1.6], [2, 1.6]]) g.add(boxMesh(0.08, 2.4, 0.08, mat(0xd8d8dc), x, 1.2, z));
+g.add(boxMesh(4.3, 0.12, 3.5, yel, 0, 2.45, 0)); g.add(boxMesh(4.3, 0.4, 0.06, wh, 0, 2.2, 1.75));
+sign49('LE TOUR DE FROMAGE', 3.8, 0.36, 0, 2.2, 1.79, 0, g, {bg: '#f4f0e2', fg: '#c8302a', size: 44, pw: 512, ph: 56});
+// a bike on a trainer, a table with a television and a cheese wheel to sit on
+g.add(boxMesh(0.5, 0.18, 0.5, mat(0x2a2a2e), -0.8, 0.09, -0.2)); g.add(boxMesh(0.05, 0.05, 1.05, mat(0xd8302a), -0.8, 0.62, -0.2)); g.add(boxMesh(0.05, 0.5, 0.05, mat(0xd8302a), -0.8, 0.8, -0.45)); g.add(boxMesh(0.42, 0.04, 0.04, mat(0x1a1a1e), -0.8, 1.08, 0.2));
+for (const z of [0.35, -0.75]){ const w = mesh(new THREE.TorusGeometry(0.32, 0.035, 5, 14), mat(0x1a1a1e), -0.8, 0.36, z); w.rotation.y = PI/2; g.add(w); }
+g.add(boxMesh(1.2, 0.06, 0.6, mat(0x8a6a4a), 1.1, 0.78, -0.9)); for (const x of [0.6, 1.6]) g.add(boxMesh(0.06, 0.75, 0.5, mat(0x8a6a4a), x, 0.38, -0.9));
+{ const c = document.createElement('canvas'); c.width = 128; c.height = 80; const cg = c.getContext('2d'); cg.fillStyle = '#4f8a3a'; cg.fillRect(0, 0, 128, 80); cg.fillStyle = '#55565c'; cg.fillRect(40, 0, 48, 80); cg.fillStyle = '#ffd23a'; cg.fillRect(58, 30, 6, 10); cg.fillStyle = '#d8302a'; cg.fillRect(68, 44, 6, 10); cg.fillStyle = '#d8302a'; cg.fillRect(4, 4, 20, 9); cg.fillStyle = '#fff'; cg.font = 'bold 8px sans-serif'; cg.fillText('LIVE', 6, 11);
+  const tv = mesh(new THREE.PlaneGeometry(0.72, 0.45), new THREE.MeshBasicMaterial({map: new THREE.CanvasTexture(c)}), 1.1, 1.08, -0.86); g.add(tv); g.add(boxMesh(0.78, 0.5, 0.06, mat(0x1a1a1e), 1.1, 1.08, -0.9)); }
+const wheel = mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.42, 18), mat(0xf2c94c), 2.9, 0.21, 0.8); const wheelTop = mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.06, 18), mat(0xd8a83a), 2.9, 0.43, 0.8); g.add(wheel, wheelTop);
+g.updateMatrixWorld(true); const W = v => g.localToWorld(v);
+addSolid(W(V48(0, 0, 0)).x, W(V48(0, 0, 0)).z, 0.4, 0.4, 0, 2.5, 'tent');
+FR_MG.bs = human131({shirt: 0xf2c94c, pants: 0x3a2a4a, hair: 0x8a3a2a}, ...W(V48(0.4, 0, 0.9)).toArray(), g.rotation.y);
+FR_MG.em = person22(paG, ...((p => [p.x, p.z])(W(V48(2.9, 0, 0.8)))), g.rotation.y + 0.5, {sit: true, y: 0.02, shirt: 0xf4f4f0, pants: 0x1a1a1e, hair: 0xc8c4bc});
+FR_MG.lw = human131({shirt: 0xffd23a, pants: 0x1a1a1e, hair: 0x1a1a1e}, ...W(V48(-2.8, 0, 1.4)).toArray(), g.rotation.y - 0.4);
+{ const e = FR_MG.em.g, ry = e.rotation.y, wp = V48(e.position.x - Math.sin(ry)*0.32, 0, e.position.z - Math.cos(ry)*0.32), lp = g.worldToLocal(wp); for (const m of [wheel, wheelTop]) m.position.set(lp.x, m.position.y, lp.z); }
+for (const H of [FR_MG.bs, FR_MG.em, FR_MG.lw]) if (H && H.g) H.g.userData.cr = 99;
+const portrait = (o, n) => { PORTRAITS[n] = (() => { const H = makeHuman(o); scene.remove(H.g); H.snack.visible = false; H.g.rotation.y = 0.4; return renderPortrait(H.g, new THREE.Vector3(0.3, 1.92, 1.15), new THREE.Vector3(0, 1.8, 0)); })(); };
+portrait({shirt: 0xf2c94c, hair: 0x8a3a2a}, 'Madame Brie-Savarin'); portrait({shirt: 0xf4f4f0, hair: 0xc8c4bc}, 'Eddy Mercoo'); portrait({shirt: 0xffd23a, hair: 0x1a1a1e}, 'Lance Wingstrong');
+VOICES['Madame Brie-Savarin'] = {kind: 'human', base: 230, range: 0.3, rate: 12, cps: 46}; VOICES['Eddy Mercoo'] = {kind: 'human', base: 125, range: 0.2, rate: 9, cps: 38}; VOICES['Lance Wingstrong'] = {kind: 'human', base: 150, range: 0.25, rate: 12, cps: 48};
+FOLK.push(['Madame Brie-Savarin', 'Runs Le Tour de Fromage from a yellow tent at the foot of the Champs-Élysées. Pays in crumbs, and in cheese, which she says is the same thing.'],
+  ['Eddy Mercoo', 'The Cannibal. Won everything there was to win, then sat down on a cheese wheel by the Tour tent. Knows where the wind goes.'],
+  ['Lance Wingstrong', 'Seven Tours de Fromage, all of them under review. Rides the crosswind stage, Les Bordures, on the windward edge of the road and drops everybody.']);
+FR_MG.spot = W(V48(-0.8, 0.9, 0.9)); FR_MG.espot = W(V48(2.9, 0.9, 1.6)); FR_MG.lspot = W(V48(-2.8, 0.9, 2.3));
+const near = () => inParis124() && player.pos.distanceTo(FR_MG.spot) < 6;
+LADDERS.tour = {key: 'tour', title: 'Le Tour de Fromage',
+  levels: [
+    {id: 'tf0', name: 'Le Prologue', pay: 10, xp: 40},
+    {id: 'tf1', name: 'Étape de Plaine', pay: 20, xp: 70, loot: {roll: 1, floor: 1}},
+    {id: 'tf2', name: 'Mont Ventouffle', pay: 35, xp: 120, loot: {legend: 'Pantoufle\'s Summit Beret', base: 'beret', r: 3, st: {wing: 2, speed: 10, xp: 10}}},
+    {id: 'tf3', name: 'Les Bordures', pay: 300, xp: 400, loot: {legend: 'Lance\'s Wingstrong Band', base: 'ring', b: 'ybandmg', s: 'leg', uq: 'yband', r: 4, v: 68, st: {speed: 12, wing: 2, luck: 8}}},
+  ],
+  at: () => FR_MG.spot,
+  text: i => `Ride ${TF_STAGES[i].name} in Le Tour de Fromage, at the yellow tent by the Tour director in Paree.`,
+  hint: st => st.beat === 3 ? 'Eddy Mercoo: <i>"In a side wind, the shelter is not where you think. Come and sit with me."</i>' : null};
+addNamedTalker(() => 'Ride in Le Tour de Fromage', 'Madame Brie-Savarin', () => inParis124() ? FR_MG.spot : FR_FAR, () => { const st = ladState('tour'), b = st.beat; st.met = 1;
+  const ch = []; for (let i = Math.min(b, 3); i >= 0; i--) ch.push({label: `${i + 1}. ${TF_STAGES[i].name}${i === b ? ' (next)' : ''}`, fn: () => tfOpen(i)}); ch.push({label: 'Not today.', fn: () => {}});
+  const lines = []; if (!st.bs){ st.bs = 1; lines.push(BSAV('Bienvenue! Le Tour de Fromage: four stages, one pigeon-sized jersey, and a wheel of Comté for anyone who finishes. Nobody has finished.'), BSAV('You ride on the trainer, here, and the helicopter films you on the real road. Do not ask how. It is television.')); }
+  lines.push(BSAV(b >= 4 ? 'The champion! Ride again? The cheese is for glory now.' : b === 3 ? 'Les Bordures. Lance Wingstrong, the crosswind, and the edge of the road. Bon courage.' : `Next is ${TF_STAGES[b].name}: ${TF_STAGES[b].sub}.`, ch)); save(); say(lines); }, 2.2, near);
+addNamedTalker(() => 'Talk to Eddy Mercoo', 'Eddy Mercoo', () => inParis124() ? FR_MG.espot : FR_FAR, () => { const st = ladState('tour'), b = st.beat, tries = st.tries || 0; const lines = [];
+  if (!st.em){ st.em = 1; lines.push(EMER('Eddy Mercoo. They called me the Cannibal. I won everything. Then I sat on this cheese.'), EMER('Ride behind somebody and the air is his problem, not yours. Look at the SHELTER bar. That is all of cycling.')); }
+  if (b === 0) lines.push(EMER('The prologue is against the clock. Easy is too slow. Your legs are a bank account: spend it, all of it, but not before the line.'));
+  else if (b === 1) lines.push(EMER('A bunch sprint. Sit in the wheels until the last kilometre. Move up on the side the big man won\'t swing off to. Then go, late.'));
+  else if (b === 2) lines.push(EMER('Pantoufle will attack. Let him. Ride your own pace, hard but steady, and you will see him again. They always come back.'));
+  else if (b >= 4) lines.push(EMER(mpick(['Your domestique flies well. Mine pushed me up mountains for twenty years. Be nice to him.', 'Wind from the side: the shelter goes downwind. Now you know more than the television.'])));
+  else { lines.push(EMER('Les Bordures. In Flanders we say: the wind is the race. Lance rides on the edge of the road where the wind comes from. Everybody behind him is in the gutter, in the wind, finished.'));
+    if (tries >= 3) lines.push(EMER('Straight behind him there is nothing for you. Look at the SHELTER bar there: zero. The wind blows his slipstream sideways. Move around until the number is big.'));
+    if (tries >= 6) lines.push(EMER('Wind from the left, his slipstream goes to the right. Sit behind him and to the right: half a bike back, a shoulder over. That is an echelon. That is the bordure.'));
+    if (tries >= 9) lines.push(EMER('Just behind his back wheel, a metre to his right: forty percent less air. Easy pace there, your legs fill up. At two hundred metres, sprint. Not before. Lance is a diesel; he has no kick.')); }
+  save(); say(lines); }, 2.0, near);
+addNamedTalker(() => 'Talk to Lance Wingstrong', 'Lance Wingstrong', () => inParis124() ? FR_MG.lspot : FR_FAR, () => { const st = ladState('tour'), b = st.beat;
+  say([LWNG(b >= 4 ? mpick(['Nice band. Never give up. Never, ever take it off in front of the cheese board.', 'Rematch. Headwind this time. I\'ve had a doctor look at the wind.']) : b < 3 ? 'Lance Wingstrong. Seven Tours de Fromage. The cheese board is reviewing them. They\'re still mine. Come back when you\'ve climbed Ventouffle.' : mpick(['Les Bordures. I ride the edge, in the wind, all the way. You can try to hold my wheel. Everybody tries.', 'It\'s not about the bike. It\'s about the wind. And I own the wind.', 'I\'ve never tested positive for anything. Except winning.']))]); }, 2.0, near);
+TF_MG.onResult = r => { FR_MG.last = r; };
+TF_MG.onClose = frClose;
+};
+
+/* ---------- Lance's Wingstrong Band ---------- */
+const ld_gameplayBandMG_1 = () => {
+aroundHook('lootIcon', function(next, b, r){ if (b !== 'ybandmg') return next(b, r); const k = b + r; if (ICON29[k]) return ICON29[k];
+  const c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d'), col = RAR[r].col;
+  pdisc(g, 8, 7, 6, '#ffd23a'); pdisc(g, 8, 7, 3, '#16161c'); px(g, 4, 6, '#1a1a1e', 1, 2); px(g, 11, 6, '#1a1a1e', 1, 2); px(g, 1, 13, col, 14, 2);
+  return ICON29[k] = c.toDataURL(); });
+UNIQUE_MG.yband = {name: 'Lance\'s Wingstrong Band',
+  stat: k => k === 'speed' && FR_MG.domOn ? 20 : 0,
+  card: () => '<b>Unique.</b> Yellow. Means you never give up. Was in Lance\'s sock for a week.<br>· <b>Domestique</b>: a team-mate flies a length ahead of you. In his slipstream you fly 20% faster and your wings tire half as fast.<br>· <b>Le Bidon</b>: run out of wing in the air and he drops back with a bottle. Once a minute.',
+  frame: dt => { if (FR_MG.bidon > 0) FR_MG.bidon -= dt; frDomestique(dt); }};
+if (typeof TREE40 !== 'undefined' && TREE40){ const d0 = TREE40.drain, o0 = TREE40.outOfWing;
+  TREE40.drain = () => d0()*(FR_MG.domOn && wearingMG('yband') ? 0.5 : 1);
+  TREE40.outOfWing = () => { const P = player; if (wearingMG('yband') && !P.grounded && FR_MG.bidon <= 0 && state === 'play'){ FR_MG.bidon = 60; P.stamina = maxStamina()*0.6; floatText(P.pos, 'Le Bidon!', '#ffd23a', 1.2); tone(660, 0.1, 'sine', 0.04); tone(990, 0.15, 'sine', 0.04, null, 0.1); return; } return o0(); }; }
+SYS52.push(['bandMG', dt => { if (FR_MG.dom && FR_MG.dom.visible && !wearingMG('yband')){ FR_MG.dom.visible = false; FR_MG.domOn = false; } }]);
+};
+// the domestique: a little rider in yellow a length ahead, only while Pidge flies
+function frDomestique(dt){ const P = player, on = state === 'play' && !P.grounded && !dlg;
+  if (!FR_MG.dom){ const d = new THREE.Group(); d.add(boxMesh(0.22, 0.2, 0.42, mat(0xffd23a), 0, 0, 0)); d.add(boxMesh(0.16, 0.16, 0.16, mat(0x9a9aa8), 0, 0.08, 0.26)); d.add(boxMesh(0.05, 0.04, 0.1, mat(0xe8b03a), 0, 0.06, 0.38));
+    for (const s of [-1, 1]){ const w = boxMesh(0.42, 0.03, 0.2, mat(0x8a8a96), s*0.3, 0.05, 0); w.userData.s = s; d.add(w); } scene.add(d); FR_MG.dom = d; d.visible = false; }
+  const d = FR_MG.dom; FR_MG.domOn = on; if (!on){ if (d.visible) d.visible = false; return; }
+  const h = P.heading, want = V48(P.pos.x + Math.sin(h)*1.6, P.pos.y + 0.25, P.pos.z + Math.cos(h)*1.6);
+  if (!d.visible){ d.position.copy(want); d.visible = true; } d.position.lerp(want, Math.min(1, dt*6)); d.rotation.y = h;
+  const fl = Math.sin(performance.now()/70)*0.5; for (const w of d.children) if (w.userData.s) w.rotation.z = w.userData.s*fl; }
+/* ---------- gameplay/eisstock ---------- */
+// Stockschießen on the asphalt Stockbahn behind the Neutaubenstein beer garden (world/bavaria/stockbahn.js): the summer
+// game of Eisstock, the same stocks with a summer plate. The target game (Mannschaftsspiel): a rubber ring, the Daube,
+// lies in the target field; both sides throw four stocks a Kehre, turn about; a Kehre scores for one side only: the
+// stock nearest the Daube 3 points, every other stock of the same side that is nearer than the other side's best 2
+// more (9 at most). A stock off the lane, short of the target field or against the back board doesn't count.
+// Stocks slide and slow down evenly (friction) and knock each other about. Neutaubenstein's Daube is painted on the
+// asphalt (Sepp's idea, after a Daube went through the Wirtshaus window): stocks slide over it; distance is centre to centre. You
+// aim a target point, where the stock would stop on an empty lane, from where you stand on the throwing line; a swing
+// meter decides how true the throw is. King Ludwig the Second-Best throws last every Kehre (he is the King) and
+// never misses, but a King does not step aside: he throws from the middle of the line, straight at the Daube, always.
+// Put a stock in his way, short, on the middle line (a guard) and he throws into it. Fixed 60 Hz steps on its own
+// frame loop, the world paused behind it; state in S.v900mg.es.
+const ES_MG = {built: false, on: false, el: null, cv: null, g: null, acc: 0, m: null, k: {}, pk: {}, kb: {}, touch: {}, t: 0, result: null, script: null, rnd: Math.random};
+const QES = () => { const q = QMG(); return q.es || (q.es = {}); };
+const ES_HW = 1.6, ES_R = 0.14, ES_RD = 0.06, ES_A = 0.6, ES_AD = 2.4, ES_BACK = 28, ES_FIELD = 19.5, ES_D = 24;
+const ES_OPP = [
+  {n: 'Sepp', full: 'Sepp from the Wirtshaus', kehren: 2, sdD: 0.05, sdA: 0.012, smart: 0, col: '#3a6ad8'},
+  {n: 'Vroni', full: 'Vroni the Kellnerin', kehren: 2, sdD: 0.03, sdA: 0.007, smart: 1, col: '#d83a6a'},
+  {n: 'Hochwürden', full: 'Hochwürden, the parish priest', kehren: 3, sdD: 0.018, sdA: 0.004, smart: 2, col: '#2a2a30'},
+  {n: 'King Ludwig', full: 'King Ludwig the Second-Best', kehren: 3, sdD: 0.003, sdA: 0.0006, king: 1, col: '#2a4a9a'},
+];
+
+function esRand(){ return ES_MG.rnd(); }
+function esGauss(){ let u = 0, v = 0; while (!u) u = esRand(); while (!v) v = esRand(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*PI*v); }
+
+function esStart(i){ const O = ES_OPP[i]; ES_MG.m = {i, O, kehre: 0, score: [0, 0], log: [], phase: 'aim', st: null}; esKehre(); ES_MG.t = 0; ES_MG.result = null; }
+// a new Kehre: the Daube back in the field, the stocks off; who throws first takes turns, but the King always throws last
+function esKehre(){ const M = ES_MG.m; M.kehre++; const kf = M.O.king ? 0 : (M.kehre % 2 ? 0 : 1);
+  M.daube = {x: (esRand() - 0.5)*0.8, y: ES_D + (esRand() - 0.5)*1.2, vx: 0, vy: 0, r: ES_RD, m: Infinity, d: 1};   // painted on (Sepp's idea, after a Daube went through the Wirtshaus window)
+  M.stocks = []; M.live = null; M.kp = null; M.order = []; for (let k = 0; k < 8; k++) M.order.push((k + kf) % 2); M.turn = 0; M.phase = M.order[0] === 0 ? 'aim' : 'ai'; M.wait = 40;
+  M.aim = {x0: 0, tx: M.daube.x, ty: M.daube.y}; M.meter = null; M.lastKehre = null; }
+
+/* ---------- the physics ---------- */
+// the stocks still on the lane, kept until something changes (the Daube is painted on: nothing hits it)
+const esLive = M => M.live || (M.live = M.stocks.filter(s => !s.out));
+function esMoving(M){ const L = esLive(M); for (let i = 0; i < L.length; i++) if (L[i].vx || L[i].vy) return true; return false; }
+function esPhys(M, dt){ const all = esLive(M);
+  for (let i = 0; i < all.length; i++){ const b = all[i]; if (!b.vx && !b.vy) continue; const sp = Math.hypot(b.vx, b.vy), dec = (b.d ? ES_AD : ES_A)*dt; if (sp <= dec){ b.vx = b.vy = 0; } else { b.vx -= b.vx/sp*dec; b.vy -= b.vy/sp*dec; } b.x += b.vx*dt; b.y += b.vy*dt; }
+  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++){ const a = all[i], b = all[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), rr = a.r + b.r; if (d >= rr || d === 0) continue;
+    const nx = dx/d, ny = dy/d, rv = (b.vx - a.vx)*nx + (b.vy - a.vy)*ny, ov = rr - d, fa = b.m/(a.m + b.m); a.x -= nx*ov*fa; a.y -= ny*ov*fa; b.x += nx*ov*(1 - fa); b.y += ny*ov*(1 - fa); if (rv >= 0) continue;
+    const e = a.d || b.d ? 0.5 : 0.85, J = -(1 + e)*rv/(1/a.m + 1/b.m); a.vx -= J*nx/a.m; a.vy -= J*ny/a.m; b.vx += J*nx/b.m; b.vy += J*ny/b.m; if (!a.d && !b.d && Math.abs(rv) > 0.4 && !M.sim) esClack(Math.abs(rv)); }
+  for (let i = 0; i < all.length; i++){ const s = all[i]; if (s.d) continue; if (Math.abs(s.x) > ES_HW - s.r*0.2 || s.y > ES_BACK - s.r){ s.out = 1; s.vx = s.vy = 0; M.live = null; } } }
+function esClack(v){ try { noise(0.06, 1800, Math.min(0.08, 0.02 + v*0.02)); tone(320, 0.05, 'square', 0.02); } catch(e){} }
+
+// a throw from x0 on the line, at a point where it would stop on an empty lane; err in [-1, 1] spoils it
+function esThrow(M, side, x0, tx, ty, eD, eA){ const dx = tx - x0, dy = ty, d = Math.hypot(dx, dy), a = Math.atan2(dx, dy) + eA, v = Math.sqrt(2*ES_A*d*(1 + eD));
+  const s = {x: x0, y: 0, vx: Math.sin(a)*v, vy: Math.cos(a)*v, r: ES_R, m: 1, side, out: 0}; M.stocks.push(s); M.live = null; return s; }
+// a stock counts if it lies in the target field and on the lane
+const esIn = s => !s.out && s.y >= ES_FIELD - s.r && s.y <= ES_BACK && Math.abs(s.x) <= ES_HW;
+const esDist = (s, M) => Math.hypot(s.x - M.daube.x, s.y - M.daube.y);   // centre to centre
+function esScore(M){ const L = [0, 1].map(sd => M.stocks.filter(s => s.side === sd && esIn(s)).map(s => esDist(s, M)).sort((a, b) => a - b));
+  const b0 = L[0][0] ?? 99, b1 = L[1][0] ?? 99; if (b0 === 99 && b1 === 99) return {side: -1, pts: 0};
+  const w = b0 < b1 - 1e-4 ? 0 : b1 < b0 - 1e-4 ? 1 : (M.O.king ? 1 : -1); if (w < 0) return {side: -1, pts: 0, tie: 1};
+  const other = w ? b0 : b1, n = L[w].filter(d => d < other).length; return {side: w, pts: n ? 3 + 2*(n - 1) : 0}; }
+const esShot = M => { let best = null, bd = 99; for (const s of M.stocks) if (esIn(s)){ const d = esDist(s, M); if (d < bd){ bd = d; best = s; } } return best; };
+// the stock in the way of a straight line, if any
+function esBlocker(M, x0, tx, ty, skip){ const dx = tx - x0, dy = ty, L = Math.hypot(dx, dy), ux = dx/L, uy = dy/L; let hit = null, ht = 1e9;
+  for (const s of M.stocks){ if (s.out || s === skip) continue; const px = s.x - x0, py = s.y, t = px*ux + py*uy; if (t < 0 || t > L - 0.05) continue; const off = Math.abs(px*uy - py*ux); if (off < ES_R + s.r - 0.01 && t < ht){ ht = t; hit = s; } }
+  return hit; }
+
+/* ---------- the other side ---------- */
+// the King thinks every throw through: he plays each one he might make (on a copy of the lane, without a miss) and takes the best.
+// He aims only at the Daube or at a stock, and only from the middle of the line: the King does not step aside.
+function esSimOf(M, plan){ const C = {sim: 1, O: M.O, stocks: M.stocks.map(s => Object.assign({}, s)), daube: Object.assign({}, M.daube)};
+  esThrow(C, 1, plan.x0, plan.tx, plan.ty, 0, 0); for (let n = 0; n < 6000 && esMoving(C); n++) esPhys(C, 1/240); return C; }
+function esValue(C){ const sc = esScore(C), mine = C.stocks.filter(s => s.side === 1 && esIn(s)).map(s => esDist(s, C)).sort((a, b) => a - b)[0] ?? 9; return (sc.side === 1 ? sc.pts : sc.side === 0 ? -sc.pts : 0) - mine*0.05; }
+function esKingCands(M){ const x0 = 0, out = [], shot = esShot(M), objs = [M.daube]; if (shot && shot.side === 0 && esDist(shot, M) < 1.2) objs.push(shot);   // the Daube, or the stock that beats him: nothing else interests a King
+  for (const o of objs){ const dx = o.x - x0, dy = o.y, L = Math.hypot(dx, dy), ux = dx/L, uy = dy/L; if (esBlocker(M, x0, o.x - ux*1.5, o.y - uy*1.5, o)) continue;   // anything lying well short of it, on his line, he doesn't see
+    for (const off of o.d ? [-0.15, -0.075, 0, 0.075, 0.15] : [-0.12, 0, 0.12]) for (const w of o.d ? [-0.5, -0.3, -0.18, -0.1, -0.04, 0, 0.04, 0.1, 0.18, 0.3, 1, 2, 3.5, 5] : [-0.25, 0.1, 0.5, 1, 2, 3.5, 5]){ const d = L + w; out.push({x0, tx: x0 + ux*d + uy*off, ty: uy*d - ux*off, why: 'king'}); } }
+  if (!out.length){ const t = {x0, tx: M.daube.x, ty: M.daube.y, why: 'blind'}; out.push(t); }   // nothing in clear view: he draws to the Daube as if nothing were in the way
+  return out; }
+// evaluate candidates for up to `ms` milliseconds; true when the plan is ready
+function esKingThink(M, ms){ const kp = M.kp || (M.kp = {c: esKingCands(M), i: 0, best: null, bv: -1e9}), t0 = performance.now();
+  while (kp.i < kp.c.length){ const p = kp.c[kp.i++], v = esValue(esSimOf(M, p)); if (v > kp.bv){ kp.bv = v; kp.best = p; } if (performance.now() - t0 > ms) break; }
+  return kp.i >= kp.c.length; }
+function esAi(M){ if (M.O.king){ while (!esKingThink(M, 1e9)); const p = M.kp.best; M.kp = null; esThrow(M, 1, p.x0, p.tx, p.ty, esGauss()*M.O.sdD, esGauss()*M.O.sdA); M.lastAi = p.why; return; }
+  const O = M.O, D = M.daube, shot = esShot(M), mine = shot && shot.side === 1;
+  const touch = (s, x0) => { const dx = s.x - x0, dy = s.y, L = Math.hypot(dx, dy), k = (ES_R + s.r - 0.005)/L; return {tx: s.x - dx*k, ty: s.y - dy*k}; };   // stop just touching it, from x0
+  const starts = O.king ? [0] : [0, -0.6, 0.6, -1.2, 1.2, -1.45, 1.45];
+  let plan = null;
+  // the shot is ours and close: draw another one in beside it; it's theirs: hit it out if the line is clear, else draw past it
+  if (shot && !mine && esDist(shot, M) < 0.9) for (const x0 of starts){ const b = esBlocker(M, x0, shot.x, shot.y, shot); if (!b || O.king){ const dx = shot.x - x0, dy = shot.y, L = Math.hypot(dx, dy); plan = {x0, tx: shot.x + dx/L*3.2, ty: shot.y + dy/L*3.2, why: 'takeout'}; break; } }
+  if (!plan) for (const x0 of starts){ const t = {tx: D.x, ty: D.y}, b = esBlocker(M, x0, t.tx, t.ty); if (!b || O.king){ plan = {x0, ...t, why: 'draw'}; break; } }
+  if (!plan && O.smart >= 2){ const b = esBlocker(M, 0, D.x, D.y - 0.2); if (b && b.side === 0){ plan = {x0: 0, tx: b.x, ty: b.y + 3, why: 'peel'}; } }
+  if (!plan){ const x0 = starts[1 + Math.floor(esRand()*(starts.length - 1))] || 0; plan = {x0, tx: D.x, ty: D.y, why: 'draw'}; }
+  if (O.smart === 0 && plan.why !== 'draw') Object.assign(plan, {tx: D.x, ty: D.y, why: 'draw'});
+  esThrow(M, 1, plan.x0, plan.tx, plan.ty, esGauss()*O.sdD, esGauss()*O.sdA); M.lastAi = plan.why; }
+
+/* ---------- the step ---------- */
+const ESKEY = {ArrowUp: 'up', KeyW: 'up', ArrowDown: 'dn', KeyS: 'dn', ArrowLeft: 'l', ArrowRight: 'r', KeyA: 'sl', KeyD: 'sr', KeyQ: 'sl', KeyE: 'sr', Space: 'go', Enter: 'ok'};
+function esInput(){ const k = {}, kb = ES_MG.kb, tc = ES_MG.touch; for (const n of ['up', 'dn', 'l', 'r', 'sl', 'sr', 'go', 'ok']) k[n] = !!(kb[n] || tc[n]);
+  const gp = [...(typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [])].find(p => p && p.connected && p.mapping === 'standard');
+  if (gp){ const B = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.5)), ax = gp.axes[0] || 0, ay = gp.axes[1] || 0; k.up = k.up || B(12) || ay < -0.5; k.dn = k.dn || B(13) || ay > 0.5; k.l = k.l || B(14) || ax < -0.4; k.r = k.r || B(15) || ax > 0.4; k.sl = k.sl || B(4); k.sr = k.sr || B(5); k.go = k.go || B(0); k.ok = k.ok || B(9); if (B(8)) esEnd(); }
+  if (ES_MG.script){ const s = ES_MG.script(ES_MG.m, ES_MG.t); if (s) Object.assign(k, s); }
+  ES_MG.pk = ES_MG.k; ES_MG.k = k; }
+
+function esStep(){ esInput(); const M = ES_MG.m, k = ES_MG.k, pk = ES_MG.pk, A = M.aim; ES_MG.t++;
+  if (M.phase === 'over'){ if (ES_MG.t > 60 && (k.ok && !pk.ok || k.go && !pk.go)) esEnd(); return; }
+  if (M.phase === 'aim'){ // ←→ the target across, ↑↓ further and shorter, A/D (Q/E) where you stand; Space starts the swing, Space again lets go
+    const f = k.go ? 0 : 1; if (k.l) A.tx -= 0.012*f; if (k.r) A.tx += 0.012*f; if (k.up) A.ty += 0.03*f; if (k.dn) A.ty -= 0.03*f; if (k.sl) A.x0 -= 0.02*f; if (k.sr) A.x0 += 0.02*f;
+    A.tx = Math.max(-ES_HW, Math.min(ES_HW, A.tx)); A.ty = Math.max(4, Math.min(ES_BACK + 6, A.ty)); A.x0 = Math.max(-ES_HW + 0.2, Math.min(ES_HW - 0.2, A.x0));
+    if (k.go && !pk.go){ if (!M.meter) M.meter = {t: 0}; else { const e = -Math.cos(M.meter.t*2*PI/70); M.lastErr = e; esThrow(M, 0, A.x0, A.tx, A.ty, e*0.05, e*0.008); M.meter = null; M.phase = 'slide'; M.wait = 0; esSwoosh(); } }
+    if (M.meter) M.meter.t++; return; }
+  if (M.phase === 'ai'){ const ready = !M.O.king || esKingThink(M, 5); if (--M.wait > 0 || !ready) return; esAi(M); M.phase = 'slide'; esSwoosh(); return; }
+  if (M.phase === 'slide'){ for (let n = 0; n < 4; n++) esPhys(M, 1/240); if (esMoving(M)) return; if (++M.wait < 30) return;
+    M.turn++; if (M.turn < M.order.length){ M.phase = M.order[M.turn] === 0 ? 'aim' : 'ai'; M.wait = 50; return; }
+    const sc = esScore(M); if (sc.side >= 0) M.score[sc.side] += sc.pts; M.lastKehre = sc; M.log.push(sc); M.phase = 'kehre'; M.wait = 200; return; }
+  if (M.phase === 'kehre'){ if (--M.wait > 0 && !(k.ok && !pk.ok)) return;
+    if (M.kehre < M.O.kehren){ esKehre(); return; }
+    const won = M.score[0] > M.score[1]; ES_MG.result = {i: M.i, won, score: M.score.slice(), why: won ? '' : M.score[0] === M.score[1] ? `${M.score[0]} to ${M.score[1]}: a draw is no win` : `${M.score[0]} to ${M.score[1]}`};
+    M.phase = 'over'; ES_MG.t = 0; if (won){ esBeep(523, 0.12); esBeep(784, 0.3, 0.12); } else esBeep(196, 0.5);
+    if (ES_MG.onResult) try { ES_MG.onResult(ES_MG.result); } catch(e){ console.error(e); } }
+}
+function esBeep(f, d, delay = 0){ try { tone(f, d, 'triangle', 0.05, null, delay); } catch(e){} }
+function esSwoosh(){ try { noise(1.2, 260, 0.025); } catch(e){} }
+
+/* ---------- drawing ---------- */
+// above, the whole lane small; below it, the target field big; the swing meter at the bottom
+function esDraw(){ const g = ES_MG.g, W = ES_MG.cv.width, H = ES_MG.cv.height, M = ES_MG.m, O = M.O, A = M.aim; g.clearRect(0, 0, W, H);
+  g.fillStyle = '#e9e4d6'; g.fillRect(0, 0, W, H);
+  // the header: white and blue, the score
+  for (let i = 0; i < W/16; i++){ g.fillStyle = i % 2 ? '#2a6ad8' : '#f4f4f0'; g.beginPath(); g.moveTo(i*16, 0); g.lineTo(i*16 + 8, 6); g.lineTo(i*16 + 16, 0); g.fill(); }
+  const P = (t, x, y, c = '#2a2620', f = '12px', al = 'left') => { g.fillStyle = c; g.font = f + ' system-ui'; g.textAlign = al; g.fillText(t, x, y); };
+  P(`Kehre ${M.kehre} of ${O.kehren}`, 14, 26, '#2a2620', 'bold 14px'); P(`Pidge ${M.score[0]}  :  ${M.score[1]} ${O.n}`, W/2, 26, '#2a2620', 'bold 15px', 'center');
+  const left = sd => 4 - M.stocks.filter(s => s.side === sd).length; for (const sd of [0, 1]) for (let k = 0; k < 4; k++){ const x = sd ? W - 20 - k*16 : W - 150 + k*16; g.globalAlpha = k < left(sd) ? 1 : 0.2; esStock(g, x, 20, 6, sd ? O.col : '#c8302a'); g.globalAlpha = 1; }
+  // the overview: the whole lane, throwing line on the left
+  const oy = 46, oh = 54, ox = 14, ow = W - 28, osx = y => ox + y/(ES_BACK + 0.6)*ow, osy = x => oy + oh/2 + x/ES_HW*(oh/2 - 4);
+  g.fillStyle = '#5a5a60'; g.fillRect(ox, oy, ow, oh); g.fillStyle = '#7a5a3a'; g.fillRect(osx(ES_BACK), oy - 2, 6, oh + 4); g.fillStyle = '#f4f4f0'; g.fillRect(osx(0) + 2, oy, 2, oh); g.fillRect(osx(ES_FIELD), oy, 1, oh);
+  if (M.phase === 'aim'){ g.strokeStyle = 'rgba(255,220,120,.8)'; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(osx(0), osy(A.x0)); g.lineTo(osx(A.ty), osy(A.tx)); g.stroke(); g.setLineDash([]); }
+  esRing(g, osx(M.daube.y), osy(M.daube.x), 2.5); for (const s of M.stocks) if (!s.out || s.vx) esStock(g, osx(s.y), osy(s.x), 3, s.side ? O.col : '#c8302a');
+  // the target field, big
+  const fy0 = ES_FIELD - 0.8, fy1 = ES_BACK + 0.4, zx = 14, zw = W - 28, zy = 112, zh = 222, zs = zw/(fy1 - fy0), zsx = y => zx + (y - fy0)*zs, zsy = x => zy + zh/2 + x*zs;
+  g.save(); g.beginPath(); g.rect(zx, zy, zw, zh); g.clip(); g.fillStyle = '#6a8a4a'; g.fillRect(zx, zy, zw, zh);
+  g.fillStyle = '#5c5c62'; g.fillRect(zx, zsy(-ES_HW), zw, ES_HW*2*zs); for (let i = 0; i < 80; i++){ g.fillStyle = i % 2 ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.05)'; g.fillRect(zx + ((i*97) % zw), zsy(-ES_HW) + ((i*53) % (ES_HW*2*zs)), 3, 2); }
+  g.fillStyle = '#f4f4f0'; g.fillRect(zx, zsy(-ES_HW) - 2, zw, 2); g.fillRect(zx, zsy(ES_HW), zw, 2); g.fillRect(zsx(ES_FIELD), zsy(-ES_HW), 2, ES_HW*2*zs);
+  g.fillStyle = '#7a5a3a'; g.fillRect(zsx(ES_BACK), zsy(-ES_HW) - 8, 12, ES_HW*2*zs + 16); g.fillStyle = '#5a3a20'; for (let k = 0; k < 6; k++) g.fillRect(zsx(ES_BACK), zsy(-ES_HW) - 8 + k*(ES_HW*2*zs + 16)/6, 12, 1);
+  // the aim, where the stock would stop on an empty lane
+  if (M.phase === 'aim'){ const ax = zsx(A.ty), ay = zsy(A.tx); g.strokeStyle = '#ffd166'; g.lineWidth = 2; g.setLineDash([5, 5]); const sx0 = zsx(fy0 - 2), dyx = (A.tx - A.x0)/A.ty, ysx = y => zsy(A.x0 + dyx*y); g.beginPath(); g.moveTo(zsx(fy0), ysx(fy0)); g.lineTo(ax, ay); g.stroke(); g.setLineDash([]); g.lineWidth = 1;
+    if (A.ty < fy1){ g.strokeStyle = '#ffd166'; g.beginPath(); g.arc(ax, ay, ES_R*zs, 0, PI*2); g.moveTo(ax - 14, ay); g.lineTo(ax + 14, ay); g.moveTo(ax, ay - 14); g.lineTo(ax, ay + 14); g.stroke(); } }
+  // the Kehre's verdict: lines from the Daube to the stocks that score
+  if (M.phase === 'kehre' && M.lastKehre && M.lastKehre.side >= 0){ const sd = M.lastKehre.side, other = Math.min(...M.stocks.filter(s => s.side !== sd && esIn(s)).map(s => esDist(s, M)), 99); let n = 0;
+    for (const s of M.stocks.filter(s => s.side === sd && esIn(s)).sort((a, b) => esDist(a, M) - esDist(b, M))){ if (esDist(s, M) >= other) break; g.strokeStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.moveTo(zsx(M.daube.y), zsy(M.daube.x)); g.lineTo(zsx(s.y), zsy(s.x)); g.stroke(); P(n ? '+2' : '3', zsx(s.y) + 12, zsy(s.x) - 10, '#fff', 'bold 13px'); n++; } }
+  esRing(g, zsx(M.daube.y), zsy(M.daube.x), ES_RD*zs); for (const s of M.stocks) esStock(g, zsx(s.y), zsy(s.x), ES_R*zs, s.side ? O.col : '#c8302a', s.out, s.side && O.king);
+  g.restore();
+  // the bottom: whose throw, the meter, the controls
+  const by = 352; g.fillStyle = '#2a2620';
+  if (M.phase === 'aim'){ const far = A.ty - M.daube.y; P('YOUR THROW', 14, by + 4, '#c8302a', 'bold 12px'); P(far > 1.2 ? 'weight: to hit (it would run ' + far.toFixed(1) + ' m past the Daube)' : far < -1.2 ? `weight: short (${(-far).toFixed(1)} m in front of the Daube)` : 'weight: to the Daube', 14, by + 22, '#2a2620', '12px'); P(`standing ${A.x0 < -0.05 ? (-A.x0).toFixed(1) + ' m left' : A.x0 > 0.05 ? A.x0.toFixed(1) + ' m right' : 'in the middle'}`, 14, by + 40, '#5a5248', '12px');
+    const mx = 330, mw = 290, my = by - 6; g.fillStyle = '#d8d0c0'; g.fillRect(mx, my, mw, 18); g.fillStyle = '#5ad86a'; g.fillRect(mx + mw/2 - mw*0.06, my, mw*0.12, 18); g.fillStyle = '#c8302a'; g.fillRect(mx, my, 8, 18); g.fillRect(mx + mw - 8, my, 8, 18);
+    if (M.meter){ const e = -Math.cos(M.meter.t*2*PI/70); g.fillStyle = '#1a1a1e'; g.fillRect(mx + mw/2 + e*(mw/2 - 4) - 2, my - 4, 4, 26); P('Space again to let go: on the green', mx, my + 36, '#2a2620', 'bold 11px'); }
+    else P('Space to swing · ←→ aim · ↑↓ weight · A D where you stand', mx, my + 36, '#5a5248', '11px'); }
+  else if (M.phase === 'ai' || M.phase === 'slide' && M.stocks.length && M.stocks[M.stocks.length - 1].side === 1) P(`${O.full} throws${O.king ? '. From the middle. A King does not step aside.' : '.'}`, 14, by + 10, '#2a2620', 'bold 12px');
+  else if (M.phase === 'slide' && M.lastErr != null) P(Math.abs(M.lastErr) < 0.12 ? 'A clean throw.' : `${M.lastErr > 0 ? 'Too hard' : 'Too soft'}, and ${Math.abs(M.lastErr) < 0.4 ? 'a little' : 'well'} off line.`, 14, by + 10, '#5a5248', '12px');
+  if (M.phase === 'kehre'){ const sc = M.lastKehre; P(sc.side < 0 ? (sc.tie ? 'Dead level. Nobody scores.' : 'Nobody in the field. No points.') : `${sc.side ? O.n : 'Pidge'} scores ${sc.pts}.`, W/2, by + 10, sc.side === 0 ? '#2a8a3a' : '#c8302a', 'bold 16px', 'center'); P('Enter / Start', W/2, by + 30, '#5a5248', '11px', 'center'); }
+  if (M.phase === 'over'){ const r = ES_MG.result; g.fillStyle = 'rgba(30,26,20,.75)'; g.fillRect(0, 150, W, 100); P(r.won ? 'GEWONNEN!' : 'VERLOREN', W/2, 196, r.won ? '#ffd166' : '#ff9a8a', 'bold 30px', 'center'); P(`${r.score[0]} to ${r.score[1]}${r.won ? '' : r.score[0] === r.score[1] ? ': a draw is no win' : ''}`, W/2, 222, '#fff', '14px', 'center'); if (ES_MG.t > 60) P('Enter / Start', W/2, 242, '#d8d0c0', '11px', 'center'); }
+  g.textAlign = 'left'; }
+function esStock(g, x, y, r, col, out, crown){ g.globalAlpha = out ? 0.35 : 1; g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.arc(x + r*0.15, y + r*0.2, r, 0, PI*2); g.fill(); g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, PI*2); g.fill();
+  if (r > 4){ g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(x, y, r*0.72, 0, PI*2); g.fill(); g.fillStyle = '#4a3020'; g.beginPath(); g.arc(x, y, r*0.32, 0, PI*2); g.fill(); if (crown){ g.fillStyle = '#ffd166'; g.fillRect(x - r*0.3, y - r*0.15, r*0.6, r*0.3); } }
+  g.globalAlpha = 1; }
+function esRing(g, x, y, r){ g.strokeStyle = '#1a1a1e'; g.lineWidth = Math.max(1.5, r*0.5); g.beginPath(); g.arc(x, y, Math.max(1.5, r*0.75), 0, PI*2); g.stroke(); g.lineWidth = 1; }
+
+/* ---------- the Stockbahn ---------- */
+function esBuild(){ if (ES_MG.built) return; ES_MG.built = true;
+  const css = document.createElement('style'); css.textContent = `
+  #esMG{position:fixed;inset:0;z-index:30;background:rgba(20,24,18,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;touch-action:none;user-select:none;-webkit-user-select:none}
+  #esMG canvas{display:block;border-radius:10px;box-shadow:0 0 0 3px #6a5038,0 10px 30px rgba(0,0,0,.6)}
+  #esMG .help{font:12px/1.4 system-ui;color:#c8c0b0;text-align:center;padding:0 12px}
+  #esMG .keys{display:none;gap:8px;flex-wrap:wrap;justify-content:center;max-width:640px} #esMG.touch .keys{display:flex}
+  #esMG .keys button{min-width:52px;height:52px;border:0;border-radius:10px;background:#4a4036;color:#f4f0e6;font:700 15px system-ui;box-shadow:0 4px 0 #2a241e}
+  #esMG .keys button.on{filter:brightness(1.4)} #esMG .keys .go{background:#2a6ad8;min-width:96px}
+  #esMG .x{position:absolute;top:10px;right:10px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#f4f0e6;font:700 18px system-ui}`;
+  document.head.appendChild(css);
+  const el = document.createElement('div'); el.id = 'esMG'; el.hidden = true;
+  el.innerHTML = '<button class="x" type="button" aria-label="Quit">✕</button><canvas width="640" height="420"></canvas><div class="help">← →: aim across · ↑ ↓: weight (where it would stop) · A D: where you stand · Space: swing, Space again: let go · Esc quits</div><div class="keys"><button type="button" data-k="sl">⇤</button><button type="button" data-k="l">◀</button><button type="button" data-k="dn">▼</button><button type="button" data-k="go" class="go">THROW</button><button type="button" data-k="up">▲</button><button type="button" data-k="r">▶</button><button type="button" data-k="sr">⇥</button></div>';
+  document.body.appendChild(el); ES_MG.el = el; ES_MG.cv = el.querySelector('canvas'); ES_MG.g = ES_MG.cv.getContext('2d');
+  addEventListener('keydown', e => { if (state !== 'miniES') return; if (e.code === 'Escape'){ e.preventDefault(); e.stopImmediatePropagation(); return esEnd(); } const n = ESKEY[e.code]; if (n){ ES_MG.kb[n] = true; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  addEventListener('keyup', e => { const n = ESKEY[e.code]; if (n) ES_MG.kb[n] = false; }, true);
+  addEventListener('blur', () => { ES_MG.kb = {}; });
+  el.querySelector('.x').addEventListener('click', esEnd);
+  for (const b of el.querySelectorAll('[data-k]')){ const n = b.dataset.k; b.addEventListener('pointerdown', ev => { ev.preventDefault(); b.setPointerCapture(ev.pointerId); ES_MG.touch[n] = true; if (n === 'go') ES_MG.touch.ok = true; b.classList.add('on'); }); for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(t, () => { ES_MG.touch[n] = false; ES_MG.touch.ok = false; b.classList.remove('on'); }); }
+  addEventListener('resize', esFit); }
+function esFit(){ if (!ES_MG.cv) return; const k = Math.min(1.5, (innerWidth - 24)/640, (innerHeight - (isTouch ? 190 : 80))/420); ES_MG.cv.style.width = Math.floor(640*k) + 'px'; ES_MG.cv.style.height = Math.floor(420*k) + 'px'; ES_MG.el.classList.toggle('touch', isTouch); }
+
+function esOpen(i){ esBuild(); try { PAUSE315.add('miniES'); } catch(e){} ES_MG.on = true; state = 'miniES'; exitLock(); for (const kk in keys) keys[kk] = false; ES_MG.kb = {}; ES_MG.touch = {}; ES_MG.k = {}; ES_MG.pk = {}; ES_MG.acc = 0;
+  ES_MG.el.hidden = false; esFit(); esStart(i); esDraw();
+  if (typeof post !== 'undefined' && post && !ES_MG.postR){ ES_MG.postR = post.render; post.render = () => {}; }   // (nobody sees the beer garden behind the lane)
+  let last = performance.now(); const loop = now => { if (!ES_MG.on) return; ES_MG.acc = Math.min(0.1, ES_MG.acc + (now - last)/1000); last = now; let n = 0; while (ES_MG.acc >= 1/60 && n < 4){ esStep(); ES_MG.acc -= 1/60; n++; } if (n && ES_MG.on) esDraw(); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
+function esEnd(){ if (!ES_MG.on) return; ES_MG.on = false; ES_MG.el.hidden = true; if (ES_MG.postR){ post.render = ES_MG.postR; ES_MG.postR = null; } if (state === 'miniES') state = 'play'; for (const kk in keys) keys[kk] = false; if (ES_MG.onClose) try { ES_MG.onClose(); } catch(e){ console.error(e); } save(); }
+/* ---------- world/bavaria/stockbahn ---------- */
+// The Stockbahn behind the Neutaubenstein beer garden (the game is gameplay/eisstock.js): an asphalt lane with a board
+// at the end, a rack of stocks, a bench, and the village's best: Sepp from the Wirtshaus, Vroni who captains the
+// Maibaum club, and Hochwürden, the parish priest, who puts in a word with the King. A ladder (gameplay/ladders.js) of
+// four matches; the last is against King Ludwig the Second-Best, who throws last every Kehre and never misses, and who
+// does not step aside. The prize, Ludwig's Swan Crown: Royal Decree (the police bow: wanted levels melt away while you
+// wear it) and the Civil List (the Bavarian treasury still pays the King's allowance: a crumb every twenty seconds).
+// The ld_* steps are run by boot/world.js (the lane in the Paree region, which builds Bavaria).
+const SB_MG = {apanage: 0, decree: 0};
+const SB_FAR = new THREE.Vector3(0, -999, 0);
+const HWD = (t, c) => L('Hochwürden', t, c), KLUD = (t, c) => L('King Ludwig', t, c);
+
+function sbClose(){ const r = SB_MG.last; SB_MG.last = null; if (!r) return; const st = ladState('stock');
+  if (r.won){ const first = ladderBeat('stock', r.i); if (r.i === 3 && first) setTimeout(() => say([KLUD('...You put a stock in front of Our Daube. In Our path. And We threw into it. Four times.'), KLUD('A King does not step aside. It is the first rule. It is also, We see now, the last.'), KLUD('Take the crown. The swan one. We have eleven. It is the only one that makes the police bow.')]), 1200); }
+  else if (r.i === st.beat) ladderFail('stock'); }
+
+const ld_bavariaStockbahn_1 = () => {
+if (typeof VIL146 === 'undefined' || !VIL146) return;
+esBuild();
+const x0 = BYX(-70), x1 = BYX(-40), z = BYZ(106), cx = (x0 + x1)/2; let top = 0; for (let x = x0; x <= x1; x += 2) top = Math.max(top, floorAt(x, z, 50), floorAt(x, z - 2, 50), floorAt(x, z + 2, 50));
+const g = new THREE.Group(); byG.add(g); SB_MG.g = g; SB_MG.y = top + 0.12;
+// the lane: asphalt on a little bank, white lines, the target field marked, a board at the end
+g.add(boxMesh(x1 - x0, 0.6, 3.6, mat(0x5c5c62), cx, top - 0.18, z)); g.add(boxMesh(x1 - x0 + 0.4, 0.5, 4.2, mat(0x8a8478), cx, top - 0.3, z));
+for (const dz of [-1.62, 1.62]) g.add(boxMesh(x1 - x0, 0.02, 0.06, mat(0xf4f4f0), cx, top + 0.125, z + dz));
+g.add(boxMesh(0.08, 0.02, 3.2, mat(0xf4f4f0), x0 + 1, top + 0.125, z)); g.add(boxMesh(0.06, 0.02, 3.2, mat(0xf4f4f0), x0 + 1 + ES_FIELD, top + 0.125, z));
+g.add(boxMesh(0.2, 0.5, 3.8, mat(0x7a5a3a), x0 + 1 + ES_BACK + 0.1, top + 0.37, z));
+// a Daube and a few stocks lying in the field; a rack of stocks and a bench by the throwing line
+const stock = (x, zz, col) => { const s = new THREE.Group(); s.add(mesh(new THREE.CylinderGeometry(0.14, 0.15, 0.1, 14), mat(col), 0, 0.05, 0)); s.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.12, 8), mat(0x4a3020), 0, 0.16, 0)); s.add(boxMesh(0.04, 0.04, 0.22, mat(0x4a3020), 0, 0.3, 0)); s.position.set(x, top + 0.12, zz); g.add(s); return s; };
+{ const d = mesh(new THREE.TorusGeometry(0.05, 0.022, 6, 14), mat(0x1a1a1e), x0 + 1 + ES_D, top + 0.14, z + 0.2); d.rotation.x = PI/2; g.add(d); }
+stock(x0 + 1 + ES_D - 0.6, z - 0.3, 0xc8302a); stock(x0 + 1 + ES_D + 0.9, z + 0.6, 0x2a6ad8); stock(x0 + 1 + ES_D - 2.5, z + 0.1, 0x2a6ad8);
+for (let k = 0; k < 4; k++) stock(x0 + 0.5, z - 1.3 + k*0.35, k % 2 ? 0x2a6ad8 : 0xc8302a);
+const gb = floorAt(x0 + 2.5, z - 2.9, 50); g.add(boxMesh(0.4, 0.06, 1.8, mat(0x8a6a4a), x0 + 2.5, gb + 0.45, z - 2.9)); for (const dz of [-0.7, 0.7]) g.add(boxMesh(0.36, 0.45, 0.08, mat(0x6a4a3a), x0 + 2.5, gb + 0.22, z - 2.9 + dz));
+sign49('STOCKBAHN · Neutaubenstein', 2.6, 0.4, x0 - 0.8, top + 1.6, z + 1.9, PI/2, g, {bg: '#f4f0e6', fg: '#2a4a9a', size: 40, pw: 512, ph: 80}); g.add(boxMesh(0.08, 1.7, 0.08, mat(0x6a4a3a), x0 - 0.8, top + 0.85, z + 1.9));
+addSolid(cx, z, x1 - x0, 0.1, top - 0.6, top + 0.12, 'stockbahn');
+// the people
+SB_MG.sepp = human131({shirt: 0xf4f4f0, pants: 0x5a3a20, hair: 0x8a5a2a}, x0 + 0.4, top + 0.12, z + 1.1, PI/2 + 0.5);
+SB_MG.vroni = human131({shirt: 0x3a7a4a, pants: 0x2a3a6a, hair: 0xd8a83a}, x0 + 4.5, floorAt(x0 + 4.5, z - 2.7, 50) + 0.02, z - 2.7, 0.3);
+SB_MG.hw = person22(g, x0 + 2.82, z - 2.9, PI/2, {sit: true, y: gb - 0.06, shirt: 0x1a1a1e, pants: 0x1a1a1e, hair: 0xc8c4bc});
+for (const H of [SB_MG.sepp, SB_MG.vroni, SB_MG.hw]) if (H && H.g) H.g.userData.cr = 99;
+const portrait = (o, n) => { PORTRAITS[n] = (() => { const H = makeHuman(o); scene.remove(H.g); H.snack.visible = false; H.g.rotation.y = 0.4; return renderPortrait(H.g, new THREE.Vector3(0.3, 1.92, 1.15), new THREE.Vector3(0, 1.8, 0)); })(); };
+portrait({shirt: 0xf4f4f0, hair: 0x8a5a2a}, 'Sepp'); portrait({shirt: 0x3a7a4a, hair: 0xd8a83a}, 'Vroni'); portrait({shirt: 0x1a1a1e, hair: 0xc8c4bc}, 'Hochwürden');
+VOICES['Sepp'] = {kind: 'human', base: 150, range: 0.25, rate: 11, cps: 44}; VOICES['Vroni'] = {kind: 'human', base: 240, range: 0.3, rate: 12, cps: 46}; VOICES['Hochwürden'] = {kind: 'human', base: 115, range: 0.2, rate: 9, cps: 36};
+FOLK.push(['Sepp', 'Sepp from the Wirtshaus. Throws a stock the way he pours a Maß: generously, and roughly in the right direction.'],
+  ['Vroni', 'Captains the Maibaum club. Knocks your stocks out of the field and then apologises, sincerely, every time.'],
+  ['Hochwürden', 'The parish priest of Neutaubenstein. Blesses the stocks before a match, his own twice. Has the King\'s ear, on Sundays.']);
+SB_MG.spot = V48(x0 - 0.2, top + 1, z); SB_MG.hspot = V48(x0 + 2.5, gb + 1, z - 2.0);
+const near = () => inBav146() && player.pos.distanceTo(SB_MG.spot) < 7;
+LADDERS.stock = {key: 'stock', title: 'Stockschießen at Neutaubenstein',
+  levels: [
+    {id: 'es0', name: 'Sepp', pay: 10, xp: 40},
+    {id: 'es1', name: 'Vroni', pay: 20, xp: 70, loot: {roll: 1, floor: 1}},
+    {id: 'es2', name: 'Hochwürden', pay: 35, xp: 120, loot: {legend: 'Hochwürden\'s Rosary', base: 'locket', r: 2, st: {charm: 6, luck: 8}}},
+    {id: 'es3', name: 'King Ludwig', pay: 300, xp: 400, loot: {legend: 'Ludwig\'s Swan Crown', base: 'tiara', b: 'swanmg', s: 'head', uq: 'swan', r: 4, v: 68, st: {charm: 12, luck: 10, stealth: 8}}},
+  ],
+  at: () => SB_MG.spot,
+  text: i => `Beat ${ES_OPP[i].full} at Stockschießen, on the Stockbahn behind the Neutaubenstein beer garden.`,
+  hint: st => st.beat === 3 ? 'Hochwürden: <i>"His Majesty never steps aside. Think about what that means, my child. Then come and ask me."</i>' : null};
+const lines0 = ['Sepp', 'Vroni', 'Hochwürden', 'King Ludwig'];
+addNamedTalker(() => 'Play Stockschießen', 'Stockbahn', () => inBav146() ? SB_MG.spot : SB_FAR, () => { const st = ladState('stock'), b = st.beat; st.met = 1;
+  const ch = []; for (let i = Math.min(b, 3); i >= 0; i--) ch.push({label: `${i === 3 ? 'Challenge the King' : 'Play ' + ES_OPP[i].n}${i === b ? ' (next)' : ''}`, fn: () => esOpen(i)}); ch.push({label: 'Not now.', fn: () => {}});
+  const lines = [];
+  if (!st.sepp){ st.sepp = 1; lines.push(L('Sepp', 'Servus! Stockschießen. Like curling, but Bavarian, and on asphalt in summer, and with beer. Mostly the beer.'), L('Sepp', 'The black ring is the Daube. Painted on. A real one went through the Wirtshaus window last summer. Nearest stock to it scores three, every other one of yours nearer than my best scores two. Four stocks each a Kehre.'), L('Sepp', 'Short of the white line it doesn\'t count, but it stays where it lies. Off the side or against the board at the back, it\'s out.')); }
+  if (b === 3) lines.push(HWD('His Majesty has come down from the castle. He has brought his own stocks, his own lane sweeper, and his own rules. Rule one: the King throws last. Always.', ch));
+  else lines.push(L(lines0[Math.min(b, 2)], b >= 4 ? 'Again? You beat the King. You can play anyone you like. Nobody will play you.' : b === 0 ? 'You against me, two Kehren. Gently does it.' : b === 1 ? 'Vroni will knock you out of the field. She apologises after. Every time.' : 'Hochwürden. Three Kehren. He blesses his stocks. It seems to work.', ch));
+  save(); say(lines); }, 2.2, near);
+addNamedTalker(() => 'Talk to Hochwürden', 'Hochwürden', () => inBav146() ? SB_MG.hspot : SB_FAR, () => { const st = ladState('stock'), b = st.beat, tries = st.tries || 0; const lines = [];
+  if (b < 3) lines.push(HWD(mpick(['Grüß Gott, my child. Beat Sepp and Vroni and then me, and I will put in a word with His Majesty. He loves Stockschießen. He has never lost. Nobody knows how hard he has tried to.', 'A stock that is lying short is not wasted, my child. It is waiting.'])));
+  else if (b >= 4) lines.push(HWD(mpick(['The crown suits you. The police will bow. Try not to enjoy it, it is a sin. A small one.', 'His Majesty has taken up chess. He throws the pieces from the middle of the room.'])));
+  else { lines.push(HWD('His Majesty throws last, every Kehre, and he never misses. You cannot outthrow him. Nobody can.'));
+    if (tries >= 3) lines.push(HWD('But he always throws from the middle of the line. Always straight at the Daube, or at your stock. A King does not step aside. Not for a beggar, not for a bishop, not for a stock.'));
+    if (tries >= 6) lines.push(HWD('So what if something were lying in his way? Well short of the Daube, right in the middle, on the line from his feet to it. The curlers have a word for it: a guard.'));
+    if (tries >= 9) lines.push(HWD('Your first stock: in the middle, on his line, a metre or two short of the field line. Too close to the Daube and it blocks you as well. Then stand right at the edge of the throwing line and throw your others past it, to the Daube. He will throw into your guard. Every time. God forgive me.')); }
+  save(); say(lines); }, 2.0, near);
+ES_MG.onResult = r => { SB_MG.last = r; };
+ES_MG.onClose = sbClose;
+};
+
+/* ---------- Ludwig's Swan Crown ---------- */
+const ld_gameplaySwanMG_1 = () => {
+aroundHook('lootIcon', function(next, b, r){ if (b !== 'swanmg') return next(b, r); const k = b + r; if (ICON29[k]) return ICON29[k];
+  const c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d'), col = RAR[r].col;
+  px(g, 2, 7, '#e8c040', 12, 5); px(g, 2, 4, '#e8c040', 2, 3); px(g, 7, 3, '#e8c040', 2, 4); px(g, 12, 4, '#e8c040', 2, 3); px(g, 5, 8, '#2a4a9a', 2, 2); px(g, 9, 8, '#d8302a', 2, 2); px(g, 7, 1, '#f4f4f0', 2, 2); px(g, 1, 13, col, 14, 2);
+  return ICON29[k] = c.toDataURL(); });
+UNIQUE_MG.swan = {name: 'Ludwig\'s Swan Crown',
+  card: () => '<b>Unique.</b> One of eleven. The only one that makes the police bow.<br>· <b>Royal Decree</b>: while you wear it, the police bow instead of chasing: your wanted level drops a step every eight seconds.<br>· <b>The Civil List</b>: the Bavarian treasury still pays the King\'s allowance. A crumb every twenty seconds.',
+  frame: dt => { if (state !== 'play') return;
+    if (typeof heat27 !== 'undefined' && heat27 > 0){ SB_MG.decree += dt; if (SB_MG.decree >= 8){ SB_MG.decree = 0; heat27 = Math.max(0, heat27 - 1); try { renderHeat(); } catch(e){} floatText(player.pos, 'By order of the King', '#ffd166', 1.4); } } else SB_MG.decree = 0;
+    SB_MG.apanage += dt; if (SB_MG.apanage >= 20){ SB_MG.apanage = 0; S.crumbs += 1; floatText(player.pos, '+1 (Civil List)', '#ffd166', 0.9); } }};
+};
 /* ---------- world: gameplay/feel ---------- */
 // From v120. The ld_* steps are run by boot/world.js, in load order.
 
@@ -49001,6 +49579,12 @@ step(ld_gameplayChipMG_1, 900000009); await bootYield("ld_gameplayChipMG_1");   
 later('bangcluck', ld_bangcluckKhunLek_1, 900000010);   // KL_MG, the table, Khun Lek, Raymond Babbird, the chart, LADDERS.blackjack, talkers, system khunLekMG
 // Lunar Lander outside the Grand Hôtel de la Tranquillité (gameplay/lunar-lander.js, world/moon/lander.js; its venue step is in boot/moon.js) and Apollo's Lunar Module Key
 step(ld_gameplayLmKeyMG_1, 900000011); await bootYield("ld_gameplayLmKeyMG_1");        // hooks lootIcon, UNIQUE_MG.lmkey, hooks updatePlayer, addEventListener
+// Le Tour de Fromage at a sponsor's tent by the Tour director in Paree (gameplay/tour-de-fromage.js, world/paree/fromage.js) and Lance's Wingstrong Band
+step(ld_gameplayBandMG_1, 900000013); await bootYield("ld_gameplayBandMG_1");         // hooks lootIcon, UNIQUE_MG.yband, TREE40.drain, TREE40.outOfWing, system bandMG
+later('paree', ld_pareeFromage_1, 900000014);   // FR_MG, the tent, Madame Brie-Savarin, Eddy Mercoo, Lance Wingstrong, LADDERS.tour, talkers
+// Stockschießen on the Stockbahn behind the Neutaubenstein beer garden (gameplay/eisstock.js, world/bavaria/stockbahn.js) and Ludwig's Swan Crown
+step(ld_gameplaySwanMG_1, 900000015); await bootYield("ld_gameplaySwanMG_1");         // hooks lootIcon, UNIQUE_MG.swan
+later('paree', ld_bavariaStockbahn_1, 900000016);   // SB_MG, the lane, Sepp, Vroni, Hochwürden, LADDERS.stock, talkers
 /* ---------- moon: gate ---------- */
 // From v191. The mo_* steps are run by boot/moon.js, in load order.
 // set by the steps below
@@ -55927,6 +56511,20 @@ WHATS_NEW.unshift(['328 · Count Down', 'Since the Golden Prawn went down, its c
 GAME_VER.n = 329;
 GAME_VER.name = 'Hoverslam';
 WHATS_NEW.unshift(['329 · Hoverslam', 'Outside the Grand Hôtel de la Tranquillité there is a Lunar Lander cabinet now, and leaning on it, Buzz Aldroost, lunar module pilot, retired. Five pads, from a wide training pad to Tranquillity Base. The fifth is the Lighthouse: two kilometres up, falling fast, and twenty-nine seconds of fuel. Hover your way down and you will run dry. Buzz knows the trick. Buzz will tell you, eventually.']);
+/* =====================================================================
+   v331 · LES BORDURES: Le Tour de Fromage at a cheese tent by the Tour director in Paree
+   ===================================================================== */
+// v331
+GAME_VER.n = 331;
+GAME_VER.name = 'Les Bordures';
+WHATS_NEW.unshift(['331 · Les Bordures', 'A yellow tent has gone up by the Tour director in Paree: Le Tour de Fromage, sponsored by Madame Brie-Savarin. You ride it on her trainer while the TV helicopter films the real road. A time trial, a bunch sprint and a mountain, and then Les Bordures, a crosswind stage behind Lance Wingstrong, seven Tours de Fromage, all under review. Sit on his wheel and the wind takes you anyway. Eddy Mercoo, the Cannibal, retired, knows where the shelter is. Ask him.']);
+/* =====================================================================
+   v332 · ROYAL GUARD: Stockschießen with King Ludwig on the Neutaubenstein Stockbahn
+   ===================================================================== */
+// v332
+GAME_VER.n = 332;
+GAME_VER.name = 'Royal Guard';
+WHATS_NEW.unshift(['332 · Royal Guard', 'Behind the Neutaubenstein beer garden there\'s a Stockbahn now: Stockschießen, the summer kind of Eisstock, on asphalt. Beat Sepp from the Wirtshaus, Vroni from the Maibaum club and Hochwürden, and the King himself comes down from the castle. King Ludwig the Second-Best throws last every Kehre and never misses. But a King does not step aside. Hochwürden thinks about that a lot. Ask him.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a

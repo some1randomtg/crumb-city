@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v329 (two more minigames: blackjack with Khun Lek by the Kempinski Bangcluck's shut casino doors, where the last test is keeping the count, and a Lunar Lander cabinet outside the Grand Hôtel de la Tranquillité on the Moon, whose last pad needs a hoverslam).
+Current version: v332 (the last two zone minigames: Le Tour de Fromage at a cheese tent by the Tour director in Paree, ending in a crosswind stage behind Lance Wingstrong, and Stockschießen on the Neutaubenstein Stockbahn in Bavaria, ending against King Ludwig, who throws last and never steps aside).
