@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v334 (busy cities run a little smoother; arriving in a city stutters far less since v333; plus the minigames of v326 to v332)
+Current version: v335 (every city draws 5 to 11% more frames a second, same look; arriving in a city stutters far less since v333; plus the minigames of v326 to v332)

@@ -7021,28 +7021,35 @@ function sbInit(){
   sun.shadow.camera.layers.enable(SB_PROXY);
   // the renderer walks the whole visible scene for every pass; batched originals are skipped outright (their children,
   // if any, still get looked at), and the shadow passes skip what can't cast
-  let P = Object.getPrototypeOf(renderer); while (P && !Object.prototype.hasOwnProperty.call(P, '_projectObject')) P = Object.getPrototypeOf(P);
-  if (P && !P.__sb261){ const orig = P._projectObject; P.__sb261 = true;
-    P._projectObject = function(object, camera, groupOrder, renderList, clippingContext){
+  // (three r187 walks the scene in its drawer, renderer.drawer.project, and files what it draws through the drawer: DRW)
+  const DRW = renderer.drawer != null && typeof renderer.drawer.project === 'function', PN = DRW ? 'project' : '_projectObject';
+  const PUSH = DRW ? (t, rl, o, g, m, go, z, gr, cc) => t.pushRenderItem(rl, o, g, m, go, z, gr, cc) : (t, rl, o, g, m, go, z, gr, cc) => rl.push(o, g, m, go, z, gr, cc);
+  // v335: a child that can't add anything to the pass isn't walked at all: a hidden one, or a batched one without children
+  // (its batch draws it). A third of the main pass's calls were these, each one only to be turned away. (window.__noPrune335)
+  const sbKids335 = (R, ch, camera, groupOrder, renderList, clippingContext) => { const all = window.__noPrune335 === true;
+    for (let i = 0, l = ch.length; i < l; i++){ const c = ch[i]; if (all || (c.visible !== false && (c.__sbS === undefined || c.children.length !== 0))) R[PN](c, camera, groupOrder, renderList, clippingContext); } };
+  let P = Object.getPrototypeOf(DRW ? renderer.drawer : renderer); while (P && !Object.prototype.hasOwnProperty.call(P, PN)) P = Object.getPrototypeOf(P);
+  if (P && !P.__sb261){ const orig = P[PN]; P.__sb261 = true;
+    P[PN] = function(object, camera, groupOrder, renderList, clippingContext){
       const u = object.userData;
       // v321: a group whose sphere (sbGroupSphere321) is outside this pass's view is skipped whole (three tests each mesh,
       // never a group, so every pass walked the whole shown world, the city behind the camera included)
       // (the frustum once a render or compile, as three sets its own up: a compile of one group, which has a parent,
       // gets one too)
-      { const rid = this._nodes.nodeFrame.renderId; if (camera.__gfR321 !== rid){ camera.__gfR321 = rid; const F = camera.__gf321 || (camera.__gf321 = new THREE.Frustum()); _sbGM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); F.setFromProjectionMatrix(_sbGM, camera.coordinateSystem, camera.reversedDepth); } }
+      { const rid = (DRW ? this.renderer : this)._nodes.nodeFrame.renderId; if (camera.__gfR321 !== rid){ camera.__gfR321 = rid; const F = camera.__gf321 || (camera.__gf321 = new THREE.Frustum()); _sbGM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); F.setFromProjectionMatrix(_sbGM, camera.coordinateSystem, camera.reversedDepth); } }
       if (object.__gs !== undefined && object.isMesh !== true){ const g = object.__gs;
         if (g.v === object.__sbV && g.big === false && SB_FR - g.f < 900 && window.__noGc321 !== true && (g.s === null || (camera.__gf321 !== undefined && !camera.__gf321.intersectsSphere(g.s)))) return; }
       if (PERF !== null && PERF.vis !== null) PERF.vis.v++;   // v321: objects walked, by pass (?perf=1)
       // v323: a rig drawn by the crowd batches this frame (render/crowd-batch.js), whole, or one of its parts
       if (object.__cbAll323 === SB_FR) return;
       // v323: an instanced mesh dealt into cells (render/instance-split.js): the cells, its children, draw it
-      if (object.__imSplit === true){ if (object.visible === false) return; const ch = object.children; for (let i = 0; i < ch.length; i++) this._projectObject(ch[i], camera, groupOrder, renderList, clippingContext); return; }
-      if (object.__cb323 === SB_FR){ if (object.visible === false) return; const ch = object.children; for (let i = 0; i < ch.length; i++) this._projectObject(ch[i], camera, groupOrder, renderList, clippingContext); return; }
-      if (object.__sbS !== undefined){ if (object.visible === false) return; const ch = object.children; for (let i = 0; i < ch.length; i++) this._projectObject(ch[i], camera, groupOrder, renderList, clippingContext); return; }
+      if (object.__imSplit === true){ if (object.visible === false) return; const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); return; }
+      if (object.__cb323 === SB_FR){ if (object.visible === false) return; const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); return; }
+      if (object.__sbS !== undefined){ if (object.visible === false) return; const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); return; }
       // v321: a person in the middle distance or far (cast/lod.js setLOD317): the parts are on layers 4 and 2, which no
       // camera draws, so a camera without those layers sees only the one-mesh body, if any
       if (object.__lod317 !== undefined && (camera.layers.mask & 20) === 0 && window.__noLodWalk321 !== true){ if (object.visible === false) return;
-        const fb = object.__fb317; if (fb !== undefined && fb.parent === object) this._projectObject(fb, camera, groupOrder, renderList, clippingContext); return; }
+        const fb = object.__fb317; if (fb !== undefined && fb.parent === object) this[PN](fb, camera, groupOrder, renderList, clippingContext); return; }
       if (camera.userData.sbShadow === true){
         if (u.sbNoCast === true || (object.isMesh === true && object.castShadow === false && object.children.length === 0)) return;
         // the far cascade only draws the merged static shadows: people and cars that far out are a few pixels
@@ -7051,7 +7058,7 @@ function sbInit(){
       // to any pixel and writes no depth, so it isn't drawn (what's inside it still is). (window.__noOp0321: drawn, live)
       else if (object.castShadow === false && (object.isMesh === true || object.isSprite === true)){ const m = object.material;
         if (m && m.opacity === 0 && m.blending === THREE.AdditiveBlending && m.transparent === true && m.depthWrite === false && m.premultipliedAlpha === false && !m.opacityNode && !m.outputNode && window.__noOp0321 !== true){
-          if (object.visible === false) return; const ch = object.children; for (let i = 0; i < ch.length; i++) this._projectObject(ch[i], camera, groupOrder, renderList, clippingContext); return; } }
+          if (object.visible === false) return; const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); return; } }
       if (window.__noFuse323 === true || camera.isArrayCamera === true || object.isBundleGroup === true || object.isClippingGroup === true) return orig.call(this, object, camera, groupOrder, renderList, clippingContext);
       // v323: three's own projection of the object, line for line, in this same call (it used to be a second call per object
       // walked, and its children came back through this one: the walk was a third of the main pass). The frustum and the
@@ -7062,15 +7069,15 @@ function sbInit(){
         if (object.isGroup === true) groupOrder = object.renderOrder;
         else if (object.isLOD === true){ if (object.autoUpdate === true) object.update(camera); }
         else if (object.isLight === true) renderList.pushLight(object);
-        else if (object.isSprite === true){ if (!object.frustumCulled || object.intersectsFrustum(camera.__gf321)){ if (this.sortObjects === true) _sbV4.setFromMatrixPosition(object.matrixWorld).applyMatrix4(_sbGM);
-            const m = object.material; if (m.visible) renderList.push(object, object.geometry, m, groupOrder, _sbV4.z, null, clippingContext); } }
+        else if (object.isSprite === true){ if (!object.frustumCulled || object.intersectsFrustum(camera.__gf321)){ if ((DRW ? this.renderer : this).sortObjects === true) _sbV4.setFromMatrixPosition(object.matrixWorld).applyMatrix4(_sbGM);
+            const m = object.material; if (m.visible) PUSH(this, renderList, object, object.geometry, m, groupOrder, _sbV4.z, null, clippingContext); } }
         else if (object.isLineLoop === true) return orig.call(this, object, camera, groupOrder, renderList, clippingContext);
         else if (object.isMesh === true || object.isLine === true || object.isPoints === true){
           if (!object.frustumCulled || object.intersectsFrustum(camera.__gf321)){ const g = object.geometry, m = object.material;
-            if (this.sortObjects === true){ if (g.boundingSphere === null) g.computeBoundingSphere(); _sbV4.copy(g.boundingSphere.center).applyMatrix4(object.matrixWorld).applyMatrix4(_sbGM); }
-            if (Array.isArray(m)){ const G = g.groups; for (let i = 0, l = G.length; i < l; i++){ const gr = G[i], gm = m[gr.materialIndex]; if (gm && gm.visible) renderList.push(object, g, gm, groupOrder, _sbV4.z, gr, clippingContext); } }
-            else if (m.visible) renderList.push(object, g, m, groupOrder, _sbV4.z, null, clippingContext); } } }
-      const ch = object.children; for (let i = 0, l = ch.length; i < l; i++) this._projectObject(ch[i], camera, groupOrder, renderList, clippingContext); }; }
+            if ((DRW ? this.renderer : this).sortObjects === true){ if (g.boundingSphere === null) g.computeBoundingSphere(); _sbV4.copy(g.boundingSphere.center).applyMatrix4(object.matrixWorld).applyMatrix4(_sbGM); }
+            if (Array.isArray(m)){ const G = g.groups; for (let i = 0, l = G.length; i < l; i++){ const gr = G[i], gm = m[gr.materialIndex]; if (gm && gm.visible) PUSH(this, renderList, object, g, gm, groupOrder, _sbV4.z, gr, clippingContext); } }
+            else if (m.visible) PUSH(this, renderList, object, g, m, groupOrder, _sbV4.z, null, clippingContext); } } }
+      const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); }; }
   return SBATCH;
 }
 
@@ -7100,7 +7107,7 @@ function sbMatrices(o, force, self){
   const s = o.__sbS;   // batched: leaves its batch when it moved or got another material or geometry
   if (s !== undefined && (o.material !== s.mat || o.geometry !== s.geo || (moved && !sbSame(o.matrixWorld.elements, s.e)))){ sbRelease(o, true); changed = true; }
   if (self === true) return changed;   // (v323: a frozen rig: its own matrix only)
-  const ch = o.children, all = window.__sbAll === 1;
+  const ch = o.children, all = window.__sbAll === 1, all335 = window.__noPrune335 === true;
   for (let i = 0; i < ch.length; i++){ const c = ch[i];
     // v323: a rig nobody can see (out of the main view and the near shadow cascade, or too far to draw: render/crowd-batch.js
     // decided so last frame) keeps its own place up to date, not its limbs': they are brought up to date the frame it
@@ -7111,6 +7118,8 @@ function sbMatrices(o, force, self){
     if (c.__sbStale === true){ c.__sbStale = false; sbMatrices(c, true); c.__sbQ = 0; c.__sbV = (c.__sbV | 0) + 1; changed = true; continue; }
     const kids = c.children.length;
     if (force === false && kids !== 0 && c.__sbQ > 60 && !all && ((SB_FR + c.id) & 3) !== 0){ const L = c.__sbLt; if (L !== undefined) for (let k = 0; k < L.length; k++) SB_LIGHTS.push(L[k]); continue; }
+    // v335: a still leaf with nothing to bring up to date (its matrices set once, not batched, not a light) isn't called
+    if (kids === 0 && force === false && c.matrixAutoUpdate === false && c.matrixWorldNeedsUpdate === false && c.__sbS === undefined && c.isLight !== true && !all335) continue;
     const n0 = SB_LIGHTS.length, cc = sbMatrices(c, force);
     if (kids !== 0){ if (cc){ c.__sbQ = 0; c.__sbV = (c.__sbV | 0) + 1; changed = true; } else c.__sbQ = (c.__sbQ | 0) + 1; c.__sbLt = SB_LIGHTS.length > n0 ? SB_LIGHTS.slice(n0) : undefined; }
     else if (cc) changed = true; }
@@ -7554,8 +7563,9 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
           if (withRange){ const v = this.getLightVector(builder), r = this.cutoffDistanceNode; on = on.and(r.equal(0).or(dot(v, v).lessThan(r.mul(r)))); }
           const R = builder.context.reflectedLight; R.directDiffuse.toStack(); R.directSpecular.toStack();
           Fn(() => { If(on, () => { const d = this.setupDirect(builder); if (d) builder.lightsNode.setupDirectLight(builder, this, d); }); }, 'void')(); } };
-      lib.lightNodes.delete(THREE.PointLight); lib.addLight(gated(THREE.PointLightNode, true), THREE.PointLight);
-      lib.lightNodes.delete(THREE.DirectionalLight); lib.addLight(gated(THREE.DirectionalLightNode, false), THREE.DirectionalLight); }
+      // (r187 registers a light's node on the light class: Light.registerNode; r186 kept them in the library's lightNodes)
+      const reg = (L, N) => { if (typeof L.registerNode === 'function' && !lib.lightNodes) L.registerNode(N); else { lib.lightNodes.delete(L); lib.addLight(N, L); } };
+      reg(THREE.PointLight, gated(THREE.PointLightNode, true)); reg(THREE.DirectionalLight, gated(THREE.DirectionalLightNode, false)); }
     lib.fromMaterial = m => { const n = from(m); if (n && n !== m && LIT.has(m.type)){
         if (PIPE.hd && !n.colorNode){ n.colorNode = materialColor.mul(detail); n.colorNode.__still321 = true; }
         if (m.userData && m.userData.water) n.mrtNode = water; }
@@ -56558,6 +56568,13 @@ WHATS_NEW.unshift(['333 · Steady Hands', 'Arriving somewhere new stutters much 
 GAME_VER.n = 334;
 GAME_VER.name = 'A Quarter at a Time';
 WHATS_NEW.unshift(['334 · A Quarter at a Time', 'Busy cities run a little smoother: each frame the game checks a quarter of a city\'s walls, floors and benches for anything that has moved, not all of them, so Paree, New Yolk and Bangcluck draw a few more frames a second.']);
+/* =====================================================================
+   v335 · NOTHING TO SEE HERE: the passes and the matrices skip what can't add anything
+   ===================================================================== */
+// v335
+GAME_VER.n = 335;
+GAME_VER.name = 'Nothing to See Here';
+WHATS_NEW.unshift(['335 · Nothing to See Here', 'Every city draws more frames a second, five to eleven percent more, and looks exactly the same. Each frame the game used to visit thousands of hidden things and things already drawn in a batch only to turn them away; it now passes them by.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
