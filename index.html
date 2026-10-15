@@ -7041,7 +7041,7 @@ function sbInit(){
   // v335: a child that can't add anything to the pass isn't walked at all: a hidden one, or a batched one without children
   // (its batch draws it). A third of the main pass's calls were these, each one only to be turned away. (window.__noPrune335)
   const sbKids335 = (R, ch, camera, groupOrder, renderList, clippingContext) => { const all = window.__noPrune335 === true;
-    for (let i = 0, l = ch.length; i < l; i++){ const c = ch[i]; if (all || (c.visible !== false && (c.__sbS === undefined || c.children.length !== 0))) R[PN](c, camera, groupOrder, renderList, clippingContext); } };
+    for (let i = 0, l = ch.length; i < l; i++){ const c = ch[i]; if (all || ((c._visible306 !== false && c._camHide308 !== true) && (c.__sbS === undefined || c.children.length !== 0))) R[PN](c, camera, groupOrder, renderList, clippingContext); } };
   let P = Object.getPrototypeOf(DRW ? renderer.drawer : renderer); while (P && !Object.prototype.hasOwnProperty.call(P, PN)) P = Object.getPrototypeOf(P);
   if (P && !P.__sb261){ const orig = P[PN]; P.__sb261 = true;
     P[PN] = function(object, camera, groupOrder, renderList, clippingContext){
@@ -7057,12 +7057,12 @@ function sbInit(){
       // v323: a rig drawn by the crowd batches this frame (render/crowd-batch.js), whole, or one of its parts
       if (object.__cbAll323 === SB_FR) return;
       // v323: an instanced mesh dealt into cells (render/instance-split.js): the cells, its children, draw it
-      if (object.__imSplit === true){ if (object.visible === false) return; const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); return; }
-      if (object.__cb323 === SB_FR){ if (object.visible === false) return; const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); return; }
-      if (object.__sbS !== undefined){ if (object.visible === false) return; const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); return; }
+      if (object.__imSplit === true){ if ((object._visible306 === false || object._camHide308 === true)) return; const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); return; }
+      if (object.__cb323 === SB_FR){ if ((object._visible306 === false || object._camHide308 === true)) return; const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); return; }
+      if (object.__sbS !== undefined){ if ((object._visible306 === false || object._camHide308 === true)) return; const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); return; }
       // v321: a person in the middle distance or far (cast/lod.js setLOD317): the parts are on layers 4 and 2, which no
       // camera draws, so a camera without those layers sees only the one-mesh body, if any
-      if (object.__lod317 !== undefined && (camera.layers.mask & 20) === 0 && window.__noLodWalk321 !== true){ if (object.visible === false) return;
+      if (object.__lod317 !== undefined && (camera.layers.mask & 20) === 0 && window.__noLodWalk321 !== true){ if ((object._visible306 === false || object._camHide308 === true)) return;
         const fb = object.__fb317; if (fb !== undefined && fb.parent === object) this[PN](fb, camera, groupOrder, renderList, clippingContext); return; }
       if (camera.userData.sbShadow === true){
         if (u.sbNoCast === true || (object.isMesh === true && object.castShadow === false && object.children.length === 0)) return;
@@ -7072,13 +7072,13 @@ function sbInit(){
       // to any pixel and writes no depth, so it isn't drawn (what's inside it still is). (window.__noOp0321: drawn, live)
       else if (object.castShadow === false && (object.isMesh === true || object.isSprite === true)){ const m = object.material;
         if (m && m.opacity === 0 && m.blending === THREE.AdditiveBlending && m.transparent === true && m.depthWrite === false && m.premultipliedAlpha === false && !m.opacityNode && !m.outputNode && window.__noOp0321 !== true){
-          if (object.visible === false) return; const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); return; } }
+          if ((object._visible306 === false || object._camHide308 === true)) return; const ch = object.children; sbKids335(this, ch, camera, groupOrder, renderList, clippingContext); return; } }
       if (window.__noFuse323 === true || camera.isArrayCamera === true || object.isBundleGroup === true || object.isClippingGroup === true) return orig.call(this, object, camera, groupOrder, renderList, clippingContext);
       // v323: three's own projection of the object, line for line, in this same call (it used to be a second call per object
       // walked, and its children came back through this one: the walk was a third of the main pass). The frustum and the
       // sort depth are worked out as three does (render/static-batch.js sets them up at the walk's root, from the same
       // camera matrices)
-      if (object.visible === false) return;
+      if ((object._visible306 === false || object._camHide308 === true)) return;
       if (object.layers.test(camera.layers)){
         if (object.isGroup === true) groupOrder = object.renderOrder;
         else if (object.isLOD === true){ if (object.autoUpdate === true) object.update(camera); }
@@ -7127,7 +7127,7 @@ function sbMatrices(o, force, self){
     // decided so last frame) keeps its own place up to date, not its limbs': they are brought up to date the frame it
     // shows again, before anything of it is drawn. (window.__noFreeze323 = true: every frame, live)
     if (c.__cbOff === SB_FR - 1 && window.__noFreeze323 !== true){ if (sbMatrices(c, force, true)) changed = true; c.__cbFrozen = true; continue; }
-    if (c.visible === false){ if (c.__sbStale !== true){ c.__sbStale = true; changed = true; if (SBATCH) sbHide(c); } continue; }   // hidden: whatever of it was batched elsewhere leaves the batch
+    if ((c._visible306 === false || c._camHide308 === true)){ if (c.__sbStale !== true){ c.__sbStale = true; changed = true; if (SBATCH) sbHide(c); } continue; }   // hidden: whatever of it was batched elsewhere leaves the batch
     if (c.__sbL === true && force === false && c.children.length === 0) continue;   // a batched leaf: watched below
     if (c.__sbStale === true){ c.__sbStale = false; sbMatrices(c, true); c.__sbQ = 0; c.__sbV = (c.__sbV | 0) + 1; changed = true; continue; }
     const kids = c.children.length;
@@ -7146,20 +7146,14 @@ function sbMatrices(o, force, self){
 const SB_LEAVES = [];
 // v336: a batched leaf leaves its batch the moment it's hidden, through Object3D's own setter (core/three-compat.js): an
 // accessor of its own put each one (4,400 in New Yolk) into V8's slow dictionary mode, as did deleting it again, and every
-// walk and check that touched them paid for it. (?leafacc336: an accessor of its own, as before)
-const SB_LEAFACC = /[?&]leafacc336/.test(location.search);
+// walk and check that touched them paid for it.
+// (v338: the walks read the two fields behind it, _visible306 and _camHide308, not the getter: 1.4 ms a frame of calls)
 { const d = Object.getOwnPropertyDescriptor(THREE.Object3D.prototype, 'visible'), set0 = d.set;
   Object.defineProperty(THREE.Object3D.prototype, 'visible', {get: d.get, configurable: true, set(v){
     if (v === false && this.__sbL === true && this._visible306 !== false){ this._visible306 = false; if (this.__sbS !== undefined) sbRelease(this, false); return; } set0.call(this, v); }}); }
-function sbLeaf(o){
-  if (SB_LEAFACC !== true){ o.__sbL = true; o.__sbI = SB_LEAVES.length; SB_LEAVES.push(o); return; }
-  let vis = o.visible; o.__sbL = true; o.__sbI = SB_LEAVES.length; SB_LEAVES.push(o);
-  Object.defineProperty(o, 'visible', {configurable: true, enumerable: true, get(){ return vis; },
-    set(v){ v = !!v; if (v === vis) return;   // v307: a boolean, as Object3D.visible is since v306 (core/three-compat.js)
-      vis = v; if (v === false && this.__sbS !== undefined) sbRelease(this, false); }});
-}
+function sbLeaf(o){ o.__sbL = true; o.__sbI = SB_LEAVES.length; SB_LEAVES.push(o); }
 function sbUnleaf(o){
-  if (SB_LEAFACC === true){ const v = o.visible; delete o.visible; o.visible = v; } o.__sbL = false;
+  o.__sbL = false;
   const i = o.__sbI, last = SB_LEAVES.pop(); if (last !== o){ SB_LEAVES[i] = last; last.__sbI = i; }
 }
 function sbLeafCheck(frame){
@@ -9321,6 +9315,10 @@ function makePigeon(o={}){
 function newAnim(){ return {t:Math.random()*10, phase:0, peckT:0, cooT:0, vy:0, bank:0}; }
 
 function animatePigeon(P, mode, a, dt){
+  // v338: a pigeon nobody can see (its rig frozen, render/crowd-batch.js) keeps its pose for now; the time is made up when
+  // it is seen again (the pose eases toward where it was going, so the catching up lands where it would have been)
+  if (P.g && P.g.__cbFrozen === true && window.__noPose338 !== true){ P.dt338 = (P.dt338 || 0) + dt; return; }
+  if (P.dt338){ dt += P.dt338; P.dt338 = 0; }
   let sweep, flap, roll;
   if (mode === 'flap'){ sweep = 0.15; flap = Math.sin(a.t*24)*0.95 + 0.15; roll = 0; }
   else if (mode === 'glide'){ sweep = 0.22; flap = 0.12 + Math.sin(a.t*2.2)*0.05; roll = 0; }
@@ -9586,11 +9584,17 @@ const CROWD323 = {rigs: new Set(), batches: new Map(), plain: new WeakMap(), loo
 // every pigeon and person made from here on
 { const mp = makePigeon; makePigeon = function(o){ const P = mp(o); if (P && P.g) CROWD323.rigs.add(P.g); return P; }; }
 { const mh = makeHuman; makeHuman = function(o){ const H = mh(o); if (H && H.g) CROWD323.rigs.add(H.g); return H; }; }
+// v338: cars too (the traffic's, cast/traffic.js, and every car made from the kit, render/charkit.js): their bodies and
+// windows and wheels go into the batches; the lights, whose glow is each car's own (brakes, indicators, a beacon), are
+// drawn by themselves. Paree drew 135 car parts one by one past 80 m. (window.__noCars338 = true: as before, live)
+CROWD323.cars = new Set(); CROWD323.carsOn = true;
+function cbCar(g){ if (!g || CROWD323.cars.has(g)) return; CROWD323.cars.add(g); g.traverse(o => { const m = o.material; if (m && !Array.isArray(m) && m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0) o.userData.noBatch338 = true; }); if (CROWD323.carsOn) CROWD323.rigs.add(g); }
+{ const cg = ckCarGroup; ckCarGroup = function(...a){ const g = cg(...a); cbCar(g); return g; }; }
 
 const CB_MIRROR = new THREE.Matrix4().makeScale(-1, 1, 1), _cbM = new THREE.Matrix4();
 // a part that can go in (kept per material until the material is updated)
 function cbPlain(o){
-  if (o.isInstancedMesh === true || o.isSkinnedMesh === true || o.isBatchedMesh === true || o.__sbS !== undefined || o.userData.sbOwn || o.renderOrder !== 0 || o.onBeforeRender !== SB_PLAIN) return false;
+  if (o.userData.noBatch338 === true || o.isInstancedMesh === true || o.isSkinnedMesh === true || o.isBatchedMesh === true || o.__sbS !== undefined || o.userData.sbOwn || o.renderOrder !== 0 || o.onBeforeRender !== SB_PLAIN) return false;
   const m = o.material, g = o.geometry; if (!m || Array.isArray(m) || m.transparent || !m.visible || !g || !g.attributes.position || g.morphAttributes.position) return false;
   const P = CROWD323.plain; let e = P.get(m);
   if (e === undefined || e.v !== m.version){ let ok = !m.isShaderMaterial && !m.userData.water && (m.isMeshToonMaterial || m.isMeshLambertMaterial || m.isMeshPhongMaterial || m.isMeshStandardMaterial || m.isMeshBasicMaterial);
@@ -9681,7 +9685,7 @@ function cbFree(c){ const s = c.__cbP; if (!s) return; c.__cbP = undefined; cons
 let CB_ALL = true, CB_OTHER = false;   // (CB_OTHER: the rig has something else to draw or a light: never skipped unlooked at)
 function cbWalk(o){
   const ch = o.children;
-  for (let i = 0, l = ch.length; i < l; i++){ const c = ch[i]; if (c.visible === false) continue;
+  for (let i = 0, l = ch.length; i < l; i++){ const c = ch[i]; if (c._visible306 === false || c._camHide308 === true) continue;   // (v338: the visible getter's own test)
     if (c.isMesh === true){
       // (whether it can go in is kept on the part, for its material, version and geometry)
       const m = c.material; let ok = c.__cbOk; if (c.__cbOkM !== m || c.__cbOkG !== c.geometry || (m && c.__cbOkV !== m.version)){ ok = c.__cbOk = cbPlain(c); c.__cbOkM = m; c.__cbOkG = c.geometry; c.__cbOkV = m ? m.version : -1; }
@@ -9709,12 +9713,14 @@ function crowdBatch323(){
   // would have culled each of its parts anyway. (The batches themselves aren't culled per instance by three: the shadow
   // passes run inside the main one, and a batch's list for one pass could have been drawn in the other)
   // (the rigs by the top-level group they're in, made again every 30 frames: a city that's away isn't looked through)
-  if (SB_FR - C.at >= 30){ C.at = SB_FR; C.tops.clear(); for (const g of C.rigs){ if (g.parent === null) continue; let t = g; while (t.parent && t.parent !== scene) t = t.parent; if (t.parent !== scene) continue; let L = C.tops.get(t); if (!L){ L = []; C.tops.set(t, L); } L.push(g); } }
+  { const on = window.__noCars338 !== true; if (on !== C.carsOn){ C.carsOn = on; for (const g of C.cars){ if (on) C.rigs.add(g); else { C.rigs.delete(g); if (g.__cbFrozen === true){ g.__cbFrozen = false; sbMatrices(g, true); } } } C.at = -99; } }
+  if (SB_FR - C.at >= 30){ if (typeof cars !== 'undefined') for (const v of cars) if (v && v.g) cbCar(v.g);
+    C.at = SB_FR; C.tops.clear(); for (const g of C.rigs){ if (g.parent === null) continue; let t = g; while (t.parent && t.parent !== scene) t = t.parent; if (t.parent !== scene) continue; let L = C.tops.get(t); if (!L){ L = []; C.tops.set(t, L); } L.push(g); } }
   if (!off){ cbViews();
     for (const [top, L] of C.tops){ if (top.visible === false || top.parent !== scene) continue;
     for (const g of L){
       if (g === me || g.parent === null) continue;
-      let shown = true; for (let p = g; p !== null; p = p.parent) if (p.visible === false){ shown = false; break; }
+      let shown = true; for (let p = g; p !== null; p = p.parent) if (p._visible306 === false || p._camHide308 === true){ shown = false; break; }
       if (!shown) continue;
       // (a person in the middle distance or far has nothing on layer 0 but the one-mesh body: cast/lod.js, and the passes
       // look only at that: render/static-batch.js)
@@ -56648,6 +56654,13 @@ WHATS_NEW.unshift(['336 · Birds of a Feather', 'The big cities run faster again
 GAME_VER.n = 337;
 GAME_VER.name = 'Safe Landing';
 WHATS_NEW.unshift(['337 · Safe Landing', 'Phones start the game on the lighter renderer, which is easier on their memory (an iPhone closed the game while it started). And if a start ever doesn\'t get going, the next one uses the lighter renderer too and says so on the title screen. Add ?webgpu to the address to try the full one on a phone.']);
+/* =====================================================================
+   v338 · RUSH HOUR: cars in the crowd batches; unseen pigeons and people keep their pose; the walks skip a getter
+   ===================================================================== */
+// v338
+GAME_VER.n = 338;
+GAME_VER.name = 'Rush Hour';
+WHATS_NEW.unshift(['338 · Rush Hour', 'Busy streets run a little smoother: the cars\' bodies are drawn together, like the crowds, and pigeons out of sight don\'t flap until you can see them again. Every car still has its own brake lights and indicators.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
