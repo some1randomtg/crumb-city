@@ -5767,7 +5767,14 @@ if (nodeHost) {
 <script type="module">
 window.__THREE_READY = (async () => {
   const q = new URLSearchParams(location.search);
-  let gpu = false; try { gpu = !q.has('webgl') && !!navigator.gpu && !!(await navigator.gpu.requestAdapter()); } catch (e){}
+  // v337: a phone starts on the classic WebGL renderer (an iPhone's Safari closed the page while the WebGPU one started:
+  // its shaders, cascaded shadows and effects are a laptop's load), unless ?webgpu. And a start that never got going (the
+  // page died: a crash, out of memory) has the next one start on it too, in safe mode (core/loop.js clears the mark once
+  // the game has run a while). ?webgl: the classic renderer anywhere
+  let safe = false; try { const b = localStorage.getItem('cc.boot337'); safe = b !== null && Date.now() - +b < 30*60*1000; localStorage.setItem('cc.boot337', String(Date.now())); } catch (e){}
+  const phone = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 700;
+  window.__SAFE = safe && !q.has('webgpu'); window.__PHONE = phone;
+  let gpu = false; try { gpu = !q.has('webgl') && !window.__SAFE && (!phone || q.has('webgpu')) && !!navigator.gpu && !!(await navigator.gpu.requestAdapter()); } catch (e){}
   if (!gpu){ window.THREE = Object.assign({}, await import('https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.min.js')); window.__GPU = null; return; }
   const [T, TSL, csm, gtao, ssr, bloom, blur, smaa] = await Promise.all(['three/webgpu', 'three/tsl', 'three/addons/csm/CSMShadowNode.js', 'three/addons/tsl/display/GTAONode.js', 'three/addons/tsl/display/SSRNode.js', 'three/addons/tsl/display/BloomNode.js', 'three/addons/tsl/display/GaussianBlurNode.js', 'three/addons/tsl/display/SMAANode.js'].map(m => import(m)));
   window.THREE = Object.assign({}, T, {TSL, ADDONS: {CSMShadowNode: csm.CSMShadowNode, ao: gtao.ao, ssr: ssr.ssr, bloom: bloom.bloom, gaussianBlur: blur.gaussianBlur, smaa: smaa.smaa}, WebGLRenderTarget: T.RenderTarget});
@@ -56634,6 +56641,13 @@ WHATS_NEW.unshift(['335 · Nothing to See Here', 'Every city draws more frames a
 GAME_VER.n = 336;
 GAME_VER.name = 'Birds of a Feather';
 WHATS_NEW.unshift(['336 · Birds of a Feather', 'The big cities run faster again, New Yolk about a fifth faster than at v335, and nothing looks different. A flock\'s pigeons in every colouring now share their draws, and the game keeps its thousands of street pieces in the shape the browser\'s JavaScript engine reads fastest. Also fixed: a lamp post or awning the camera faded out of its way could stay invisible for good.']);
+/* =====================================================================
+   v337 · SAFE LANDING: phones start on the lighter renderer; a start that died makes the next one safe
+   ===================================================================== */
+// v337
+GAME_VER.n = 337;
+GAME_VER.name = 'Safe Landing';
+WHATS_NEW.unshift(['337 · Safe Landing', 'Phones start the game on the lighter renderer, which is easier on their memory (an iPhone closed the game while it started). And if a start ever doesn\'t get going, the next one uses the lighter renderer too and says so on the title screen. Add ?webgpu to the address to try the full one on a phone.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -58193,8 +58207,11 @@ function frameBody47(now){
   followSky();
   renderer.shadowMap.needsUpdate = (frameN++ % shadowEvery) === 0;
   post.render();
+  if (frameN === 300){ try { localStorage.removeItem('cc.boot337'); } catch (e){} }   // v337: the start got going (shell.html: safe mode is for a start that didn't)
   { const w = performance.now() - tw321; PACE321.work += (w - PACE321.work)*0.1; if (w > PACE321.wmax) PACE321.wmax = w; }   // v321: a drawn frame's work (pace321)
 }
+if (window.__SAFE){ const t = document.getElementById('title'); if (t){ const d = document.createElement('div'); d.className = 'safe337'; d.textContent = 'The last start didn\x27t get going, so this one uses the lighter renderer. Reload to try the full one again.';   // v337 (shell.html)
+  d.style.cssText = 'position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:90vw;padding:6px 12px;font-size:13px;line-height:1.35;background:rgba(40,28,16,.88);color:#fff6dc;border-radius:8px;text-align:center;z-index:5;pointer-events:none'; t.appendChild(d); } }
 perfInit(); organiseMenu302(); bootDone();   // v302: the pause menu in tabs (ui/pause-menu.js). v301: the load is done: held timers run, the title screen's buttons wake up (core/start.js)
 requestAnimationFrame(frame);
 })();
