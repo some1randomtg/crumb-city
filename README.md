@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v333 (arriving in a city stutters far less: Paree's first visit no longer freezes for three seconds, and every city builds faster; plus the minigames of v326 to v332)
+Current version: v334 (busy cities run a little smoother; arriving in a city stutters far less since v333; plus the minigames of v326 to v332)

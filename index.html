@@ -47059,8 +47059,12 @@ function sfile333(s){
 function sgrid321(L, x, z){
   let G = SGRID321.get(L); if (!G) G = sgridBuild321(L);
   const now = performance.now();
+  // v334: a quarter of the city's solids at a time, in turn (every one was compared every frame: 25,500 in Paree, a
+  // millisecond a frame), so each is looked at every fourth frame; one that has just started moving is still found where
+  // it was filed, with SGM321's 2 m to spare, until it's seen to have moved. (window.__noQuarter334 = true: all at once)
   if (now - G.t > 8){ G.t = now; const S = G.snap; let moved = null;
-    for (let i = 0; i < L.length; i++){ const s = L[i], k = i*4; if (s.minX !== S[k] || s.maxX !== S[k + 1] || s.minZ !== S[k + 2] || s.maxZ !== S[k + 3]){ S[k] = s.minX; S[k + 1] = s.maxX; S[k + 2] = s.minZ; S[k + 3] = s.maxZ; if (s.__mv321 !== true) (moved || (moved = [])).push(s); } }
+    const all = window.__noQuarter334 === true, q = all ? L.length : Math.ceil(L.length/4), i0 = all ? 0 : (G.q334 | 0) % Math.max(1, L.length), i1 = Math.min(L.length, i0 + q); G.q334 = i1 >= L.length ? 0 : i1;
+    for (let i = i0; i < i1; i++){ const s = L[i], k = i*4; if (s.minX !== S[k] || s.maxX !== S[k + 1] || s.minZ !== S[k + 2] || s.maxZ !== S[k + 3]){ S[k] = s.minX; S[k + 1] = s.maxX; S[k + 2] = s.minZ; S[k + 3] = s.maxZ; if (s.__mv321 !== true) (moved || (moved = [])).push(s); } }
     if (moved){ const reg = (px, pz) => px > 2500 ? SREG48.pb : px < -3000 ? SREG48.bk : pz > 1500 ? SREG48.vil : pz < -3000 ? SREG48.tk : SREG48.ny;
       for (const s of moved){ s.__mv321 = true; if (reg((s.minX + s.maxX)/2, (s.minZ + s.maxZ)/2) !== L) SDIRTY48 = true; }
       if (SDIRTY48) return solidsAt48(x, z);   // (filed again, by city)
@@ -56547,6 +56551,13 @@ WHATS_NEW.unshift(['332 · Royal Guard', 'Behind the Neutaubenstein beer garden 
 GAME_VER.n = 333;
 GAME_VER.name = 'Steady Hands';
 WHATS_NEW.unshift(['333 · Steady Hands', 'Arriving somewhere new stutters much less. Paree used to freeze for nearly three seconds the first time you got there, and now it is a tenth of a second. Tokyoo\'s streets dress themselves four times faster, and every city builds faster. People sitting at the Pigeon Park chess tables and in the pub garden have their heads, arms and shadows back (that was v325.1).']);
+/* =====================================================================
+   v334 · A QUARTER AT A TIME: the collision grid looks for moved solids a quarter at a time
+   ===================================================================== */
+// v334
+GAME_VER.n = 334;
+GAME_VER.name = 'A Quarter at a Time';
+WHATS_NEW.unshift(['334 · A Quarter at a Time', 'Busy cities run a little smoother: each frame the game checks a quarter of a city\'s walls, floors and benches for anything that has moved, not all of them, so Paree, New Yolk and Bangcluck draw a few more frames a second.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
