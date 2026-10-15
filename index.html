@@ -7007,6 +7007,12 @@ let SBATCH;
 
 const SB_CELL = 160, SB_MAXV = 20000, SB_LAYER = 3, SB_PROXY = 1;
 
+// v336: the walks' own fields, made on every object as it joins the scene, all of them and in one order: made as each was
+// first needed, in whatever order that came, they had split the scene's objects into 204 hidden classes in V8, and every
+// field the walks read was looked up the slow way. (Made as undefined: what the walks test for is unchanged.) (?noshape336)
+const SB_SHAPE = !/[?&]noshape336/.test(location.search), SB_FIELDS = ['__sbT', '__sbQ', '__sbV', '__sbA', '__sbLt', '__sbStale', '__sbS', '__sbL', '__sbI', '__gs', '__cbOff', '__cb323', '__cbAll323', '__imSplit', '__lod317', '__fb317',
+  '_listeners', '__cbOk', '__cbOkM', '__cbOkG', '__cbOkV', '__cbP', '__cbOther', '__cbFrozen', '__cbR', '__split', '_camHide308', '__chOwn336'];   // (three's own _listeners too, made at the first listener)
+function sbShape336(o){ if (Object.prototype.hasOwnProperty.call(o, '__chOwn336')) return; for (let i = 0; i < SB_FIELDS.length; i++){ const k = SB_FIELDS[i]; if (!Object.prototype.hasOwnProperty.call(o, k)) o[k] = undefined; } }
 function sbInit(){
   if (SBATCH) return SBATCH;
   SBATCH = {first: new WeakMap(), moved: new WeakSet(), src: new Map(), anc: new WeakMap(), buckets: new Map(), proxies: new Map(), rebuild: new Set(), big: new Set(), hid: new WeakMap(), cool: new WeakMap(), ghid: new WeakMap(), frame: 0, bundles: new Map()};
@@ -7016,7 +7022,8 @@ function sbInit(){
   // and one added (or moved to another parent) gets its world matrix redone, though its own transform didn't change
   const add = THREE.Object3D.prototype.add;
   // (v319: and its new parents are walked again from the next frame: a quiet one is walked one frame in four, sbMatrices)
-  THREE.Object3D.prototype.add = function(...objs){ for (const o of objs) if (o && o.isObject3D) o.matrixWorldNeedsUpdate = true; for (let q = this; q; q = q.parent){ q.__sbQ = 0; q.__sbV = (q.__sbV | 0) + 1; q.__sbA = (q.__sbA | 0) + 1; if (q.__lod317 !== undefined) q.__lod317 = undefined; } return add.apply(this, objs); };
+  THREE.Object3D.prototype.add = function(...objs){ for (const o of objs) if (o && o.isObject3D){ o.matrixWorldNeedsUpdate = true; if (SB_SHAPE === true) o.traverse(sbShape336); } for (let q = this; q; q = q.parent){ q.__sbQ = 0; q.__sbV = (q.__sbV | 0) + 1; q.__sbA = (q.__sbA | 0) + 1; if (q.__lod317 !== undefined) q.__lod317 = undefined; } return add.apply(this, objs); };
+  if (SB_SHAPE === true) scene.traverse(sbShape336);
   camera.layers.enable(SB_LAYER);
   sun.shadow.camera.layers.enable(SB_PROXY);
   // the renderer walks the whole visible scene for every pass; batched originals are skipped outright (their children,
@@ -7130,14 +7137,22 @@ function sbMatrices(o, force, self){
 // becomes a watched property); a move, a new material or geometry, a changed parent are checked for a quarter of them a
 // frame (sbLeafCheck, before the matrix pass). A parent that moves takes them out as it goes (the walk forces them).
 const SB_LEAVES = [];
+// v336: a batched leaf leaves its batch the moment it's hidden, through Object3D's own setter (core/three-compat.js): an
+// accessor of its own put each one (4,400 in New Yolk) into V8's slow dictionary mode, as did deleting it again, and every
+// walk and check that touched them paid for it. (?leafacc336: an accessor of its own, as before)
+const SB_LEAFACC = /[?&]leafacc336/.test(location.search);
+{ const d = Object.getOwnPropertyDescriptor(THREE.Object3D.prototype, 'visible'), set0 = d.set;
+  Object.defineProperty(THREE.Object3D.prototype, 'visible', {get: d.get, configurable: true, set(v){
+    if (v === false && this.__sbL === true && this._visible306 !== false){ this._visible306 = false; if (this.__sbS !== undefined) sbRelease(this, false); return; } set0.call(this, v); }}); }
 function sbLeaf(o){
+  if (SB_LEAFACC !== true){ o.__sbL = true; o.__sbI = SB_LEAVES.length; SB_LEAVES.push(o); return; }
   let vis = o.visible; o.__sbL = true; o.__sbI = SB_LEAVES.length; SB_LEAVES.push(o);
   Object.defineProperty(o, 'visible', {configurable: true, enumerable: true, get(){ return vis; },
     set(v){ v = !!v; if (v === vis) return;   // v307: a boolean, as Object3D.visible is since v306 (core/three-compat.js)
       vis = v; if (v === false && this.__sbS !== undefined) sbRelease(this, false); }});
 }
 function sbUnleaf(o){
-  const v = o.visible; delete o.visible; o.visible = v; o.__sbL = false;
+  if (SB_LEAFACC === true){ const v = o.visible; delete o.visible; o.visible = v; } o.__sbL = false;
   const i = o.__sbI, last = SB_LEAVES.pop(); if (last !== o){ SB_LEAVES[i] = last; last.__sbI = i; }
 }
 function sbLeafCheck(frame){
@@ -9585,6 +9600,30 @@ function cbSig(g){ const S = CROWD323.sigs; let e = S.get(g); if (e !== undefine
   e = (g.index ? 'i|' : 'n|') + Object.keys(g.attributes).sort().map(k => { const a = g.attributes[k]; return a.isInterleavedBufferAttribute ? null : k + a.itemSize + a.array.constructor.name + (a.normalized ? 'n' : ''); }).join('|');
   if (e.includes('null')) e = null; S.set(g, e); return e; }
 
+// v336: the small pixel textures parts wear (a pigeon's feathers, 32x16, one for each colouring) go into a texture array,
+// one for each size, and a batch's parts each read their own layer: the parts of one look but for the texture are one
+// batch, not one batch for each texture (34 batches of feathers in New Yolk). The same texels: copied from the texture's
+// canvas the way three uploads it (rows from the bottom), its filters, its mipmaps made by three per layer.
+// (window.__noArr336 = true: a batch for each texture, made again at once)
+const CB_ARR = new Map(), CB_LAYERS = 64;
+function cbArrayable(t){ return t && t.isCanvasTexture === true && t.image && t.image.getContext && t.image.width <= 64 && t.image.height <= 64 && t.flipY === true &&
+  t.magFilter === THREE.NearestFilter && t.minFilter === THREE.NearestMipmapLinearFilter && t.generateMipmaps === true &&
+  t.colorSpace === THREE.NoColorSpace && t.premultiplyAlpha === false && t.offset.x === 0 && t.offset.y === 0 && t.rotation === 0 && t.center.x === 0 && t.center.y === 0 && t.channel === 0 && t.matrixAutoUpdate === true; }   // (its repeat is each part's own)
+function cbArr(w, h, an, ws, wt){ const k = w + 'x' + h + 'a' + an + 'w' + ws + '/' + wt; let A = CB_ARR.get(k);
+  if (!A){ const tex = new THREE.DataArrayTexture(new Uint8Array(w*h*4*CB_LAYERS), w, h, CB_LAYERS); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestMipmapLinearFilter; tex.generateMipmaps = true;
+    tex.wrapS = ws; tex.wrapT = wt; tex.colorSpace = THREE.NoColorSpace; tex.anisotropy = an; tex.needsUpdate = true; A = {k, w, h, tex, layers: new Map(), n: 0}; CB_ARR.set(k, A); }
+  return A; }
+// a texture's layer in the array for its size (its texels copied again when it changes), or -1 when the array is full
+function cbLayer(t){ const A = cbArr(t.image.width, t.image.height, t.anisotropy, t.wrapS, t.wrapT); let L = A.layers.get(t);
+  if (L === undefined){ if (A.n >= CB_LAYERS) return -1; L = {i: A.n++, v: -1}; A.layers.set(t, L); }
+  if (L.v !== t.version){ L.v = t.version; const w = A.w, h = A.h, px = t.image.getContext('2d').getImageData(0, 0, w, h).data, d = A.tex.image.data, o = L.i*w*h*4;
+    for (let y = 0; y < h; y++) d.set(px.subarray((h - 1 - y)*w*4, (h - y)*w*4), o + y*w*4); A.tex.needsUpdate = true; }
+  return L.i; }
+// a material's look with its texture as the array it would go in (or as itself, if it can't)
+function cbLookArr(m){ const k = cbLook(m), t = m.map; if (window.__noArr336 === true || !cbArrayable(t) || m.alphaTest > 0 || m.alphaMap || m.emissiveMap) return k;
+  const A = cbArr(t.image.width, t.image.height, t.anisotropy, t.wrapS, t.wrapT); if (A.n >= CB_LAYERS && !A.layers.has(t)) return k;
+  const P = k.split('|'); P[3] = 'arr' + A.k; return P.join('|'); }
+
 // a batch: a fixed number of places (its textures never grow: the shader reads them), more batches of the same kind when full
 const CB_CAP = 128, CB_VERTS = 160000;   // (128: each batch uploads its whole matrices texture every frame it draws)
 function cbBatch(key, o, mirror){
@@ -9592,6 +9631,7 @@ function cbBatch(key, o, mirror){
 }
 function cbNewBatch(key, o, mirror){
   const m = o.material, mat = m.clone(); if (mat.color) mat.color.setRGB(1, 1, 1);
+  const arr = key.includes('|arr') && m.map ? cbArr(m.map.image.width, m.map.image.height, m.map.anisotropy, m.map.wrapS, m.map.wrapT) : null; if (arr) mat.map = null;
   const bm = new THREE.BatchedMesh(CB_CAP, CB_VERTS, CB_VERTS*2, mat);
   bm.perObjectFrustumCulled = false; bm.sortObjects = false; bm.frustumCulled = false; bm.castShadow = o.castShadow; bm.receiveShadow = o.receiveShadow;   // (culled here, once a frame, for every pass: see crowdBatch323; v325.1: these last three had been lost behind this note, so a batch was culled by where its parts first were, and drew no shadows)
   bm.matrixAutoUpdate = false; if (mirror){ bm.matrix.copy(CB_MIRROR); bm.matrixWorld.copy(CB_MIRROR); }   // (three turns a mirrored object's faces round: so the whole batch is mirrored)
@@ -9599,11 +9639,15 @@ function cbNewBatch(key, o, mirror){
   bm.setColorAt(bm.addInstance(bm.addGeometry(o.geometry)), _cbC.setRGB(1, 1, 1)); bm.setVisibleAt(0, false);   // (the colours texture exists before the first draw, so the shader reads it)
   // the detail texture from the part's own geometry and its world scale (the lengths of its matrix's columns, as three's
   // modelScale): each instance's matrix is read back from the batch's own matrices texture
+  let lay = null, base = THREE.TSL.materialColor;
+  if (arr){ const T = THREE.TSL; lay = new THREE.DataTexture(new Float32Array(CB_CAP*4), CB_CAP, 1, THREE.RGBAFormat, THREE.FloatType); lay.needsUpdate = true;
+    const L = T.textureLoad(lay, T.ivec2(T.int(T.batchIndirectIndex), 0)); base = base.mul(T.texture(arr.tex, T.uv().mul(L.yz)).depth(T.int(L.x))); }
   if (PIPE.hd && PIPE.detailAt && !mat.isMeshBasicMaterial){ const T = THREE.TSL, tex = bm._matricesTexture, W = tex.image.width;
     const j = T.int(T.batchIndirectIndex).mul(4), x = j.mod(W), y = j.div(W);
     const col = k => T.textureLoad(tex, T.ivec2(x.add(k), y)).xyz.length();
-    mat.colorNode = T.materialColor.mul(PIPE.detailAt(T.positionGeometry.mul(T.vec3(col(0), col(1), col(2))), T.abs(T.normalGeometry))); mat.colorNode.__still321 = true; }
-  const B = {key, bm, mat, src: m, mirror, geos: new Map([[o.geometry, 0]]), n: 1, free: [], part: [null], seen: new Int32Array(CB_CAP).fill(-1), vis: new Uint8Array(CB_CAP), on: [], used: 0, full: false};
+    mat.colorNode = base.mul(PIPE.detailAt(T.positionGeometry.mul(T.vec3(col(0), col(1), col(2))), T.abs(T.normalGeometry))); mat.colorNode.__still321 = true; }
+  else if (arr){ mat.colorNode = base; mat.colorNode.__still321 = true; }
+  const B = {key, bm, mat, src: m, mirror, arr, lay, geos: new Map([[o.geometry, 0]]), n: 1, free: [], part: [null], seen: new Int32Array(CB_CAP).fill(-1), vis: new Uint8Array(CB_CAP), on: [], used: 0, full: false};
   CROWD323.batches.set(key, B); scene.add(bm); return B;
 }
 const _cbC = new THREE.Color();
@@ -9612,16 +9656,18 @@ function cbPlace(c, mirror){
   const f = (c.castShadow ? 1 : 0) | (c.receiveShadow ? 2 : 0) | (mirror ? 4 : 0); let s = c.__cbP;
   if (s !== undefined && s.mat === c.material && s.geo === c.geometry && s.f === f && s.B.bm.parent !== null) return s;
   if (s !== undefined) cbFree(c);
-  const key = cbLook(c.material) + '#' + cbSig(c.geometry) + '#' + f;
+  const key = cbLookArr(c.material) + '#' + cbSig(c.geometry) + '#' + f;
   for (let tries = 0; tries < 8; tries++){ const B = cbBatch(key + (tries ? '+' + tries : ''), c, mirror);
     let gid = B.geos.get(c.geometry);
     if (gid === undefined){ try { gid = B.bm.addGeometry(c.geometry); B.geos.set(c.geometry, gid); } catch (e){ B.free.length = 0; B.n = CB_CAP; continue; } }   // (out of room for vertices: the next batch of this kind)
     let id; if (B.free.length){ id = B.free.pop(); B.bm.setGeometryIdAt(id, gid); } else { id = B.bm.addInstance(gid); B.n++; }
     B.part[id] = c; B.vis[id] = 0; B.bm.setVisibleAt(id, false);
-    s = c.__cbP = {B, id, mat: c.material, geo: c.geometry, f, r: -1, g: -1, b: -1};
+    s = c.__cbP = {B, id, mat: c.material, geo: c.geometry, f, r: -1, g: -1, b: -1, map: null};
+    if (B.arr && !cbSetLayer(s, c.material.map)){ cbFree(c); return null; }
     return s; }
   return null;
 }
+function cbSetLayer(s, t){ const i = cbLayer(t); if (i < 0) return false; s.map = t; const d = s.B.lay.image.data, k = s.id*4; d[k] = i; d[k + 1] = t.repeat.x; d[k + 2] = t.repeat.y; s.rx = t.repeat.x; s.ry = t.repeat.y; s.B.lay.needsUpdate = true; return true; }
 function cbFree(c){ const s = c.__cbP; if (!s) return; c.__cbP = undefined; const B = s.B; if (B.vis[s.id]){ B.bm.setVisibleAt(s.id, false); B.vis[s.id] = 0; } B.part[s.id] = null; B.free.push(s.id); }
 
 // a rig's parts, walked once a frame: shown ones go in; CB_ALL stays true while every part that draws went in
@@ -9636,6 +9682,7 @@ function cbWalk(o){
         if (s === null){ CB_ALL = false; CB_OTHER = true; }
         else { const B = s.B, id = s.id, d = B.bm._matricesTexture.image.data, e = mirror ? _cbM.multiplyMatrices(CB_MIRROR, mw).elements : mw.elements, k = id*16;
           for (let q = 0; q < 16; q++) d[k + q] = e[q];
+          if (B.arr !== null){ const t = c.material.map; if ((t !== s.map || t.repeat.x !== s.rx || t.repeat.y !== s.ry) && (!cbArrayable(t) || t.image.width !== B.arr.w || t.image.height !== B.arr.h || t.anisotropy !== B.arr.tex.anisotropy || t.wrapS !== B.arr.tex.wrapS || t.wrapT !== B.arr.tex.wrapT || !cbSetLayer(s, t))) s.f = -1; }   // (v336: placed again next frame)
           const col = c.material.color; if (col.r !== s.r || col.g !== s.g || col.b !== s.b){ s.r = col.r; s.g = col.g; s.b = col.b; B.bm.setColorAt(id, col); }
           if (B.vis[id] === 0){ B.vis[id] = 1; B.bm.setVisibleAt(id, true); B.on.push(id); }
           B.seen[id] = SB_FR; B.used = SB_FR; c.__cb323 = SB_FR; } }
@@ -9647,7 +9694,8 @@ function cbWalk(o){
 function crowdBatch323(){
   const C = CROWD323; if (!window.__GPU || !PIPE) return;
   // (quality changed the materials' detail: everything made again)
-  if (C.hd !== PIPE.hd){ C.hd = PIPE.hd; for (const B of C.batches.values()){ for (const c of B.part) if (c) c.__cbP = undefined; scene.remove(B.bm); B.bm.dispose(); } C.batches.clear(); }
+  const arrOn = window.__noArr336 !== true;
+  if (C.hd !== PIPE.hd || C.arrOn !== arrOn){ C.hd = PIPE.hd; C.arrOn = arrOn; for (const B of C.batches.values()){ for (const c of B.part) if (c) c.__cbP = undefined; scene.remove(B.bm); B.bm.dispose(); } C.batches.clear(); }
   const off = window.__noCrowd323 === true, me = player && player.P ? player.P.g : null;
   if (off || window.__noFreeze323 === true) for (const g of C.rigs) if (g.__cbFrozen === true){ g.__cbFrozen = false; sbMatrices(g, true); }
   // a rig out of the main view and of the near shadow cascade (their sides, with room to spare) isn't looked at: three
@@ -9673,14 +9721,16 @@ function crowdBatch323(){
   // what wasn't seen this frame is hidden; the matrices go up once a batch
   for (const B of C.batches.values()){ const bm = B.bm;
     { const on = B.on; let w = 0; for (let r = 0; r < on.length; r++){ const i = on[r]; if (B.vis[i] !== 1) continue; if (B.seen[i] !== SB_FR){ B.vis[i] = 0; bm.setVisibleAt(i, false); } else on[w++] = i; } on.length = w; }
-    if (B.used === SB_FR){ bm._matricesTexture.needsUpdate = true; cbSync(B.src, B.mat); }
+    if (B.used === SB_FR){ bm._matricesTexture.needsUpdate = true; cbSync(B.src, B.mat, B.arr !== null); }
     bm.visible = B.used === SB_FR; }
 }
 // what can change on a material while it's in use (a glow, a texture): the batch's copy follows (colour is per instance)
-function cbSync(m, c){
+function cbSync(m, c, arr){
   if (m.emissive && !c.emissive.equals(m.emissive)) c.emissive.copy(m.emissive);
   if (c.emissiveIntensity !== m.emissiveIntensity) c.emissiveIntensity = m.emissiveIntensity; if (c.opacity !== m.opacity) c.opacity = m.opacity;
-  if (c.map !== m.map){ c.map = m.map; c.needsUpdate = true; }
+  if (arr !== true && c.map !== m.map){ c.map = m.map; c.needsUpdate = true; }
+  // (v336: in an array batch each part's texture is its layer: one redrawn is copied again)
+  if (arr === true) for (const A of CB_ARR.values()) for (const [t, L] of A.layers) if (L.v !== t.version) cbLayer(t);
 }
 // the main camera's and the near cascade's side planes for this frame (the far plane left out: High quality draws
 // further than the camera's own), and whether a rig's sphere, with a metre to spare, touches either
@@ -17111,9 +17161,11 @@ let camHidden = [];
 // back to true, even for something the game had hidden meanwhile (an event extra going back to the pool stood back up
 // where the camera had been). Batched static meshes have a visible of their own (render/static-batch.js) and are
 // hidden the old way
-const ownVis308 = o => Object.prototype.hasOwnProperty.call(o, 'visible');
-function camHide308(o){ if (ownVis308(o)) o.visible = false; else o._camHide308 = true; }
-function camShow308(o){ o._camHide308 = false; if (ownVis308(o)) o.visible = true; }
+const ownVis308 = o => o.__sbL === true || Object.prototype.hasOwnProperty.call(o, 'visible');   // (v336: batched leaves are marked __sbL, the visible is Object3D's)
+// (v336: shown again the way it was hidden: a batched mesh hidden leaves its batch, so it was no longer one when shown, and
+// static scenery the camera had faded out of its way stayed hidden for good)
+function camHide308(o){ if (ownVis308(o)){ o.visible = false; o.__chOwn336 = true; } else o._camHide308 = true; }
+function camShow308(o){ o._camHide308 = false; if (o.__chOwn336 === true){ o.__chOwn336 = false; o.visible = true; } }
 
 const _chv = new THREE.Vector3();
 
@@ -56575,6 +56627,13 @@ WHATS_NEW.unshift(['334 · A Quarter at a Time', 'Busy cities run a little smoot
 GAME_VER.n = 335;
 GAME_VER.name = 'Nothing to See Here';
 WHATS_NEW.unshift(['335 · Nothing to See Here', 'Every city draws more frames a second, five to eleven percent more, and looks exactly the same. Each frame the game used to visit thousands of hidden things and things already drawn in a batch only to turn them away; it now passes them by.']);
+/* =====================================================================
+   v336 · BIRDS OF A FEATHER: feathers in one texture array; the scene's objects kept fast for the JavaScript engine
+   ===================================================================== */
+// v336
+GAME_VER.n = 336;
+GAME_VER.name = 'Birds of a Feather';
+WHATS_NEW.unshift(['336 · Birds of a Feather', 'The big cities run faster again, New Yolk about a fifth faster than at v335, and nothing looks different. A flock\'s pigeons in every colouring now share their draws, and the game keeps its thousands of street pieces in the shape the browser\'s JavaScript engine reads fastest. Also fixed: a lamp post or awning the camera faded out of its way could stay invisible for good.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
