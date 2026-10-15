@@ -507,6 +507,7 @@
       <div class="row">
         <button class="btn" id="startBtn" type="button">Start</button>
         <button class="btn ghost" id="newBtn" type="button" hidden>New game</button>
+        <button class="btn ghost" id="jukeBtn" type="button">Jukebox</button>
       </div>
       <div class="bootbar" id="bootBar" aria-live="polite"><div class="bootfill" id="bootFill"></div><span id="bootTxt">Building the world…</span></div>
       <div class="keys" id="titleKeys">
@@ -56661,6 +56662,8 @@ WHATS_NEW.unshift(['337 · Safe Landing', 'Phones start the game on the lighter 
 GAME_VER.n = 338;
 GAME_VER.name = 'Rush Hour';
 WHATS_NEW.unshift(['338 · Rush Hour', 'Busy streets run a little smoother: the cars\' bodies are drawn together, like the crowds, and pigeons out of sight don\'t flap until you can see them again. Every car still has its own brake lights and indicators.']);
+// v338.1
+WHATS_NEW.unshift(['338.1 · Jukebox', 'The title screen has a Jukebox: every tune in the game, grouped by place, to play whenever you like. The tunes from Bangcluck, Tokyoo and the moon build that city first, so they take a moment.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -57999,6 +58002,71 @@ function beginBase(fromSave){
 $('startBtn').addEventListener('click', () => begin(true));
 $('newBtn').addEventListener('click', () => { try { localStorage.removeItem(SAVE_KEY); } catch(e) {} begin(false); });
 
+/* ---------- ui: jukebox ---------- */
+// v338.1: a Jukebox button on the title screen opens a list of every track the game plays, grouped by place; a
+// title plays through the game's own synth (switchTrack). The tracks a city's load steps define (Bangcluck, Tokyoo, the
+// moon) only exist once that city is built, so picking one builds it first, a slice a frame, with the progress in the panel.
+const JUKE338 = {open: false, cur: null, want: null, busy: null, groups: [
+  ['New Yolk', [['city', 'Rico\'s Street Music'], ['night', 'Night Shift'], ['village', 'Little Pecking'], ['subway', 'Underground'], ['library', 'Quiet, Please'], ['cosy', 'Indoors'], ['diner', 'Sunny Side Up'], ['museum', 'Old Bones'], ['mob', 'The Family'], ['heat', 'Hot Pursuit'], ['arena', 'The Arena'], ['roost', 'The Roost'], ['shanty', 'Red Crook Shanty'], ['boombap', 'Broodlyn Beats'], ['midtown', 'Midtown Swing'], ['park', 'Park Bench'], ['rainy', 'Rainy Day'], ['shack', 'The Shrimp Shack']]],
+  ['New Yolk, the tunes', [['citytheme', 'The Pecking Order'], ['lullaby', 'Streetlamp Lullaby'], ['jig', 'The Little Pecking Jig'], ['harbourwaltz', 'Gulls Over the Harbour'], ['cosywaltz', 'Kettle On'], ['parktune', 'Picnic in Pigeon Park'], ['raintune', 'Puddles'], ['almamater', 'Alma Mater'], ['safari', 'Safari Shuffle'], ['recess', 'Recess']]],
+  ['St. Petersbird', [['petersbird', 'Korobeiniki on the Neva'], ['tankchase', 'Larry Drives'], ['whitenights', 'White Nights'], ['hermitage', 'The Hermitage'], ['aquarium', 'Under the Sea Glass'], ['countdown', 'Seven Seconds']]],
+  ['Bangcluck', [['bangday', 'Bangcluck by Day'], ['bangnight', 'Neon Soi'], ['songkran', 'Sawasdee Splash', 'bangcluck'], ['kpop', 'Peck Peck Boom', 'bangcluck']]],
+  ['Tokyoo', [['tokyoday', 'Tokyoo by Day', 'tokyoo'], ['tokyonight', 'City Pop Pigeon', 'tokyoo'], ['kyotoo107', 'Kyotoo Morning'], ['kart107', 'Mari-coo Speedway'], ['mecha107', 'Kaiju as a Service'], ['rooftop107', 'Rooftop Tea'], ['muzak107', 'Your Call Is Important To Us']]],
+  ['The moon', [['lunar', 'The moon, outside', 'moon'], ['hotel', 'The hotel', 'moon'], ['boss', 'The car park', 'moon'], ['triumph', 'Triumph', 'moon'], ['tender', 'Tender', 'moon'], ['credits', 'Credits', 'moon']]]]};
+
+// one ~40 ms slice of building a region (what it needs first); true once it is built
+function juke338Slice(R){
+  for (const n of R.needs) if (!REGIONS[n].built){ juke338Slice(REGIONS[n]); return false; }
+  const t0 = performance.now(); do regionStep(R); while (!R.built && performance.now() - t0 < 40);
+  return R.built;
+}
+
+function juke338Build(name, done){
+  const R = REGIONS[name]; if (!R || R.built) return done();
+  JUKE338.busy = name; juke338Paint();
+  const tick = () => { let ok = false; try { ok = juke338Slice(R); } catch (e){ console.error('jukebox build ' + name, e); ok = true; }
+    JUKE338.pct = R.built ? 1 : R.i/Math.max(1, R.steps.length);
+    if (ok){ JUKE338.busy = null; juke338Paint(); done(); } else { juke338Paint(); setTimeout(tick, 0); } };
+  setTimeout(tick, 30);
+}
+
+function juke338Play(k, region){
+  if (JUKE338.busy) return;
+  const go = () => { JUKE338.want = k; unlockAudio(); startAmbience(); if (!TRACKS[k]) return;
+    const send = () => { if (JUKE338.want !== k) return; if (TRACK.busy) return setTimeout(send, 200); switchTrack(k); JUKE338.cur = k; juke338Paint(); };
+    send(); };
+  if (region && REGIONS[region] && !REGIONS[region].built) juke338Build(region, go); else go();
+}
+
+function juke338Paint(){
+  const box = $('juke338'); if (!box || box.hidden) return;
+  const J = JUKE338, st = $('jukeStat338'), now = J.cur && TRACKS[J.cur];
+  st.textContent = J.busy ? 'Building ' + (REGIONS[J.busy].label || J.busy) + '… ' + Math.round((J.pct || 0)*100) + '%' : now ? 'Now playing: ' + ((now.title || (typeof TITLES41 !== 'undefined' && TITLES41[J.cur])) || J.cur) : 'Pick a tune. Volume is under Settings.';
+  for (const b of box.querySelectorAll('.jt338')){ b.classList.toggle('ghost', b.dataset.k !== J.cur); b.disabled = !!J.busy; }
+}
+
+function juke338Open(on){
+  const J = JUKE338; J.open = on; let box = $('juke338');
+  if (!box){
+    const st = document.createElement('style'); st.textContent = '#juke338 .modal{max-height:calc(100dvh - 40px);overflow:auto;max-width:min(720px,calc(100vw - 24px))} #juke338 h4{margin:12px 0 4px;font-size:15px} #juke338 .jl338{display:flex;flex-wrap:wrap;gap:6px} #juke338 .jl338 .btn{font-size:13px;padding:4px 10px} #juke338 .jl338 .btn small{opacity:.65;font-size:10px} #jukeStat338{margin:6px 0;min-height:1.3em}'; document.head.appendChild(st);
+    box = document.createElement('div'); box.id = 'juke338'; box.className = 'overlay'; box.hidden = true;
+    const m = document.createElement('div'); m.className = 'modal wood'; m.innerHTML = '<h3>Jukebox</h3><p class="lede" id="jukeStat338"></p>';
+    for (const [name, list] of J.groups){
+      const h = document.createElement('h4'); h.textContent = name; m.appendChild(h);
+      const d = document.createElement('div'); d.className = 'jl338';
+      for (const [k, label, region] of list){ const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small ghost jt338'; b.dataset.k = k; b.innerHTML = label + (region ? ' <small>loads ' + (region === 'moon' ? 'the moon' : region[0].toUpperCase() + region.slice(1)) + '</small>' : ''); b.addEventListener('click', () => juke338Play(k, region)); d.appendChild(b); }
+      m.appendChild(d); }
+    const row = document.createElement('div'); row.className = 'row'; row.style.marginTop = '14px';
+    const stop = document.createElement('button'); stop.type = 'button'; stop.className = 'btn small ghost'; stop.textContent = 'Quiet'; stop.addEventListener('click', () => { JUKE338.want = null; JUKE338.cur = null; if (musicBus && actx) musicBus.gain.setTargetAtTime(0.0001, actx.currentTime, 0.15); juke338Paint(); });
+    const close = document.createElement('button'); close.type = 'button'; close.className = 'btn small'; close.textContent = 'Back'; close.addEventListener('click', () => juke338Open(false));
+    row.append(stop, close); m.appendChild(row);
+    const p = document.createElement('div'); p.className = 'panel'; p.appendChild(m); box.appendChild(p); document.body.appendChild(box);
+  }
+  box.hidden = !on; if (on) juke338Paint();
+}
+
+$('jukeBtn').addEventListener('click', () => { unlockAudio(); startAmbience(); juke338Open(true); if (musicBus && actx && JUKE338.cur === null) musicBus.gain.setTargetAtTime(Math.max(0.0001, settings.music*0.55), actx.currentTime, 0.2); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && JUKE338.open){ juke338Open(false); e.stopPropagation(); } }, true);
 /* ---------- ui: pause menu ---------- */
 // v302: the pause menu, tidied. Over the years every area added its own buttons, settings and fly-to places to the
 // one long #help panel (4,000 px tall, its top out of reach on a laptop screen) and a full version history under it.
