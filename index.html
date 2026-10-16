@@ -31888,15 +31888,20 @@ VOICES['Water-gun seller'] = {kind: 'human', base: 230, range: 0.5, rate: 15, cp
 { const n = NODE48(0, 3), x = n[0] + 8, z = n[1] + 8.2, g = new THREE.Group(); g.position.set(x, 0.15, z); bkGround310(g); cg48(x, z).add(g); g.add(boxMesh(2.4, 1, 1, mat(0x4ad0ff), 0, 0.5, 0)); for (let k = 0; k < 5; k++) g.add(boxMesh(0.14, 0.16, 0.5, mat(pick([0xff4a9a, 0xffd23a, 0x8aff6a])), -0.8 + k*0.4, 1.1, 0)); const H = makeHuman({shirt: 0xff7ad0}); H.snack.visible = false; scene.remove(H.g); g.add(H.g); H.g.position.set(0, 0, -0.9); gunStand49 = g; }
 aroundHook('coo', function(next){ const was = player.anim.cooT; next(); if (was <= 0 && player.anim.cooT > 0 && Q49().gun && fest49() === 'songkran' && inBang()){ const h = player.heading; squirt49(_a49.copy(player.pos).setY(player.pos.y + 0.4), _b49.set(Math.sin(h), 0.15, Math.cos(h)).normalize(), 10, true); } });
 /* ---------- a festival tune ---------- */
+tunes49s();
+answerHook('pickTrack', function(){ if (inBang() && !roomAt(player.pos) && fest49() === 'songkran'){ const n = NODE48(1, 3); if (Math.hypot(player.pos.x - n[0], player.pos.z - n[1]) < 160) return {answer: 'songkran'}; } });
+SYS49 = [['day', updateDay49], ['infra', updateInfra49], ['muay', updateMuay49], ['lumpini', updateLumpini49], ['float', updateFloat49], ['dogs', updateDogs49], ['parade', updateParade49], ['khao', updateKhao49], ['fest', updateFest49]]; SYSOFF49 = {}; SYSERR49 = {};
+};
+
+// v339.1: the festival tune, in a function the jukebox can call without building Bangcluck (ui/jukebox.js)
+function tunes49s(){
 Object.assign(TRACKS, {
   songkran: {title: 'Sawasdee Splash', bpm: 128, prog: [[48, 52, 55], [53, 57, 60], [55, 59, 62], [48, 52, 55], [45, 48, 52], [53, 57, 60], [55, 59, 62], [48, 52, 55]], melVoice: 'whistle', altVoice: 'glock', drums: 'chase', pad: false,
     mel: [72, 76, 79, 76, 72, _, 74, 76,  77, _, 81, _, 79, 77, 76, _,  79, _, 77, 76, 74, 72, 74, _,  72, _, _, _, 79, 81, 84, _,
           81, 79, 77, 79, 81, _, 77, _,  76, 77, 79, _, 76, 74, 72, _,  74, 76, 77, 79, 81, _, 79, 77,  76, _, 74, _, 72, _, 0, 0]},
 });
 Object.assign(VOL41, {songkran: 0.85});
-answerHook('pickTrack', function(){ if (inBang() && !roomAt(player.pos) && fest49() === 'songkran'){ const n = NODE48(1, 3); if (Math.hypot(player.pos.x - n[0], player.pos.z - n[1]) < 160) return {answer: 'songkran'}; } });
-SYS49 = [['day', updateDay49], ['infra', updateInfra49], ['muay', updateMuay49], ['lumpini', updateLumpini49], ['float', updateFloat49], ['dogs', updateDogs49], ['parade', updateParade49], ['khao', updateKhao49], ['fest', updateFest49]]; SYSOFF49 = {}; SYSERR49 = {};
-};
+}
 
 const fest49 = () => { const d = Q49().day || 0, h = hour49(); return d % 2 === 0 ? (h >= 9.5 && h < 17.5 ? 'songkran' : null) : (h >= 18.5 || h < 1.5 ? 'krathong' : null); };
 
@@ -32132,15 +32137,20 @@ F1_49 = (() => {
 addNamedTalker('Talk to the Red Bawk Racing team', 'Team principal', () => _c49.set(F1_49.gx + 2.5, 0.9, F1_49.gz + 1), () => say([L('Team principal', mpick(['Red Bawk Racing, demo run! Round the royal field, three laps, then a pit stop. Two point one seconds. Watch!', 'Our driver? Very fast. Very calm. Drinks four Red Bawks before breakfast. Like the monks, actually.', 'You want to ride? On the CAR? ...Well, technically there is no rule about pigeons. Hop on the engine cover. Hold on.', 'We came for the street demo and the noodles. Mostly the noodles.']))], () => { if (!Q49().f1talk){ Q49().f1talk = 1; addXP(10); save(); } }), 3);
 VOICES['Team principal'] = {kind: 'human', base: 170, range: 0.3, rate: 14, cps: 52};
 /* ---------- a tune for the K-pop show ---------- */
+tunes49k();
+answerHook('pickTrack', function(){ if (inBang() && !roomAt(player.pos) && showOn49() && Math.hypot(player.pos.x - KPOP49.x, player.pos.z - KPOP49.z) < 70) return {answer: 'kpop'}; });
+SYS49.push(['redbawk', updateRedBawk49], ['shaolin', updateShaolin49], ['kpop', updateKpop49], ['mask', updateMask49], ['cabaret', updateCabaret49], ['f1', updateF1_49]);
+};
+
+// v339.1: the K-pop tune, in a function the jukebox can call without building Bangcluck (ui/jukebox.js)
+function tunes49k(){
 Object.assign(TRACKS, {
   kpop: {title: 'Peck Peck Boom', bpm: 124, prog: [[45, 48, 52, 55], [41, 45, 48, 52], [48, 52, 55, 59], [43, 47, 50, 55], [45, 48, 52, 55], [41, 45, 48, 52], [48, 52, 55, 59], [43, 47, 50, 55]], melVoice: 'pluck', altVoice: 'keys', drums: 'chase', pad: true,
     mel: [76, 76, _, 79, _, 76, 74, _,  72, _, 72, 74, 76, _, 0, 0,  81, _, 79, 76, 79, _, 76, 74,  72, 74, 76, _, 0, 0, 0, 0,
           76, 79, 81, _, 84, _, 81, 79,  76, _, 74, 76, 79, _, 76, _,  74, _, 72, 74, 76, 79, 81, _,  79, _, 76, _, 0, 0, 0, 0]},
 });
 Object.assign(VOL41, {kpop: 0.85});
-answerHook('pickTrack', function(){ if (inBang() && !roomAt(player.pos) && showOn49() && Math.hypot(player.pos.x - KPOP49.x, player.pos.z - KPOP49.z) < 70) return {answer: 'kpop'}; });
-SYS49.push(['redbawk', updateRedBawk49], ['shaolin', updateShaolin49], ['kpop', updateKpop49], ['mask', updateMask49], ['cabaret', updateCabaret49], ['f1', updateF1_49]);
-};
+}
 
 const can49 = (parent, x, y, z, rz = 0) => { const m = mesh(canG49, canM49, x, y, z); m.rotation.z = rz; parent.add(m); return m; };
 
@@ -35752,6 +35762,13 @@ hook('drawWM', function(){ if (!inTokyo67()) return; const c = wmCtx;
 Object.assign(DISTRICTS, {tkshibuya: {name: 'Shibuyaa', sub: 'Tokyoo · the Scramble, screens, and everybody at once'}, tkminato: {name: 'Minatoo', sub: 'Tokyoo · Tokyoo Tower and offices that bow'}, tkginza: {name: 'Ginzaa', sub: 'Tokyoo · department stores and very expensive melons'}, tkakiba: {name: 'Akihabirda', sub: 'Tokyoo · Electric Town'}, tkshinjuku: {name: 'Shinjukoo', sub: 'Tokyoo · skyscrapers, and the tallest one belongs to HAIKU-9000'}, tkasakusa: {name: 'Asakusaa', sub: 'Tokyoo · old Tokyoo, lanterns and rickshaws'}, tkpark: {name: 'Ueno-Yoyogi Park', sub: 'Tokyoo · cherry blossom and maples, at the same time'}, tkkyoto: {name: 'Kyotoo', sub: 'Tokyoo · temples, hills and very old trees'}, tkcentral: {name: 'Tokyoo', sub: 'Japan · thirty-eight million people, all of them polite'}});
 aroundHook('districtOfTk', function(next, x, z){ const d = next(x, z); if (d !== 'tokyoo') return d; const lx = x - TK.x, lz = z - TK.z; if (lx < -60) return 'tkkyoto'; if (inPark68(lx, lz)) return 'tkpark'; return 'tk' + ({shibuya: 'shibuya', minato: 'minato', ginza: 'ginza', akiba: 'akiba', shinjuku: 'shinjuku', asakusa: 'asakusa', central: 'central'})[styleAt68(lx, lz)]; });
 /* ---------- music ---------- */
+tunes68();
+answerHook('pickTrack', function(){ if (inTokyo67() && !roomAt(player.pos)) return {answer: nightF > 0.55 ? 'tokyonight' : 'tokyoday'}; });
+if (typeof SYS52 !== 'undefined') SYS52.push(['tokyo68', updateTokyo68]);
+};
+
+// v339.1: the street tunes, in a function the jukebox can call without building Tokyoo (ui/jukebox.js)
+function tunes68(){
 Object.assign(TRACKS, {
   tokyoday: {title: 'Tokyoo by Day', bpm: 96, prog: [[50, 53, 57], [45, 50, 53], [46, 50, 53], [45, 48, 52], [50, 53, 57], [43, 46, 50], [45, 49, 52], [50, 53, 57]], melVoice: 'pluck', altVoice: 'flute', drums: 'brush', pad: false,
     mel: [74, _, 75, 79, _, 81, 79, _,  74, _, 70, _, 69, _, 0, 0,  81, 82, 81, 79, 75, _, 74, _,  70, _, 69, 70, 74, _, 0, 0,
@@ -35761,9 +35778,7 @@ Object.assign(TRACKS, {
           79, _, 76, _, 74, 76, 72, _,  69, _, 72, 74, 76, _, 79, _,  77, _, 76, 74, 72, _, 74, _,  72, _, _, _, 0, 0, 0, 0]},
 });
 Object.assign(VOL41, {tokyoday: 0.85, tokyonight: 0.85});
-answerHook('pickTrack', function(){ if (inTokyo67() && !roomAt(player.pos)) return {answer: nightF > 0.55 ? 'tokyonight' : 'tokyoday'}; });
-if (typeof SYS52 !== 'undefined') SYS52.push(['tokyo68', updateTokyo68]);
-};
+}
 
 function canTex90(w, h, draw, rep){ const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); draw(g, w, h); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; if (rep) t.repeat.set(rep[0], rep[1]); return t; }
 
@@ -53618,12 +53633,7 @@ let FLOORS218;
 
 const mo_audio_1 = () => {
 // v218
-Object.assign(MOODS, {
-  lunar: {bpm: 58, prog: [[45, 52, 57, 59], [41, 48, 53, 57], [43, 50, 55, 59], [40, 47, 52, 55], [45, 52, 57, 59], [41, 48, 53, 57], [38, 45, 50, 53], [40, 47, 52, 56]]},
-  hotel: {bpm: 96, prog: [[50, 53, 57, 60], [55, 59, 62, 65], [48, 52, 55, 59], [45, 49, 52, 55], [50, 53, 57, 60], [43, 47, 50, 53], [48, 52, 55, 59], [52, 56, 59, 62]]},
-  boss: {bpm: 136, prog: [[45, 48, 52], [45, 48, 52], [41, 45, 48], [43, 47, 50], [45, 48, 52], [40, 44, 47], [41, 45, 48], [40, 44, 47]]},
-  triumph: {bpm: 116, prog: [[48, 52, 55], [53, 57, 60], [55, 59, 62], [48, 52, 55], [53, 57, 60], [57, 60, 64], [55, 59, 62], [48, 52, 55, 60]]},
-  tender: {bpm: 66, prog: [[48, 52, 55, 59], [53, 57, 60, 64], [45, 48, 52, 55], [50, 53, 57, 60], [48, 52, 55, 59], [53, 57, 60, 64], [43, 47, 50, 53], [48, 52, 55, 60]]}});
+moods218();
 // if the player chooses a tune (Rico, the record player), we leave it alone until the context changes
 { hook('setMood', function(name){ if (!MUS218.inner) MUS218.user = name; }); }
 MOONSET151.add(SURF218);
@@ -53634,6 +53644,16 @@ FLOORS218 = [[BAS199.g, [BAS199.L.y, BAS199.K.y]], [CF204.g, [CF204.B.y]], [BQ20
 for (const g of [SURF218, ...FLOORS218.map(f => f[0]), ...[typeof SUITE220 !== 'undefined' && SUITE220, typeof CH232 !== 'undefined' && CH232, typeof OUB233 !== 'undefined' && OUB233, typeof PHARE213 !== 'undefined' && PHARE213, typeof LIFE225 !== 'undefined' && LIFE225, typeof SUN227 !== 'undefined' && SUN227].map(o => o && o.g)]) if (g) g.userData.sbRoot = true;
 if (typeof SYS52 !== 'undefined'){ SYS52.push(['mus218', updateMus218]); SYS52.push(['vis218', updateVis218]); }
 };
+
+// v339.1: the moon's chords, in a function the jukebox can call without building the moon (ui/jukebox.js)
+function moods218(){
+Object.assign(MOODS, {
+  lunar: {bpm: 58, prog: [[45, 52, 57, 59], [41, 48, 53, 57], [43, 50, 55, 59], [40, 47, 52, 55], [45, 52, 57, 59], [41, 48, 53, 57], [38, 45, 50, 53], [40, 47, 52, 56]]},
+  hotel: {bpm: 96, prog: [[50, 53, 57, 60], [55, 59, 62, 65], [48, 52, 55, 59], [45, 49, 52, 55], [50, 53, 57, 60], [43, 47, 50, 53], [48, 52, 55, 59], [52, 56, 59, 62]]},
+  boss: {bpm: 136, prog: [[45, 48, 52], [45, 48, 52], [41, 45, 48], [43, 47, 50], [45, 48, 52], [40, 44, 47], [41, 45, 48], [40, 44, 47]]},
+  triumph: {bpm: 116, prog: [[48, 52, 55], [53, 57, 60], [55, 59, 62], [48, 52, 55], [53, 57, 60], [57, 60, 64], [55, 59, 62], [48, 52, 55, 60]]},
+  tender: {bpm: 66, prog: [[48, 52, 55, 59], [53, 57, 60, 64], [45, 48, 52, 55], [50, 53, 57, 60], [48, 52, 55, 59], [53, 57, 60, 64], [43, 47, 50, 53], [48, 52, 55, 60]]}});
+}
 
 const MUS218 = {set: null, user: false};
 
@@ -53651,11 +53671,16 @@ function updateVis218(){ if (!MOONSET151.visible) return; const y = (SHOT && cam
 const mo_audio_2 = () => {
 // the moon's music, as real tracks (the old mood switch only ever worked on city streets)
 // v221
-Object.assign(TRACKS, {lunar: {bpm: 58, prog: MOODS.lunar.prog, voice: 'box', pad: true}, hotel: {bpm: 96, prog: MOODS.hotel.prog, voice: 'keys', drums: 'brush', swing: 0.2}, boss: {bpm: 136, prog: MOODS.boss.prog, voice: 'pluck', drums: 'chase'}, triumph: {bpm: 116, prog: MOODS.triumph.prog, voice: 'mando', drums: 'brush'}, tender: {bpm: 66, prog: MOODS.tender.prog, voice: 'box', pad: true}});
+tunes221();
 { const i = SYS52.findIndex(s => s[0] === 'mus218'); if (i >= 0) SYS52.splice(i, 1); }
 { answerHook('pickTrack', function(){ if (GRAM221.track && time < GRAM221.until && typeof inSuite220 === 'function' && inSuite220()) return {answer: GRAM221.track}; const w = want218(); if (w) return {answer: w === 'jazzy' ? 'diner' : w}; }); }
 talkers.filter(t => t.who === 'Gramophone').forEach(t => { t.act = () => { const tr = mpick(['tender', 'lunar', 'diner', 'library']); GRAM221.track = tr; GRAM221.until = time + 240; toast('The gramophone crackles, and plays something ' + {tender: 'tender', lunar: 'slow and starry', diner: 'jazzy', library: 'dreamy'}[tr] + '.', '', 2600); }; });
 };
+
+// v339.1: the moon's tracks, in a function the jukebox can call without building the moon (ui/jukebox.js)
+function tunes221(){
+Object.assign(TRACKS, {lunar: {bpm: 58, prog: MOODS.lunar.prog, voice: 'box', pad: true}, hotel: {bpm: 96, prog: MOODS.hotel.prog, voice: 'keys', drums: 'brush', swing: 0.2}, boss: {bpm: 136, prog: MOODS.boss.prog, voice: 'pluck', drums: 'chase'}, triumph: {bpm: 116, prog: MOODS.triumph.prog, voice: 'mando', drums: 'brush'}, tender: {bpm: 66, prog: MOODS.tender.prog, voice: 'box', pad: true}});
+}
 
 const GRAM221 = {track: null, until: 0};
 
@@ -53735,11 +53760,16 @@ for (const t of talkers){ const lab = (() => { try { return t.label(); } catch (
   if (/gramophone/i.test(lab)){ const a0 = t.act; t.act = function(){ for (let k = 0; k < 40; k++) noise(0.02, rr(2500, 6000), 0.01, k*0.2 + rand()*0.1); [392, 440, 494, 523, 494, 440, 392, 330].forEach((f, i) => tone(f, 0.38, 'triangle', 0.025, null, 0.6 + i*0.4)); return a0.apply(this, arguments); }; } }
 { answerHook('floatText', function(pos, text, color, life, opts){ const s = String(text); if (onMoon151()){ if (/^\(radio\)/.test(s)){ noise(0.25, 1800, 0.02); noise(0.5, 3000, 0.008, 0.25); tone(1200, 0.08, 'square', 0.01, 600); } else if (/bip/i.test(s)){ const f = 1200 + (Math.abs(Math.round((pos.x || 0)*7 + (pos.z || 0)*3)) % 900); toneAt(pos, f, 0.06, 'sine', 0.03, f*1.3); } else if (/piou|peep/i.test(s)){ const f = rr(2600, 3600); toneAt(pos, f, 0.08, 'sine', 0.03, f*1.2); } } }); }
 // ---- the credits get their own tune ----
-Object.assign(MOODS, {credits: {bpm: 84, prog: [[48, 55, 60, 64], [45, 52, 57, 60], [41, 48, 53, 57], [43, 50, 55, 59], [48, 55, 60, 64], [52, 55, 59, 64], [41, 48, 53, 57], [43, 50, 55, 62]]}});
-if (typeof TRACKS !== 'undefined' && TRACKS.tender && !TRACKS.credits) TRACKS.credits = Object.assign({}, TRACKS.tender, {bpm: 84, prog: MOODS.credits.prog});
+credits239();
 // ---- new voices ----
 Object.assign(VOICES, {'Elon Muskrat': VOICES['Elon Muskrat'] || {kind: 'chatter', base: 240, range: 0.5, rate: 16, cps: 58}, 'President Pootin': VOICES['President Pootin'] || {kind: 'gravel', base: 70, range: 0.1, rate: 6, cps: 26}, 'Le Vieux Coq': {kind: 'squawk', base: 420, range: 0.35, rate: 9, cps: 34}, 'Frère Escarbille': {kind: 'gravel', base: 88, range: 0.25, rate: 8, cps: 30}, 'The Brothers': {kind: 'gravel', base: 70, range: 0.05, rate: 5, cps: 22}, Brother: {kind: 'gravel', base: 100, range: 0.2, rate: 8, cps: 32}, Sommelier: {kind: 'chatter', base: 200, range: 0.2, rate: 10, cps: 40}, 'Archivist owl': {kind: 'hoot', base: 240, range: 0.3, rate: 8, cps: 30}, 'Crow commis': {kind: 'chatter', base: 260, range: 0.4, rate: 15, cps: 54}, 'Baker hen': {kind: 'coo', base: 300, range: 0.4, rate: 12, cps: 46}, Mooncoo: {kind: 'squawk', base: 1100, range: 0.4, rate: 14, cps: 40}, Liftboy: VOICES.Liftboy || {kind: 'chatter', base: 330, range: 0.3, rate: 14, cps: 50}});
 };
+
+// v339.1: the credits' tune, in a function the jukebox can call without building the moon (ui/jukebox.js)
+function credits239(){
+Object.assign(MOODS, {credits: {bpm: 84, prog: [[48, 55, 60, 64], [45, 52, 57, 60], [41, 48, 53, 57], [43, 50, 55, 59], [48, 55, 60, 64], [52, 55, 59, 64], [41, 48, 53, 57], [43, 50, 55, 62]]}});
+if (typeof TRACKS !== 'undefined' && TRACKS.tender && !TRACKS.credits) TRACKS.credits = Object.assign({}, TRACKS.tender, {bpm: 84, prog: MOODS.credits.prog});
+}
 
 // low gravity: a whoosh going up, a thump coming down
 const AIR239 = {g: true};
@@ -56756,6 +56786,8 @@ WHATS_NEW.unshift(['338.1 · Jukebox', 'The title screen has a Jukebox: every tu
 GAME_VER.n = 339;
 GAME_VER.name = 'Smooth Operator';
 WHATS_NEW.unshift(['339 · Smooth Operator', 'The little stutter the big cities had once a second is about a third of what it was, and every frame does a bit less: crowds that stand still, cars looking for the car ahead, signs that glow, things that turn. Nothing looks different, except that a pond or a fountain that never got its water shimmer now does.']);
+// v339.1
+WHATS_NEW.unshift(['339.1 · Jukebox, Side B', 'The Jukebox is a proper record player now: what is playing and where you hear it in the game, a visualiser, pause, skip, play all or shuffle, and the volume. Every tune plays straight away, with nothing to load, and five early tunes the game no longer plays are back as B-sides. Open it from the pause menu (Play) and your pick keeps playing as you fly about, until you choose the game\'s music again. Chases and boss fights still bring their own.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -58095,70 +58127,326 @@ $('startBtn').addEventListener('click', () => begin(true));
 $('newBtn').addEventListener('click', () => { try { localStorage.removeItem(SAVE_KEY); } catch(e) {} begin(false); });
 
 /* ---------- ui: jukebox ---------- */
-// v338.1: a Jukebox button on the title screen opens a list of every track the game plays, grouped by place; a
-// title plays through the game's own synth (switchTrack). The tracks a city's load steps define (Bangcluck, Tokyoo, the
-// moon) only exist once that city is built, so picking one builds it first, a slice a frame, with the progress in the panel.
-const JUKE338 = {open: false, cur: null, want: null, busy: null, groups: [
-  ['New Yolk', [['city', 'Rico\'s Street Music'], ['night', 'Night Shift'], ['village', 'Little Pecking'], ['subway', 'Underground'], ['library', 'Quiet, Please'], ['cosy', 'Indoors'], ['diner', 'Sunny Side Up'], ['museum', 'Old Bones'], ['mob', 'The Family'], ['heat', 'Hot Pursuit'], ['arena', 'The Arena'], ['roost', 'The Roost'], ['shanty', 'Red Crook Shanty'], ['boombap', 'Broodlyn Beats'], ['midtown', 'Midtown Swing'], ['park', 'Park Bench'], ['rainy', 'Rainy Day'], ['shack', 'The Shrimp Shack']]],
-  ['New Yolk, the tunes', [['citytheme', 'The Pecking Order'], ['lullaby', 'Streetlamp Lullaby'], ['jig', 'The Little Pecking Jig'], ['harbourwaltz', 'Gulls Over the Harbour'], ['cosywaltz', 'Kettle On'], ['parktune', 'Picnic in Pigeon Park'], ['raintune', 'Puddles'], ['almamater', 'Alma Mater'], ['safari', 'Safari Shuffle'], ['recess', 'Recess']]],
-  ['St. Petersbird', [['petersbird', 'Korobeiniki on the Neva'], ['tankchase', 'Larry Drives'], ['whitenights', 'White Nights'], ['hermitage', 'The Hermitage'], ['aquarium', 'Under the Sea Glass'], ['countdown', 'Seven Seconds']]],
-  ['Bangcluck', [['bangday', 'Bangcluck by Day'], ['bangnight', 'Neon Soi'], ['songkran', 'Sawasdee Splash', 'bangcluck'], ['kpop', 'Peck Peck Boom', 'bangcluck']]],
-  ['Tokyoo', [['tokyoday', 'Tokyoo by Day', 'tokyoo'], ['tokyonight', 'City Pop Pigeon', 'tokyoo'], ['kyotoo107', 'Kyotoo Morning'], ['kart107', 'Mari-coo Speedway'], ['mecha107', 'Kaiju as a Service'], ['rooftop107', 'Rooftop Tea'], ['muzak107', 'Your Call Is Important To Us']]],
-  ['The moon', [['lunar', 'The moon, outside', 'moon'], ['hotel', 'The hotel', 'moon'], ['boss', 'The car park', 'moon'], ['triumph', 'Triumph', 'moon'], ['tender', 'Tender', 'moon'], ['credits', 'Credits', 'moon']]]]};
+// v338.1: a Jukebox on the title screen plays any of the game's tracks through its own synth (switchTrack).
+// v339.1: a record player of a panel: what is playing, where the game plays it and on what, a visualiser, pause,
+// previous/next, three ways to go on (repeat one, play all, shuffle), the volume, the places as tabs, and the B-sides
+// (five early tracks the game no longer plays: later tunes took their places). It opens from the pause menu too, where
+// a pick keeps playing in the game until "Back to the game's music" (chases and boss fights still bring their own).
+// The tracks Bangcluck, Tokyoo and the moon define come from small functions their load steps call (tunes49s,
+// tunes49k, tunes68, moods218, tunes221, credits239), so nothing has to be built to play them.
+const JUKEPL339 = [['New Yolk', '#d4483a'], ['St. Petersbird', '#2f7ab8'], ['Bangcluck', '#e0a020'], ['Tokyoo', '#d0508a'], ['The moon', '#7a74c8'], ['B-sides', '#8a6a4a']];
 
-// one ~40 ms slice of building a region (what it needs first); true once it is built
-function juke338Slice(R){
-  for (const n of R.needs) if (!REGIONS[n].built){ juke338Slice(REGIONS[n]); return false; }
-  const t0 = performance.now(); do regionStep(R); while (!R.built && performance.now() - t0 < 40);
-  return R.built;
+// [key, title, place (JUKEPL339), where the game plays it]
+const JUKEBOOK339 = [
+  ['citytheme', 'The Pecking Order', 0, 'The streets by day, in Paree and Bavaria too'],
+  ['harbourwaltz', 'Gulls Over the Harbour', 0, 'The Harbour and the Bay'],
+  ['lullaby', 'Streetlamp Lullaby', 0, 'The streets at night, almost everywhere'],
+  ['city', 'Rico\'s Street Music', 0, 'For four minutes after Rico the busker takes a request'],
+  ['midtown', 'Midtown Swing', 0, 'Midtown'],
+  ['boombap', 'Broodlyn Beats', 0, 'Broodlyn by day'],
+  ['shanty', 'Red Crook Shanty', 0, 'Red Crook'],
+  ['parktune', 'Picnic in Pigeon Park', 0, 'Pigeon Park, Riverside and Maple Grove'],
+  ['raintune', 'Puddles', 0, 'Out in the rain'],
+  ['jig', 'The Little Pecking Jig', 0, 'Little Pecking, the village'],
+  ['almamater', 'Alma Mater', 0, 'The university campus'],
+  ['safari', 'Safari Shuffle', 0, 'Wild Acres'],
+  ['recess', 'Recess', 0, 'The schoolyards'],
+  ['subway', 'Underground', 0, 'The subway and the metro'],
+  ['cosywaltz', 'Kettle On', 0, 'Indoors, wherever nothing else plays'],
+  ['library', 'Quiet, Please', 0, 'The libraries'],
+  ['museum', 'Old Bones', 0, 'The museums'],
+  ['diner', 'Sunny Side Up', 0, 'The diner, the deli and the pizzeria'],
+  ['aquarium', 'Under the Sea Glass', 0, 'The New Yolk Aquarium'],
+  ['mob', 'The Family', 0, 'Mama Pica\'s'],
+  ['arena', 'The Arena', 0, 'Madison Squab Garden'],
+  ['roost', 'The Roost', 0, 'The Roost, in Broodlyn'],
+  ['shack', 'The Shrimp Shack', 0, 'The Shrimp Shack, while nobody is after you'],
+  ['heat', 'Hot Pursuit', 0, 'Whenever the heat is on, anywhere'],
+  ['petersbird', 'Korobeiniki on the Neva', 1, 'St. Petersbird by day: Korobeiniki, an old Russian folk song'],
+  ['whitenights', 'White Nights', 1, 'St. Petersbird at night'],
+  ['hermitage', 'The Hermitage', 1, 'The Hermitage'],
+  ['tankchase', 'Larry Drives', 1, 'The chase for the golden egg, and the kidnap van'],
+  ['countdown', 'Seven Seconds', 1, 'The countdown'],
+  ['bangday', 'Bangcluck by Day', 2, 'Bangcluck by day'],
+  ['bangnight', 'Neon Soi', 2, 'Bangcluck at night'],
+  ['songkran', 'Sawasdee Splash', 2, 'The Songkran water festival'],
+  ['kpop', 'Peck Peck Boom', 2, 'The K-pop show'],
+  ['tokyoday', 'Tokyoo by Day', 3, 'Tokyoo by day'],
+  ['tokyonight', 'City Pop Pigeon', 3, 'Tokyoo at night'],
+  ['kyotoo107', 'Kyotoo Morning', 3, 'Kyotoo, by day'],
+  ['rooftop107', 'Rooftop Tea', 3, 'Your rooftop home'],
+  ['kart107', 'Mari-coo Speedway', 3, 'The kart race'],
+  ['mecha107', 'Kaiju as a Service', 3, 'The kaiju fight'],
+  ['muzak107', 'Your Call Is Important To Us', 3, 'On hold at the office, and at Hooli'],
+  ['lunar', 'The Moon, Outside', 4, 'The moon\'s surface'],
+  ['hotel', 'The Hotel', 4, 'The hotel\'s floors, down below'],
+  ['boss', 'The Car Park', 4, 'The fight in the car park'],
+  ['triumph', 'Triumph', 4, 'The finale\'s big moments'],
+  ['tender', 'Tender', 4, 'The finale, the epilogue and the lighthouse'],
+  ['credits', 'Credits', 4, 'The credits'],
+  ['village', 'Little Pecking', 5, 'Little Pecking, until The Little Pecking Jig'],
+  ['cosy', 'Indoors', 5, 'Indoors, until Kettle On'],
+  ['park', 'Park Bench', 5, 'The parks, until Picnic in Pigeon Park'],
+  ['rainy', 'Rainy Day', 5, 'The rain, until Puddles'],
+  ['night', 'Night Shift', 5, 'The night, until Streetlamp Lullaby']];
+
+const JUKEIDX339 = Object.fromEntries(JUKEBOOK339.map(b => [b[0], b]));
+// the tracks a city's load steps define, without building the city
+const JUKEREG339 = {songkran: () => tunes49s(), kpop: () => tunes49k(), tokyoday: () => tunes68(), tokyonight: () => tunes68()};
+for (const k of ['lunar', 'hotel', 'boss', 'triumph', 'tender', 'credits']) JUKEREG339[k] = () => { if (!MOODS.lunar) moods218(); if (!TRACKS.lunar) tunes221(); credits239(); };
+// in the game a pick stands in for whatever plays, except these
+const EVENT339 = new Set(['heat', 'tankchase', 'countdown', 'kart107', 'mecha107', 'boss', 'triumph', 'tender', 'credits']);
+const VOICE339 = {pluck: 'plucked synth', keys: 'electric piano', box: 'music box', flute: 'flute', mando: 'mandolin', accordion: 'accordion', vibes: 'vibraphone', guitar: 'guitar', glock: 'glockenspiel', whistle: 'whistle', harp: 'harp', strings: 'strings', balalaika: 'balalaika'};
+const DRUMS339 = {lofi: 'lo-fi beat', brush: 'brushes', chase: 'chase drums', shanty: 'stomp and clap', boombap: 'boom bap'};
+const MOODS339 = [['usual', 'The usual'], ['jolly', 'Jolly'], ['dreamy', 'Dreamy'], ['jazzy', 'Jazzy']];
+const ICON339 = (d, s = 18) => `<svg viewBox="0 0 16 16" width="${s}" height="${s}" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="${d}"/></svg>`;
+const ICONS339 = {prev: ICON339('M3 3h2v10H3zM13 3v10L6 8z'), next: ICON339('M11 3h2v10h-2zM3 3v10l7-5z'), play: ICON339('M4 2v12l10-6z', 22), pause: ICON339('M4 3h3v10H4zM9 3h3v10H9z', 22), vol: ICON339('M2 6h3l4-3v10l-4-3H2zM11 5h1v6h-1zM13 3h1v10h-1z', 16)};
+
+const JUKE339 = {open: false, cur: null, want: null, pin: null, paused: false, mode: 'all', tab: -1, hist: [], an: null, bins: null, peaks: [], raf: 0, sig: '', from: null, built: false};
+
+function jukeTrack339(k){ if (!TRACKS[k] && JUKEREG339[k]) JUKEREG339[k](); return TRACKS[k]; }
+
+function jukeTitle339(k){ const B = JUKEIDX339[k], T = TRACKS[k]; return B ? B[1] : (T && T.title) || (typeof TITLES41 !== 'undefined' && TITLES41[k]) || k; }
+
+// one loop of a track, and a "side": whole loops adding up to a minute and a quarter or more (play all goes on after it)
+function jukeLen339(T){ const bpm = (T.mood ? MOODS[ricoMood].bpm : T.bpm) || 80, loop = (T.mel ? T.mel.length : 64)*60/bpm/2; return {loop, side: Math.max(2, Math.ceil(75/loop))*loop}; }
+
+const jukeTime339 = s => Math.floor(s/60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+
+function jukeChips339(T){
+  const m = T.mood ? MOODS[ricoMood] : T, c = [Math.round(m.bpm || 0) + ' bpm'];
+  c.push([...new Set((T.melVoice ? [T.melVoice, T.altVoice] : [T.voice]).filter(Boolean))].map(v => VOICE339[v] || v).join(' & '));
+  if (T.drums) c.push(DRUMS339[T.drums] || T.drums);
+  if (T.barLen === 6) c.push('waltz time'); if (T.oompah) c.push('oom-pah'); if (T.crackle) c.push('vinyl crackle');
+  c.push(T.mel ? 'written melody' : 'improvised melody');
+  return c;
 }
 
-function juke338Build(name, done){
-  const R = REGIONS[name]; if (!R || R.built) return done();
-  JUKE338.busy = name; juke338Paint();
-  const tick = () => { let ok = false; try { ok = juke338Slice(R); } catch (e){ console.error('jukebox build ' + name, e); ok = true; }
-    JUKE338.pct = R.built ? 1 : R.i/Math.max(1, R.steps.length);
-    if (ok){ JUKE338.busy = null; juke338Paint(); done(); } else { juke338Paint(); setTimeout(tick, 0); } };
-  setTimeout(tick, 30);
+// the music's own output, tapped for the visualiser (an analyser only listens)
+function jukeTap339(){ if (JUKE339.an || !actx || !musicFilter) return; try { const an = actx.createAnalyser(); an.fftSize = 2048; an.smoothingTimeConstant = 0.72; musicFilter.connect(an); JUKE339.an = an; JUKE339.bins = new Uint8Array(an.frequencyBinCount); } catch (e){ JUKE339.an = null; } }
+
+function jukePlay339(k, back){
+  const J = JUKE339; if (!jukeTrack339(k)) return;
+  unlockAudio(); startAmbience(); jukeTap339();
+  if (J.cur === k && TRACK.cur === k) return jukePause339(!J.paused);   // the playing row again: pause, or go on
+  if (!back && J.cur && J.cur !== k){ J.hist.push(J.cur); if (J.hist.length > 80) J.hist.shift(); }
+  J.cur = k; J.want = k; J.paused = false; if (state !== 'title') J.pin = k;
+  const send = () => { if (J.want !== k) return; if (TRACK.busy) return setTimeout(send, 150); switchTrack(k); };
+  send(); jukePaint339();
 }
 
-function juke338Play(k, region){
-  if (JUKE338.busy) return;
-  const go = () => { JUKE338.want = k; unlockAudio(); startAmbience(); if (!TRACKS[k]) return;
-    const send = () => { if (JUKE338.want !== k) return; if (TRACK.busy) return setTimeout(send, 200); switchTrack(k); JUKE338.cur = k; juke338Paint(); };
-    send(); };
-  if (region && REGIONS[region] && !REGIONS[region].built) juke338Build(region, go); else go();
+function jukePause339(on){
+  const J = JUKE339; J.paused = on;
+  if (musicBus && actx){ musicBus.gain.cancelScheduledValues(actx.currentTime); musicBus.gain.setTargetAtTime(on ? 0.0001 : Math.max(0.0001, settings.music*0.55*(typeof trackVol41 === 'function' ? trackVol41() : 1)), actx.currentTime, on ? 0.06 : 0.25); }
+  jukePaint339();
 }
 
-function juke338Paint(){
-  const box = $('juke338'); if (!box || box.hidden) return;
-  const J = JUKE338, st = $('jukeStat338'), now = J.cur && TRACKS[J.cur];
-  st.textContent = J.busy ? 'Building ' + (REGIONS[J.busy].label || J.busy) + '… ' + Math.round((J.pct || 0)*100) + '%' : now ? 'Now playing: ' + ((now.title || (typeof TITLES41 !== 'undefined' && TITLES41[J.cur])) || J.cur) : 'Pick a tune. Volume is under Settings.';
-  for (const b of box.querySelectorAll('.jt338')){ b.classList.toggle('ghost', b.dataset.k !== J.cur); b.disabled = !!J.busy; }
-}
-
-function juke338Open(on){
-  const J = JUKE338; J.open = on; let box = $('juke338');
-  if (!box){
-    const st = document.createElement('style'); st.textContent = '#juke338 .modal{max-height:calc(100dvh - 40px);overflow:auto;max-width:min(720px,calc(100vw - 24px))} #juke338 h4{margin:12px 0 4px;font-size:15px} #juke338 .jl338{display:flex;flex-wrap:wrap;gap:6px} #juke338 .jl338 .btn{font-size:13px;padding:4px 10px} #juke338 .jl338 .btn small{opacity:.65;font-size:10px} #jukeStat338{margin:6px 0;min-height:1.3em}'; document.head.appendChild(st);
-    box = document.createElement('div'); box.id = 'juke338'; box.className = 'overlay'; box.hidden = true;
-    const m = document.createElement('div'); m.className = 'modal wood'; m.innerHTML = '<h3>Jukebox</h3><p class="lede" id="jukeStat338"></p>';
-    for (const [name, list] of J.groups){
-      const h = document.createElement('h4'); h.textContent = name; m.appendChild(h);
-      const d = document.createElement('div'); d.className = 'jl338';
-      for (const [k, label, region] of list){ const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small ghost jt338'; b.dataset.k = k; b.innerHTML = label + (region ? ' <small>loads ' + (region === 'moon' ? 'the moon' : region[0].toUpperCase() + region.slice(1)) + '</small>' : ''); b.addEventListener('click', () => juke338Play(k, region)); d.appendChild(b); }
-      m.appendChild(d); }
-    const row = document.createElement('div'); row.className = 'row'; row.style.marginTop = '14px';
-    const stop = document.createElement('button'); stop.type = 'button'; stop.className = 'btn small ghost'; stop.textContent = 'Quiet'; stop.addEventListener('click', () => { JUKE338.want = null; JUKE338.cur = null; if (musicBus && actx) musicBus.gain.setTargetAtTime(0.0001, actx.currentTime, 0.15); juke338Paint(); });
-    const close = document.createElement('button'); close.type = 'button'; close.className = 'btn small'; close.textContent = 'Back'; close.addEventListener('click', () => juke338Open(false));
-    row.append(stop, close); m.appendChild(row);
-    const p = document.createElement('div'); p.className = 'panel'; p.appendChild(m); box.appendChild(p); document.body.appendChild(box);
+function jukeNext339(d){
+  const J = JUKE339, all = JUKEBOOK339.map(b => b[0]);
+  let L = J.tab < 0 ? all : JUKEBOOK339.filter(b => b[2] === J.tab).map(b => b[0]); if (J.cur && !L.includes(J.cur)) L = all;
+  if (J.mode === 'shuffle'){
+    if (d < 0 && J.hist.length) return jukePlay339(J.hist.pop(), true);
+    const recent = J.hist.slice(-Math.floor(L.length/2)), pool = L.filter(k => k !== J.cur && !recent.includes(k)), P = pool.length ? pool : L.filter(k => k !== J.cur);
+    return jukePlay339(P[Math.floor(Math.random()*P.length)] || L[0]);
   }
-  box.hidden = !on; if (on) juke338Paint();
+  const i = L.indexOf(J.cur || TRACK.cur);
+  jukePlay339(L[((i < 0 ? (d > 0 ? -1 : 0) : i) + d + L.length) % L.length]);
 }
 
-$('jukeBtn').addEventListener('click', () => { unlockAudio(); startAmbience(); juke338Open(true); if (musicBus && actx && JUKE338.cur === null) musicBus.gain.setTargetAtTime(Math.max(0.0001, settings.music*0.55), actx.currentTime, 0.2); });
-addEventListener('keydown', e => { if (e.key === 'Escape' && JUKE338.open){ juke338Open(false); e.stopPropagation(); } }, true);
+function jukeRelease339(){ const J = JUKE339; J.pin = null; J.cur = null; J.want = null; if (J.paused) jukePause339(false); TRACK.chk = 0; jukePaint339(); }
+
+// play all and shuffle go on to the next tune at the end of a side (in the game, only while a pick is playing)
+function jukeTick339(){
+  const J = JUKE339; if (!J.cur || J.paused || J.mode === 'one' || TRACK.busy || TRACK.cur !== J.cur || !music.e8) return;
+  if (state !== 'title' && !J.pin) return;
+  const T = TRACKS[J.cur]; if (T && music.step*music.e8 >= jukeLen339(T).side) jukeNext339(1);
+}
+
+const JUKECSS339 = `
+#juke339{z-index:75;align-items:center;justify-content:center;background:rgba(43,26,16,.62)}
+#juke339>.panel{max-width:780px;padding:0}
+#juke339 .jk{display:flex;flex-direction:column;gap:10px;box-sizing:border-box;max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 48px);padding:14px 16px 12px}
+#juke339 .jk>*{flex:none}
+#juke339 .jk-head{display:flex;align-items:baseline;gap:10px}
+#juke339 .jk-head h3{margin:0}
+#juke339 .jk-head span{font-size:12px;color:var(--muted)}
+#juke339 .jk-deck{background:#2b1a10;color:#fff6dc;border:3px solid var(--wood-dark);border-radius:6px;padding:12px 14px 10px;box-shadow:inset 0 0 0 2px #4a2a14}
+#juke339 .jk-top{display:flex;gap:16px;align-items:center}
+#juke339 .jk-recw{position:relative;flex:none;width:88px;height:88px}
+#juke339 .jk-recw::after{content:'';position:absolute;inset:0;border-radius:50%;background:linear-gradient(135deg,rgba(255,246,220,.16),transparent 38%,transparent 62%,rgba(255,246,220,.07));pointer-events:none}
+#juke339 .jk-rec{position:absolute;inset:0;border-radius:50%;background:repeating-radial-gradient(circle at 50% 50%,#17110d 0 1.5px,#2a1f18 1.5px 3px);box-shadow:0 0 0 3px #120c08,0 4px 0 rgba(0,0,0,.35);animation:jkspin339 var(--spin,2s) linear infinite;animation-play-state:paused}
+#juke339 .jk-rec.on{animation-play-state:running}
+#juke339 .jk-lab{position:absolute;inset:31%;border-radius:50%;background:var(--lab,#d4483a);box-shadow:inset 0 0 0 2px rgba(0,0,0,.22)}
+#juke339 .jk-lab::before{content:'';position:absolute;left:43%;top:8%;width:14%;height:26%;background:rgba(255,246,220,.85)}
+#juke339 .jk-lab::after{content:'';position:absolute;inset:42%;border-radius:50%;background:#120c08}
+@keyframes jkspin339{to{transform:rotate(360deg)}}
+#juke339 .jk-info{flex:1;min-width:0}
+#juke339 .jk-kick{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#juke339 .jk-title{font:700 23px var(--px);margin:3px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:2px 2px 0 var(--wood-dark)}
+#juke339 .jk-where{font-size:13px;color:#ecc98e;margin-bottom:7px}
+#juke339 .jk-chips{display:flex;flex-wrap:wrap;gap:4px}
+#juke339 .jk-chips span{font-size:11px;padding:2px 6px;border-radius:3px;background:#4a2a14;color:#f3cf8e}
+#juke339 .jk-vis{display:block;width:100%;height:42px;margin-top:10px;image-rendering:pixelated}
+#juke339 .jk-prog{display:flex;align-items:center;gap:10px;margin-top:6px;font-size:11px;color:#ecc98e}
+#juke339 .jk-bar{flex:1;height:6px;background:#4a2a14;border-radius:3px;overflow:hidden}
+#juke339 .jk-bar i{display:block;height:100%;width:0;background:var(--gold)}
+#juke339 .jk-time{white-space:nowrap}
+#juke339 .jk-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#juke339 .jk-ib{display:inline-flex;align-items:center;justify-content:center;padding:6px 12px;min-height:40px}
+#juke339 .jk-play{padding:6px 16px;min-width:58px}
+#juke339 .jk-seg{display:inline-flex;border:3px solid var(--wood-dark);border-radius:6px;overflow:hidden;box-shadow:0 3px 0 rgba(43,26,16,.35)}
+#juke339 .jk-seg button{font:600 13px var(--px);padding:7px 10px;border:0;border-left:2px solid var(--wood-dark);background:var(--parch);color:var(--ink);cursor:pointer}
+#juke339 .jk-seg button:first-child{border-left:0}
+#juke339 .jk-seg button.on{background:var(--wood-light);color:#fff6dc;text-shadow:1px 1px 0 var(--wood-dark)}
+#juke339 .jk-vol{display:flex;align-items:center;gap:6px;margin-left:auto;color:var(--wood-dark)}
+#juke339 .jk-vol input{width:110px;accent-color:var(--wood-light)}
+#juke339 .jk-moods{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+#juke339 .jk-tabs{display:flex;flex-wrap:wrap;gap:5px}
+#juke339 .jk-tabs button{font:600 13px var(--px);padding:5px 10px;border-radius:14px;border:2px solid var(--wood-dark);background:var(--parch);color:var(--ink);cursor:pointer}
+#juke339 .jk-tabs button small{opacity:.6;margin-left:3px}
+#juke339 .jk-tabs button.on{background:var(--wood-dark);color:#fff6dc}
+#juke339 .jk>.jk-list{flex:1 1 auto;min-height:150px;overflow:auto;border:3px solid var(--wood-dark);border-radius:6px;background:#fff4d8;box-shadow:inset 0 2px 0 rgba(43,26,16,.12)}
+#juke339 .jk-h{position:sticky;top:0;z-index:1;background:var(--parch-2);font:700 11px var(--px);letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;color:var(--wood-dark);border-bottom:1px solid rgba(92,47,22,.25)}
+#juke339 .jk-row{display:flex;align-items:center;gap:10px;width:100%;min-height:42px;padding:6px 10px;border:0;border-bottom:1px solid rgba(92,47,22,.14);background:transparent;font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+#juke339 .jk-row:hover{background:rgba(255,200,61,.25)}
+#juke339 .jk-row:focus-visible{outline:3px solid var(--wood-light);outline-offset:-3px}
+#juke339 .jk-row.cur{background:var(--gold)}
+#juke339 .jk-dot{flex:none;width:8px;height:22px;border-radius:2px;background:var(--lab)}
+#juke339 .jk-n{flex:none;width:22px;text-align:right;font-size:12px;color:var(--muted)}
+#juke339 .jk-eq{display:none;flex:none;width:22px;height:13px;gap:2px;align-items:flex-end;justify-content:flex-end}
+#juke339 .jk-eq i{width:3px;height:4px;background:var(--wood-dark);animation:jkeq339 .8s ease-in-out infinite alternate}
+#juke339 .jk-eq i:nth-child(2){animation-delay:-.27s}
+#juke339 .jk-eq i:nth-child(3){animation-delay:-.53s}
+#juke339 .jk-list.paused .jk-eq i{animation-play-state:paused}
+#juke339 .jk-row.cur .jk-n{display:none}
+#juke339 .jk-row.cur .jk-eq{display:inline-flex}
+@keyframes jkeq339{to{height:13px}}
+#juke339 .jk-t{flex:1;min-width:0}
+#juke339 .jk-t b{display:block;font:600 15px var(--px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#juke339 .jk-t small{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#juke339 .jk-bpm{flex:none;font-size:11px;color:var(--muted)}
+#juke339 .jk-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#juke339 .jk-keys{margin-right:auto;font-size:11px;color:var(--muted)}
+@media (max-width:560px){#juke339 .jk{padding:10px;gap:8px}#juke339 .jk-head span,#juke339 .jk-keys{display:none}#juke339 .jk-recw{width:62px;height:62px}#juke339 .jk-title{font-size:18px}#juke339 .jk-ctl>.jk-seg{order:2}#juke339 .jk-vol input{width:76px}#juke339 .jk-seg button{padding:6px 8px}#juke339 .jk-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}#juke339 .jk-tabs button{flex:none}}
+@media (prefers-reduced-motion:reduce){#juke339 .jk-rec,#juke339 .jk-eq i{animation:none}}`;
+
+function jukeBuild339(){
+  const J = JUKE339; if (J.built) return; J.built = true;
+  J.mode = ['one', 'all', 'shuffle'].includes(settings.juke339) ? settings.juke339 : 'all';
+  for (const B of JUKEBOOK339) jukeTrack339(B[0]);
+  const st = document.createElement('style'); st.textContent = JUKECSS339; document.head.appendChild(st);
+  const box = document.createElement('div'); box.id = 'juke339'; box.className = 'overlay'; box.hidden = true; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Jukebox');
+  box.innerHTML = `<div class="panel"><div class="modal wood jk">
+<div class="jk-head"><h3>Jukebox</h3><span>${JUKEBOOK339.length} tracks, all made in the game's own synth</span></div>
+<div class="jk-deck"><div class="jk-top"><div class="jk-recw"><div class="jk-rec"><div class="jk-lab"></div></div></div><div class="jk-info"><div class="jk-kick"></div><div class="jk-title"></div><div class="jk-where"></div><div class="jk-chips"></div></div></div>
+<canvas class="jk-vis" aria-hidden="true"></canvas><div class="jk-prog"><span class="jk-bar"><i></i></span><span class="jk-time"></span></div></div>
+<div class="jk-ctl"><button type="button" class="btn small ghost jk-ib" data-a="prev" aria-label="Previous tune">${ICONS339.prev}</button><button type="button" class="btn jk-ib jk-play" data-a="play"></button><button type="button" class="btn small ghost jk-ib" data-a="next" aria-label="Next tune">${ICONS339.next}</button>
+<span class="jk-seg" role="group" aria-label="When a tune ends"><button type="button" data-m="one">Repeat one</button><button type="button" data-m="all">Play all</button><button type="button" data-m="shuffle">Shuffle</button></span>
+<label class="jk-vol">${ICONS339.vol}<input type="range" min="0" max="1" step="0.05" aria-label="Music volume"></label></div>
+<div class="jk-moods" hidden><span>Rico's mood</span><span class="jk-seg">${MOODS339.map(([m, l]) => `<button type="button" data-mood="${m}">${l}</button>`).join('')}</span></div>
+<div class="jk-tabs" role="tablist"></div><div class="jk-list"></div>
+<div class="jk-foot"><span class="jk-keys">Space pause · ← → skip · ↑ ↓ choose · Esc back</span><button type="button" class="btn small ghost" data-a="release" hidden>Back to the game's music</button><button type="button" class="btn small" data-a="close">Back</button></div>
+</div></div>`;
+  document.body.appendChild(box);
+  J.cv = box.querySelector('.jk-vis');
+  const tabs = box.querySelector('.jk-tabs');
+  for (const [i, name] of [[-1, 'All'], ...JUKEPL339.map((p, i) => [i, p[0]])]){ const b = document.createElement('button'); b.type = 'button'; b.dataset.tab = i; b.setAttribute('role', 'tab'); b.innerHTML = name + `<small>${i < 0 ? JUKEBOOK339.length : JUKEBOOK339.filter(B => B[2] === i).length}</small>`; tabs.appendChild(b); }
+  box.addEventListener('click', e => { const b = e.target.closest('button'); if (!b || !box.contains(b)) return;
+    if (b.dataset.k) return jukePlay339(b.dataset.k);
+    if (b.dataset.tab != null){ J.tab = +b.dataset.tab; jukeRows339(); return jukePaint339(); }
+    if (b.dataset.m){ J.mode = b.dataset.m; settings.juke339 = J.mode; try { saveSettings(); } catch (e){} return jukePaint339(); }
+    if (b.dataset.mood){ setMood(b.dataset.mood); return jukePaint339(); }
+    const a = b.dataset.a;
+    if (a === 'play'){ if (!J.cur && !TRACK.cur) return jukeNext339(1); return jukePause339(!J.paused); }
+    if (a === 'prev' || a === 'next') return jukeNext339(a === 'prev' ? -1 : 1);
+    if (a === 'release') return jukeRelease339();
+    if (a === 'close') return jukeOpen339(false); });
+  box.querySelector('.jk-vol input').addEventListener('input', e => { const s = $('setMusic'); if (s){ s.value = e.target.value; s.dispatchEvent(new Event('input')); } else { settings.music = +e.target.value; saveSettings(); } });
+  jukeRows339(); setInterval(jukeTick339, 250);
+}
+
+function jukeRows339(){
+  const J = JUKE339, L = $('juke339').querySelector('.jk-list'); L.textContent = '';
+  let n = 0, last = -1;
+  for (const [k, title, p, where] of JUKEBOOK339){ if (J.tab >= 0 && p !== J.tab) continue;
+    if (J.tab < 0 && p !== last){ last = p; const h = document.createElement('div'); h.className = 'jk-h'; h.textContent = JUKEPL339[p][0]; L.appendChild(h); }
+    const T = TRACKS[k], b = document.createElement('button'); b.type = 'button'; b.className = 'jk-row'; b.dataset.k = k; b.style.setProperty('--lab', JUKEPL339[p][1]);
+    b.innerHTML = `<span class="jk-dot"></span><span class="jk-n">${String(++n).padStart(2, '0')}</span><span class="jk-eq" aria-hidden="true"><i></i><i></i><i></i></span><span class="jk-t"><b></b><small></small></span><span class="jk-bpm">${T ? Math.round((T.mood ? MOODS[ricoMood] : T).bpm) + ' bpm' : ''}</span>`;
+    b.querySelector('b').textContent = title; b.querySelector('small').textContent = where; L.appendChild(b); }
+  J.sig = '';
+}
+
+// what plays now (or is about to, while a switch fades)
+const jukeShown339 = () => (TRACK.busy && JUKE339.want) || TRACK.cur || 'city';
+
+function jukePaint339(){
+  const J = JUKE339, box = $('juke339'); if (!box || box.hidden) return;
+  const k = jukeShown339(), T = TRACKS[k] || {}, B = JUKEIDX339[k], pl = B ? JUKEPL339[B[2]] : null, title = state === 'title';
+  const kick = !actx ? 'Pick a tune to switch the sound on' : J.paused ? 'Paused' : k === J.cur ? (title ? 'Now playing' : 'Your pick') : J.pin && !TRACK.busy ? 'The game needs this one, then ' + jukeTitle339(J.pin) : (title ? 'Now playing' : 'Playing in the game');
+  const sig = [k, kick, pl && pl[0], ricoMood, J.mode, J.paused, J.pin, muted, J.tab].join('|'); if (sig === J.sig) return; J.sig = sig;
+  const q = s => box.querySelector(s), rec = q('.jk-rec');
+  q('.jk-kick').textContent = kick + (pl ? ' · ' + pl[0] : '') + (muted ? ' · sound is off (M)' : '');
+  q('.jk-title').textContent = jukeTitle339(k); q('.jk-where').textContent = B ? B[3] : '';
+  q('.jk-chips').innerHTML = T.voice || T.melVoice ? jukeChips339(T).map(c => `<span>${c}</span>`).join('') : '';
+  rec.style.setProperty('--spin', (240/((T.mood ? MOODS[ricoMood].bpm : T.bpm) || 80)).toFixed(2) + 's'); rec.style.setProperty('--lab', pl ? pl[1] : '#d4483a'); rec.classList.toggle('on', !!actx && !J.paused);
+  const play = q('.jk-play'); play.innerHTML = J.paused ? ICONS339.play : ICONS339.pause; play.setAttribute('aria-label', J.paused ? 'Play' : 'Pause');
+  for (const b of box.querySelectorAll('[data-m]')) b.classList.toggle('on', b.dataset.m === J.mode);
+  for (const b of box.querySelectorAll('[data-tab]')){ const on = +b.dataset.tab === J.tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
+  q('.jk-moods').hidden = k !== 'city'; for (const b of box.querySelectorAll('[data-mood]')) b.classList.toggle('on', b.dataset.mood === ricoMood);
+  q('[data-a="release"]').hidden = !J.pin;
+  q('.jk-vol input').value = settings.music;
+  const L = q('.jk-list'); L.classList.toggle('paused', J.paused);
+  for (const r of L.querySelectorAll('.jk-row')){ const on = r.dataset.k === k; r.classList.toggle('cur', on); r.setAttribute('aria-current', on ? 'true' : 'false'); }
+  const mb = $('jukeMenu339'); if (mb) mb.textContent = J.pin ? 'Jukebox ♪' : 'Jukebox';
+}
+
+// the visualiser (pixel bars from the music's analyser, with falling peaks) and the progress, while the panel is open
+function jukeDraw339(){
+  const J = JUKE339; if (!J.open){ J.raf = 0; return; } J.raf = requestAnimationFrame(jukeDraw339);
+  jukePaint339();
+  const box = $('juke339'), k = jukeShown339(), T = TRACKS[k];
+  if (T && music.e8){ const {loop, side} = jukeLen339(T), el = TRACK.cur === k && !TRACK.busy ? music.step*music.e8 : 0, mine = k === J.cur && J.mode !== 'one';
+    box.querySelector('.jk-bar i').style.width = (100*Math.min(1, mine ? el/side : (el % loop)/loop)).toFixed(1) + '%';
+    let nx = ''; if (mine && J.mode === 'all'){ let L = J.tab < 0 ? JUKEBOOK339 : JUKEBOOK339.filter(b => b[2] === J.tab); if (!L.some(b => b[0] === k)) L = JUKEBOOK339; const i = L.findIndex(b => b[0] === k); nx = ' · next: ' + L[(i + 1) % L.length][1]; } else if (mine) nx = ' · next: a surprise';
+    box.querySelector('.jk-time').textContent = mine ? jukeTime339(Math.min(el, side)) + ' / ' + jukeTime339(side) + nx : jukeTime339(el) + ' · loops every ' + jukeTime339(loop); }
+  const c = J.cv, w = Math.max(30, Math.round(c.clientWidth/3)), h = Math.max(6, Math.round(c.clientHeight/3));
+  if (c.width !== w || c.height !== h){ c.width = w; c.height = h; J.peaks = []; }
+  const g = c.getContext('2d'), nb = Math.floor((w + 1)/3), an = J.an, bins = J.bins, live = an && !J.paused;
+  if (live) an.getByteFrequencyData(bins);
+  const hz = (actx ? actx.sampleRate : 48000)/(an ? an.fftSize : 2048);
+  g.fillStyle = '#3a2414'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < nb; i++){
+    let v = 0; if (live){ const b0 = Math.floor(55*Math.pow(9000/55, i/nb)/hz), b1 = Math.max(b0, Math.floor(55*Math.pow(9000/55, (i + 1)/nb)/hz)); for (let b = b0; b <= b1 && b < bins.length; b++) v = Math.max(v, bins[b]); v /= 255; }
+    const lit = Math.round(Math.pow(v, 1.5)*h), pk = J.peaks[i] = Math.max(lit, (J.peaks[i] || 0) - 0.15);
+    g.fillStyle = '#2b1a10'; g.fillRect(i*3 + 2, 0, 1, h);
+    for (let y = 0; y < lit; y++){ g.fillStyle = y >= h*0.78 ? '#d4483a' : y >= h*0.5 ? '#ff9a3d' : '#ffc83d'; g.fillRect(i*3, h - 1 - y, 2, 1); }
+    if (pk >= 1){ g.fillStyle = '#fff6dc'; g.fillRect(i*3, h - 1 - Math.min(h - 1, Math.floor(pk)), 2, 1); }
+  }
+}
+
+function jukeOpen339(on, from){
+  const J = JUKE339;
+  if (on){ jukeBuild339(); unlockAudio(); startAmbience(); jukeTap339(); J.from = from || null; }
+  else if (J.paused) jukePause339(false);   // pause only lasts while the jukebox is open
+  J.open = on; const box = $('juke339'); if (!box) return; box.hidden = !on;
+  if (!on){ if (J.from && J.from.focus) J.from.focus(); return; }
+  J.sig = ''; jukePaint339(); if (!J.raf) J.raf = requestAnimationFrame(jukeDraw339);
+  const r = box.querySelector('.jk-row.cur') || box.querySelector('.jk-play'); if (r){ r.scrollIntoView({block: 'center'}); r.focus({preventScroll: true}); }
+}
+
+aroundHook('pickTrack', function(next){ const t = next(), p = JUKE339.pin; return p && !EVENT339.has(t) ? p : t; });
+aroundHook('schedMusic', function(next){ if (!JUKE339.paused) return next(); });
+hook('begin', function(){ const J = JUKE339; J.pin = null; J.cur = null; J.want = null; if (J.open) jukeOpen339(false); else if (J.paused) jukePause339(false); });
+hook('toggleHelp', function(on){ if (!on && JUKE339.open) jukeOpen339(false); });
+addEventListener('keydown', e => { const J = JUKE339; if (!J.open) return; const k = e.key, box = $('juke339'), inRange = e.target && e.target.type === 'range';
+  if (k === 'Escape') jukeOpen339(false);
+  else if (k === ' '){ e.preventDefault(); jukePause339(!J.paused); }
+  else if ((k === 'ArrowRight' || k === 'ArrowLeft') && !inRange){ e.preventDefault(); jukeNext339(k === 'ArrowRight' ? 1 : -1); }
+  else if (k === 'ArrowDown' || k === 'ArrowUp'){ e.preventDefault(); const rows = [...box.querySelectorAll('.jk-row')], i = rows.indexOf(document.activeElement), j = i < 0 ? Math.max(0, rows.findIndex(r => r.classList.contains('cur'))) : Math.min(rows.length - 1, Math.max(0, i + (k === 'ArrowDown' ? 1 : -1))); if (rows[j]){ rows[j].focus({preventScroll: true}); rows[j].scrollIntoView({block: 'nearest'}); } }
+  e.stopPropagation(); }, true);
+$('jukeBtn').addEventListener('click', e => jukeOpen339(true, e.currentTarget));
+// the pause menu picks this up with its other buttons (ui/pause-menu.js organiseMenu302)
+{ const m = document.querySelector('#help .modal'); if (m){ const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.id = 'jukeMenu339'; b.textContent = 'Jukebox'; b.addEventListener('click', () => jukeOpen339(true, b)); m.appendChild(b); } }
 /* ---------- ui: pause menu ---------- */
 // v302: the pause menu, tidied. Over the years every area added its own buttons, settings and fly-to places to the
 // one long #help panel (4,000 px tall, its top out of reach on a laptop screen) and a full version history under it.
