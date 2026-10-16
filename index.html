@@ -24115,7 +24115,7 @@ DINNER = (() => { const out = []; [[PR.cx - 1.6, PR.z + 1, 'paulie', 1.2], [PR.c
   const lamps = lampSpots.filter(([x, z]) => x > -336 && x < -244 && z > 40 && z < 150);
   for (let k = 0; k < Math.min(6, lamps.length); k++){ const [x, z] = lamps[Math.floor(rand()*lamps.length)]; const P = bling(makeMagpie(1.1), 1); hatOn(P, 'fedora', pick([0x3a3a42, 0x5c3a2a])); P.g.position.set(x, 4.95, z); P.g.rotation.y = rand()*6; P.g.userData.cr = 99; scene.add(P.g); WISE.push({P, anim: newAnim(), pos: P.g.position, t: rr(3, 10)}); }
 }
-addNamedTalker('Chat with the wiseguy', 'Wiseguy', () => { let best = _far27, bd = 3; for (const w of WISE){ const d = w.pos.distanceTo(player.pos); if (d < bd){ bd = d; best = w.pos; } } return best; }, () => { BIRDS27.chatter(0.025); say([L('Wiseguy', mpick(WISE_LINES))]); }, 3);
+addNamedTalker('Chat with the wiseguy', 'Wiseguy', () => { let best = _far27, bd = 3; for (const w of WISE){ const d = w.pos.distanceTo(player.pos); if (d < bd){ bd = d; best = w.pos; } } return best; }, () => { BIRDS27.chatter(0.025); say([L('Wiseguy', mpick(WISE_LINES))]); }, 3, () => WARST48() !== 3);   // (at war stage 3 "Rally the wiseguy", story/part-four.js, stands on the same birds: it takes the E)
 PORTRAITS.Wiseguy = PORTRAITS.Paulie;
 VOICES.Wiseguy = {kind: 'chatter', base: 230, range: 0.4, rate: 13, cps: 46};
 // loyalty pays
@@ -24765,7 +24765,7 @@ aroundHook('vsyl', function(next, V, k){ if (V.kind !== 'click') return next(V, 
 
 /* ---------- the Shellfish substory ---------- */
 // (172-the-shellfish-substory)
-const SH = {carry: null, shells: [], crates: [], tide: 0, carried: 0};
+const SH = {carry: null, shells: [], crates: [], tide: 0, carried: 0, tried: []};   // tried: the shells Shelly turned down (the marker passes them over)
 
 const bs_storyTheShellfish_2 = () => {
 // three candidates for Shelly's new home
@@ -24795,7 +24795,7 @@ addNamedTalker('Talk to Shelly', 'Shelly', () => _v30.copy(SHELL.shelly.position
   ])]);
   if (st === 1){
     if (!SH.carry) return say([L('Shelly', 'Anything? A tin can, a teacup, something bright? I\'m not fussy. I\'m a little fussy.')]);
-    const k = SH.carry; dropCarry();
+    const k = SH.carry; dropCarry(); if (!SH.tried.includes(k)) SH.tried.push(k);
     if (k === 'can'){ const s = SH.shells.find(s => s.kind === 'can'); s.o.visible = true; return say([L('Shelly', '*squeezes in* ...It smells like sardines. And regret. No thanks.')]); }
     if (k === 'cup'){ const s = SH.shells.find(s => s.kind === 'cup'); s.o.visible = true; return say([L('Shelly', 'A teacup? Darling, I\'m from Red Crook, not the Upper Beak Side. Next.')]); }
     setHermitShell(SHELL.shelly, 'cone'); emit('spark', SHELL.shelly.position, 12, 0.8, 1.4); addXP(40);
@@ -24848,7 +24848,7 @@ function shStage(){ return S.shell30 || 0; }
 function setShell(n){ S.shell30 = n; save(); renderQuest(); }
 
 const SHELL_Q = {
-  1: {title: 'Moving Day', text: () => SH.carry ? `Take the ${SHELL_NAMES[SH.carry]} to Shelly on the promenade by Red Crook Docks.` : 'Shelly the hermit crab needs a new shell. Look around Red Crook Docks for something that might fit: a tin can, a teacup, a traffic cone.', at: () => SH.carry ? SHELL.shelly.position : (SH.shells.find(s => s.o.visible) || {pos: null}).pos},
+  1: {title: 'Moving Day', text: () => SH.carry ? `Take the ${SHELL_NAMES[SH.carry]} to Shelly on the promenade by Red Crook Docks.` : 'Shelly the hermit crab needs a new shell. Look around Red Crook Docks for something that might fit: a tin can, a teacup, a traffic cone.', at: () => SH.carry ? SHELL.shelly.position : (SH.shells.find(s => s.o.visible && !SH.tried.includes(s.kind)) || SH.shells.find(s => s.o.visible) || {pos: null}).pos},
   2: {title: 'Meet the Boss', text: () => 'Go to the Shrimp Shack on the middle pier at Red Crook Docks and meet Big Shrimpo.', at: () => roomAt(player.pos) === shackRoom ? _st30.set(SK.cx - 2.6, 1.0, SK.z) : _st30.set(SK.x1 + 1.6, 0.15, SK.z)},
   3: {title: 'Lobster Liberation', text: () => "Lenny's cousin Larry is in the tank at The Lobster Pot, Broodlyn Heights. Open the lid while the chef is busy at his stove.", at: () => roomAt(player.pos) === potRoom ? _st30.set(LP30.x0 + 1.6, 1.0, LP30.z - 2) : _st30.set(LP30.x1 + 1.6, 0.15, LP30.z)},
   4: {title: "Smuggler's Tide", text: () => SH.tide > 0 ? `Carry crates of "caviar" from the north pier to The Salty Claw. Keep out of the patrol boat's searchlight. ${SH.carried}/3 · ${Math.ceil(SH.tide)} s of tide left.` : "Talk to Big Shrimpo in the Shrimp Shack when you're ready for the smuggling run.", at: () => SH.tide > 0 ? (SH.carry === 'crate' ? RC30.hold : (SH.crates.find(c => c.o.visible) || {o: {position: null}}).o.position) : _st30.set(SK.cx - 2.6, 1.0, SK.z)},
@@ -56986,6 +56986,8 @@ WHATS_NEW.unshift(['340 · City of Light', 'Every city draws a lot more frames a
 GAME_VER.n = 341;
 GAME_VER.name = 'Bare Bones';
 WHATS_NEW.unshift(['341 · Bare Bones', 'Paree runs about five percent faster again, the same to look at. People in the middle distance, who are drawn as one simple figure, now only move that figure\'s bones instead of every hidden piece of them, and things that move far beyond what you can see (New Yolk\'s, from Paree) are looked at a couple of times a second instead of every frame.']);
+// v341.1
+WHATS_NEW.unshift(['341.1 · Rally Round', 'Two story fixes. In Claws Out, Rally the Family can be finished again: pecking a wiseguy on a Market Lane lamp post gave you small talk instead of rallying him, so the count never went past 0. And in the Shellfish\'s Moving Day, the marker no longer sends you back to the tin can Shelly already turned down: it points at the next thing to try.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
