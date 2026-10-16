@@ -7023,7 +7023,7 @@ const SB_CELL = 160, SB_MAXV = 20000, SB_LAYER = 3, SB_PROXY = 1;
 // first needed, in whatever order that came, they had split the scene's objects into 204 hidden classes in V8, and every
 // field the walks read was looked up the slow way. (Made as undefined: what the walks test for is unchanged.) (?noshape336)
 const SB_SHAPE = !/[?&]noshape336/.test(location.search), SB_FIELDS = ['__sbT', '__sbQ', '__sbV', '__sbA', '__sbLt', '__sbStale', '__sbS', '__sbL', '__sbI', '__gs', '__cbOff', '__cb323', '__cbAll323', '__imSplit', '__lod317', '__fb317',
-  '_listeners', '__cbOk', '__cbOkM', '__cbOkG', '__cbOkV', '__cbP', '__cbOther', '__cbFrozen', '__cbR', '__split', '_camHide308', '__sbWT', '__sbE', '__sbEg', '__sbOK', '__sbScV', '__sbScA', '__sbHas', '__cbRig', '__cbChg', '__cbFast', '__cbList', '__awk340', '__awkI340', '__awkIn340', '__chOwn336'];   // (three's own _listeners too, made at the first listener)
+  '_listeners', '__cbOk', '__cbOkM', '__cbOkG', '__cbOkV', '__cbP', '__cbOther', '__cbFrozen', '__cbR', '__split', '_camHide308', '__sbWT', '__sbE', '__sbEg', '__sbOK', '__sbScV', '__sbScA', '__sbHas', '__cbRig', '__cbChg', '__cbFast', '__cbList', '__awk340', '__awkI340', '__awkIn340', '__mc341', '__mid341', '__fz341', '__chOwn336'];   // (three's own _listeners too, made at the first listener)
 // v340: made by name (o.__sbT = o.__sbT), one generated line per field, not by a computed key (o[k] = undefined): V8 lets
 // an object take 128 fields added by name before it turns it into a slow dictionary, but only as many as it was built with
 // (or 12) by key. By key, three more fields (v340's) had 65,000 of New Yolk's 67,000 objects in dictionary mode (v339
@@ -7040,7 +7040,7 @@ function sbInit(){
   { const um = THREE.Object3D.prototype.updateMatrix; THREE.Object3D.prototype.updateMatrix = function(){ um.call(this); if (this.matrixAutoUpdate === false && this.__awkIn340 !== this.parent) sbWake340(this); }; }   // (v340: a still object given a new matrix wakes: sbMatrices' awake lists)
   const add = THREE.Object3D.prototype.add;
   // (v319: and its new parents are walked again from the next frame: a quiet one is walked one frame in four, sbMatrices)
-  THREE.Object3D.prototype.add = function(...objs){ for (const o of objs) if (o && o.isObject3D){ o.matrixWorldNeedsUpdate = true; if (SB_SHAPE === true) o.traverse(sbShape336); } for (let q = this; q; q = q.parent){ q.__sbQ = 0; q.__sbV = (q.__sbV | 0) + 1; q.__sbA = (q.__sbA | 0) + 1; if (q.__lod317 !== undefined) q.__lod317 = undefined; } const r = add.apply(this, objs); if (this.__awk340 !== undefined) for (const o of objs) if (o && o.isObject3D && o.parent === this) sbWake340(o); return r; };   // (v340: and it's awake: sbMatrices' awake lists)
+  THREE.Object3D.prototype.add = function(...objs){ for (const o of objs) if (o && o.isObject3D){ o.matrixWorldNeedsUpdate = true; if (SB_SHAPE === true) o.traverse(sbShape336); } for (let q = this; q; q = q.parent){ q.__sbQ = 0; q.__sbV = (q.__sbV | 0) + 1; q.__sbA = (q.__sbA | 0) + 1; if (q.__lod317 !== undefined){ q.__lod317 = undefined; q.matrixWorldNeedsUpdate = true; } } const r = add.apply(this, objs); if (this.__awk340 !== undefined) for (const o of objs) if (o && o.isObject3D && o.parent === this) sbWake340(o); return r; };   // (v340: and it's awake: sbMatrices' awake lists)
   if (SB_SHAPE === true) scene.traverse(sbShape336);
   camera.layers.enable(SB_LAYER);
   sun.shadow.camera.layers.enable(SB_PROXY);
@@ -7122,8 +7122,8 @@ function sbInit(){
 // brought up to date the frame it shows again.
 // v339: the walks' switches, read once a frame (sbSwitches339, as the matrix pass starts: render/pipeline.js), not at every
 // object they look at
-const SW339 = {prune: false, gc: true, lodWalk: true, op0: true, noFuse: false, freeze: true, all: false, awake: true};
-function sbSwitches339(){ const W = window, S = SW339; S.prune = W.__noPrune335 === true; S.gc = W.__noGc321 !== true; S.lodWalk = W.__noLodWalk321 !== true; S.op0 = W.__noOp0321 !== true; S.noFuse = W.__noFuse323 === true; S.freeze = W.__noFreeze323 !== true; S.all = W.__sbAll === 1; S.awake = W.__noAwake340 !== true; }
+const SW339 = {prune: false, gc: true, lodWalk: true, op0: true, noFuse: false, freeze: true, all: false, awake: true, mid: true, farFz: true};
+function sbSwitches339(){ const W = window, S = SW339; S.prune = W.__noPrune335 === true; S.gc = W.__noGc321 !== true; S.lodWalk = W.__noLodWalk321 !== true; S.op0 = W.__noOp0321 !== true; S.noFuse = W.__noFuse323 === true; S.freeze = W.__noFreeze323 !== true; S.all = W.__sbAll === 1; S.awake = W.__noAwake340 !== true; S.mid = W.__noMid341 !== true; S.farFz = W.__noFarFz341 !== true; }
 const SB_LIGHTS = [];
 // v319: a group whose whole subtree has not changed for 60 frames is walked one frame in four (staggered), not every frame:
 // most of the scene's 4,800 groups never move, and walking them was the biggest single cost of a WebGPU frame. One that
@@ -7151,6 +7151,8 @@ function sbMatrices(o, force, self){
   // matrix (updateMatrix), or leaves its batch; and a sixteenth of the group's children are looked at each frame, in turn,
   // for anything else. (window.__noAwake340: every child every frame, live)
   let arr = ch, awake = false, w = 0;
+  // v341: the scene's and a city's children are the groups that may be frozen far off (sbFar341)
+  const fzl = SW339.farFz === true && force === false && (o === scene || (o.parent === scene && SBATCH !== undefined && SBATCH !== null && SBATCH.big.has(o)));
   if (force === false && SW339.awake === true && all === false && all335 === false && ch.length >= SB_AWK340){ arr = o.__awk340 !== undefined ? o.__awk340 : sbAwakeBuild340(o); awake = true; sbAwakeSweep340(o); }
   for (let i = 0; i < arr.length; i++){ const c = arr[i];
     if (awake === true){ if (c.__awkIn340 !== o){ continue; } if (c.parent !== o || sbAsleep340(c)){ c.__awkIn340 = null; continue; } arr[w++] = c; }
@@ -7165,13 +7167,51 @@ function sbMatrices(o, force, self){
     if (force === false && kids !== 0 && c.__sbQ > 60 && !all && ((SB_FR + c.id) & 3) !== 0){ const L = c.__sbLt; if (L !== undefined) for (let k = 0; k < L.length; k++) SB_LIGHTS.push(L[k]); continue; }
     // v335: a still leaf with nothing to bring up to date (its matrices set once, not batched, not a light) isn't called
     if (kids === 0 && force === false && c.matrixAutoUpdate === false && c.matrixWorldNeedsUpdate === false && c.__sbS === undefined && c.isLight !== true && !all335) continue;
-    const n0 = SB_LIGHTS.length, cc = sbMatrices(c, force);
+    // v341: a group frozen far off keeps its own matrix up to date, not its contents' (its lights as last walked)
+    if (fzl === true && kids !== 0 && c.__fz341 !== undefined && sbFrozen341(c)){ if (sbMatrices(c, force, true)) changed = true; const L = c.__sbLt; if (L !== undefined) for (let k = 0; k < L.length; k++) SB_LIGHTS.push(L[k]); continue; }
+    const n0 = SB_LIGHTS.length; let cc;
+    if (c.__lod317 === 1 && c.__fb317 !== undefined && SW339.mid === true) cc = sbMid341(c, force);   // v341: the one-mesh body's bones only
+    else if (c.__fz341 !== undefined && c.__fz341.far === true){ c.__fz341.far = false; cc = sbMatrices(c, true); }   // (out of its freeze: all of it worked out afresh)
+    else cc = sbMatrices(c, force);
+    if (fzl === true && kids !== 0 && cc && c.__cbRig !== true) sbFar341(c);
     if (cc && c.__cbRig === true) c.__cbChg = SB_FR;   // (v339: render/crowd-batch.js walks a rig again only then)
     if (kids !== 0){ if (cc){ c.__sbQ = 0; c.__sbV = (c.__sbV | 0) + 1; changed = true; } else c.__sbQ = (c.__sbQ | 0) + 1; c.__sbLt = SB_LIGHTS.length > n0 ? SB_LIGHTS.slice(n0) : undefined; }
     else if (cc) changed = true; }
   if (awake === true) arr.length = w;
   return changed;
 }
+// v341: a person in the middle distance is drawn as one skinned body (cast/lod.js setLOD317): only the body and its bones
+// (and what's between them and the rig) need their matrices, not the 15-20 parts on layer 4, which nothing draws. The
+// parts are worked out afresh the frame the person comes near again (setLOD317 marks the rig). 88 people in Paree's middle
+// distance were ~1,000 visits a frame. (window.__noMid341 = true: all of it, live)
+function sbMid341(c, force){
+  let L = c.__mid341; if (L === undefined || L.fb !== c.__fb317) L = c.__mid341 = sbMidList341(c);
+  let any = sbMatrices(c, force, true); c.__mc341 = any ? SB_FR : -1;
+  const N = L.nodes; for (let i = 0; i < N.length; i++){ const n = N[i]; if (sbMatrices(n, n.parent.__mc341 === SB_FR, true)){ n.__mc341 = SB_FR; any = true; } else n.__mc341 = -1; }
+  return any; }
+// (the bones and the body, with every group between them and the rig, parents first)
+function sbMidList341(c){ const fb = c.__fb317, set = new Set(), add = o => { for (let q = o; q !== null && q !== c; q = q.parent){ if (set.has(q)) break; set.add(q); } };
+  for (const b of fb.skeleton.bones) add(b); add(fb);
+  const depth = o => { let d = 0; for (let q = o; q !== null && q !== c; q = q.parent) d++; return d; };
+  return {fb, nodes: [...set].sort((a, b) => depth(a) - depth(b))}; }
+// v341: far off, frozen. A group among the scene's or a city's children that changes (an animated thing, a group of movers)
+// and whose contents all lie beyond the camera's reach (max(camera.far, 600) + 60 m, as sbCheck's) keeps only its own
+// matrix up to date for 32 frames, then is walked whole (everything worked out afresh) and measured again: where its
+// contents are now, so a group of movers that wander is followed. A camera that moves 30 m sooner ends the freeze. In
+// Paree ~400 visits a frame were New Yolk's things 2.8 km off. (window.__noFarFz341 = true: walked always, live)
+function sbFrozen341(c){ const st = c.__fz341; if (st.far !== true || SB_FR - st.at >= 32) return false; const cp = camera.position; return (cp.x - st.cx)**2 + (cp.z - st.cz)**2 < 900; }
+function sbFar341(c){ let st = c.__fz341; if (st !== undefined && SB_FR - st.at < 32) return;
+  if (SBATCH !== undefined && SBATCH !== null && SBATCH.big.has(c)) return;   // (a city: its own children are looked at one by one)
+  if (st === undefined) st = c.__fz341 = {far: false, at: 0, cx: 0, cz: 0};
+  const cp = camera.position; st.at = SB_FR; st.cx = cp.x; st.cz = cp.z; st.far = false;
+  // (the box round every node's place, widened by the biggest mesh's own reach; a mesh with no sphere yet counts 40 m)
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity, rm = 0;
+  c.traverse(o => { const e = o.matrixWorld.elements, x = e[12], z = e[14]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z;
+    if (o.isMesh === true || o.isSprite === true || o.isPoints === true || o.isLine === true){ const S = o.geometry && o.geometry.boundingSphere;
+      const r = S ? S.radius*Math.sqrt(Math.max(e[0]*e[0] + e[1]*e[1] + e[2]*e[2], e[4]*e[4] + e[5]*e[5] + e[6]*e[6], e[8]*e[8] + e[9]*e[9] + e[10]*e[10])) : 40; if (r > rm) rm = r; } });
+  if (x0 === Infinity) return;
+  const r = Math.hypot(x1 - x0, z1 - z0)/2 + rm, d = Math.hypot((x0 + x1)/2 - cp.x, (z0 + z1)/2 - cp.z) - r;
+  st.far = d > Math.max(camera.far, 600) + 60; }
 // v340: the awake lists (sbMatrices). A child sleeps when looking at it each frame would only end in "nothing to do":
 const SB_AWK340 = 128;
 function sbAsleep340(c){
@@ -47807,7 +47847,11 @@ function farBody317(H){
 // st: 0 near, 1 middle (one mesh), 2 far
 function setLOD317(H, st){
   if (st === 1 && !farBody317(H)) st = 0;
-  if (H.st317 === st) return; H.st317 = st;
+  if (H.st317 === st) return; const was = H.st317; H.st317 = st;
+  // (v341: out of the middle distance the matrix pass had only been keeping the bones up to date: render/static-batch.js
+  // sbMid341; all of it is worked out afresh this frame: nor is it, or any group it's in, left as a quiet group, walked one
+  // frame in four, with the parts shown up to three frames late where they were before)
+  if (was === 1){ H.g.matrixWorldNeedsUpdate = true; for (let q = H.g; q !== null && q !== undefined; q = q.parent) q.__sbQ = 0; }
   const fb = H.far317;
   let lit = false; H.g.traverse(o => { if (o.isLight) lit = true; if (!(o.isMesh || o.isSprite)) return; if (o === fb){ o.visible = st === 1; o.layers.set(st === 2 ? 2 : 0); return; } o.layers.set(st === 0 ? 0 : st === 1 ? 4 : 2); });
   // v321: the passes needn't look through a rig nothing of which they draw: far, none of it; in the middle, only the one
@@ -56935,6 +56979,13 @@ WHATS_NEW.unshift(['339.1 · Jukebox, Side B', 'The Jukebox is a proper record p
 GAME_VER.n = 340;
 GAME_VER.name = 'City of Light';
 WHATS_NEW.unshift(['340 · City of Light', 'Every city draws a lot more frames a second, about a quarter more in New Yolk and over a third more in Paree and Bangcluck, and nothing looks different. Things that share a look now share one copy of the camera and the lights, the game keeps its tens of thousands of street pieces in the shape the browser reads fastest, Paree\'s scooters, bikes and buses are drawn together like its crowds, and the cities you aren\'t in are left alone. Portraits are drawn when someone first needs one, so the first minute after a load is smoother.']);
+/* =====================================================================
+   v341 · BARE BONES: people in the middle distance keep only their bones up to date; far-off moving things wait
+   ===================================================================== */
+// v341
+GAME_VER.n = 341;
+GAME_VER.name = 'Bare Bones';
+WHATS_NEW.unshift(['341 · Bare Bones', 'Paree runs about five percent faster again, the same to look at. People in the middle distance, who are drawn as one simple figure, now only move that figure\'s bones instead of every hidden piece of them, and things that move far beyond what you can see (New Yolk\'s, from Paree) are looked at a couple of times a second instead of every frame.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
