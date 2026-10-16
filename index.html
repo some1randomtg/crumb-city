@@ -5859,7 +5859,7 @@ const isTouch = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in wi
 // square, 70 m wide, whenever no cut-scene was running). Set on the prototype before anything is made.
 // v308: _camHide308 is the camera's own way of hiding what its lens is inside (core/camera-collision.js), kept apart from
 // the game's visible so that showing it again can't undo the game hiding it in the meantime
-Object.defineProperty(THREE.Object3D.prototype, 'visible', {get(){ return this._visible306 !== false && this._camHide308 !== true; }, set(v){ this._visible306 = !!v; }, configurable: true});
+Object.defineProperty(THREE.Object3D.prototype, 'visible', {get(){ return this._visible306 !== false && this._camHide308 !== true; }, set(v){ const b = !!v; if (this._visible306 !== b){ this._visible306 = b; if (this.parent !== null && this.parent !== undefined && this.parent.__awk340 !== undefined) sbWake340(this); } }, configurable: true});
 // v339: an angle set to what it already is doesn't work the object's quaternion out again (cars, limbs and wings set their
 // rotations every frame, most unchanged: 0.5 ms a frame). An object's rotation and quaternion are kept in step both ways,
 // so the quaternion already matches. (window.__noEuler339 = true: worked out every time, live)
@@ -7023,8 +7023,13 @@ const SB_CELL = 160, SB_MAXV = 20000, SB_LAYER = 3, SB_PROXY = 1;
 // first needed, in whatever order that came, they had split the scene's objects into 204 hidden classes in V8, and every
 // field the walks read was looked up the slow way. (Made as undefined: what the walks test for is unchanged.) (?noshape336)
 const SB_SHAPE = !/[?&]noshape336/.test(location.search), SB_FIELDS = ['__sbT', '__sbQ', '__sbV', '__sbA', '__sbLt', '__sbStale', '__sbS', '__sbL', '__sbI', '__gs', '__cbOff', '__cb323', '__cbAll323', '__imSplit', '__lod317', '__fb317',
-  '_listeners', '__cbOk', '__cbOkM', '__cbOkG', '__cbOkV', '__cbP', '__cbOther', '__cbFrozen', '__cbR', '__split', '_camHide308', '__sbWT', '__sbE', '__sbEg', '__sbOK', '__sbScV', '__sbScA', '__sbHas', '__cbRig', '__cbChg', '__cbFast', '__cbList', '__chOwn336'];   // (three's own _listeners too, made at the first listener)
-function sbShape336(o){ if (Object.prototype.hasOwnProperty.call(o, '__chOwn336')) return; for (let i = 0; i < SB_FIELDS.length; i++){ const k = SB_FIELDS[i]; if (!Object.prototype.hasOwnProperty.call(o, k)) o[k] = undefined; } }
+  '_listeners', '__cbOk', '__cbOkM', '__cbOkG', '__cbOkV', '__cbP', '__cbOther', '__cbFrozen', '__cbR', '__split', '_camHide308', '__sbWT', '__sbE', '__sbEg', '__sbOK', '__sbScV', '__sbScA', '__sbHas', '__cbRig', '__cbChg', '__cbFast', '__cbList', '__awk340', '__awkI340', '__awkIn340', '__chOwn336'];   // (three's own _listeners too, made at the first listener)
+// v340: made by name (o.__sbT = o.__sbT), one generated line per field, not by a computed key (o[k] = undefined): V8 lets
+// an object take 128 fields added by name before it turns it into a slow dictionary, but only as many as it was built with
+// (or 12) by key. By key, three more fields (v340's) had 65,000 of New Yolk's 67,000 objects in dictionary mode (v339
+// already had 17,000 there), every walk paying for it. A field already there keeps its value.
+const SB_SHAPE_FN = new Function('o', SB_FIELDS.map(k => 'o.' + k + ' = o.' + k + ';').join(' '));
+function sbShape336(o){ if (Object.prototype.hasOwnProperty.call(o, '__chOwn336')) return; SB_SHAPE_FN(o); }
 function sbInit(){
   if (SBATCH) return SBATCH;
   SBATCH = {first: new WeakMap(), moved: new WeakSet(), src: new Map(), anc: new WeakMap(), buckets: new Map(), proxies: new Map(), rebuild: new Set(), big: new Set(), hid: new WeakMap(), cool: new WeakMap(), ghid: new WeakMap(), frame: 0, bundles: new Map()};
@@ -7032,9 +7037,10 @@ function sbInit(){
   const rem = THREE.Object3D.prototype.remove;
   THREE.Object3D.prototype.remove = function(...objs){ for (const o of objs) if (o && o.isObject3D) sbGone(o, true); for (let q = this; q; q = q.parent) q.__sbA = (q.__sbA | 0) + 1; return rem.apply(this, objs); };   // (__sbA: v323, what's in a group changed: render/crowd-batch.js)
   // and one added (or moved to another parent) gets its world matrix redone, though its own transform didn't change
+  { const um = THREE.Object3D.prototype.updateMatrix; THREE.Object3D.prototype.updateMatrix = function(){ um.call(this); if (this.matrixAutoUpdate === false && this.__awkIn340 !== this.parent) sbWake340(this); }; }   // (v340: a still object given a new matrix wakes: sbMatrices' awake lists)
   const add = THREE.Object3D.prototype.add;
   // (v319: and its new parents are walked again from the next frame: a quiet one is walked one frame in four, sbMatrices)
-  THREE.Object3D.prototype.add = function(...objs){ for (const o of objs) if (o && o.isObject3D){ o.matrixWorldNeedsUpdate = true; if (SB_SHAPE === true) o.traverse(sbShape336); } for (let q = this; q; q = q.parent){ q.__sbQ = 0; q.__sbV = (q.__sbV | 0) + 1; q.__sbA = (q.__sbA | 0) + 1; if (q.__lod317 !== undefined) q.__lod317 = undefined; } return add.apply(this, objs); };
+  THREE.Object3D.prototype.add = function(...objs){ for (const o of objs) if (o && o.isObject3D){ o.matrixWorldNeedsUpdate = true; if (SB_SHAPE === true) o.traverse(sbShape336); } for (let q = this; q; q = q.parent){ q.__sbQ = 0; q.__sbV = (q.__sbV | 0) + 1; q.__sbA = (q.__sbA | 0) + 1; if (q.__lod317 !== undefined) q.__lod317 = undefined; } const r = add.apply(this, objs); if (this.__awk340 !== undefined) for (const o of objs) if (o && o.isObject3D && o.parent === this) sbWake340(o); return r; };   // (v340: and it's awake: sbMatrices' awake lists)
   if (SB_SHAPE === true) scene.traverse(sbShape336);
   camera.layers.enable(SB_LAYER);
   sun.shadow.camera.layers.enable(SB_PROXY);
@@ -7116,8 +7122,8 @@ function sbInit(){
 // brought up to date the frame it shows again.
 // v339: the walks' switches, read once a frame (sbSwitches339, as the matrix pass starts: render/pipeline.js), not at every
 // object they look at
-const SW339 = {prune: false, gc: true, lodWalk: true, op0: true, noFuse: false, freeze: true, all: false};
-function sbSwitches339(){ const W = window, S = SW339; S.prune = W.__noPrune335 === true; S.gc = W.__noGc321 !== true; S.lodWalk = W.__noLodWalk321 !== true; S.op0 = W.__noOp0321 !== true; S.noFuse = W.__noFuse323 === true; S.freeze = W.__noFreeze323 !== true; S.all = W.__sbAll === 1; }
+const SW339 = {prune: false, gc: true, lodWalk: true, op0: true, noFuse: false, freeze: true, all: false, awake: true};
+function sbSwitches339(){ const W = window, S = SW339; S.prune = W.__noPrune335 === true; S.gc = W.__noGc321 !== true; S.lodWalk = W.__noLodWalk321 !== true; S.op0 = W.__noOp0321 !== true; S.noFuse = W.__noFuse323 === true; S.freeze = W.__noFreeze323 !== true; S.all = W.__sbAll === 1; S.awake = W.__noAwake340 !== true; }
 const SB_LIGHTS = [];
 // v319: a group whose whole subtree has not changed for 60 frames is walked one frame in four (staggered), not every frame:
 // most of the scene's 4,800 groups never move, and walking them was the biggest single cost of a WebGPU frame. One that
@@ -7139,7 +7145,15 @@ function sbMatrices(o, force, self){
   if (s !== undefined && (o.material !== s.mat || o.geometry !== s.geo || (moved && !sbSame(o.matrixWorld.elements, s.e)))){ sbRelease(o, true); changed = true; }
   if (self === true) return changed;   // (v323: a frozen rig: its own matrix only)
   const ch = o.children, all = SW339.all, all335 = SW339.prune;
-  for (let i = 0; i < ch.length; i++){ const c = ch[i];
+  // v340: a big still group (the scene itself has 5,000 children) is looked through by its awake list: the children that
+  // can't sleep. Asleep: a batched leaf (sbLeafCheck watches it), a still leaf (matrices set once), a hidden child already
+  // dealt with. One wakes when it is added, shown or hidden (core/three-compat.js), hidden by the camera, given a new
+  // matrix (updateMatrix), or leaves its batch; and a sixteenth of the group's children are looked at each frame, in turn,
+  // for anything else. (window.__noAwake340: every child every frame, live)
+  let arr = ch, awake = false, w = 0;
+  if (force === false && SW339.awake === true && all === false && all335 === false && ch.length >= SB_AWK340){ arr = o.__awk340 !== undefined ? o.__awk340 : sbAwakeBuild340(o); awake = true; sbAwakeSweep340(o); }
+  for (let i = 0; i < arr.length; i++){ const c = arr[i];
+    if (awake === true){ if (c.__awkIn340 !== o){ continue; } if (c.parent !== o || sbAsleep340(c)){ c.__awkIn340 = null; continue; } arr[w++] = c; }
     // v323: a rig nobody can see (out of the main view and the near shadow cascade, or too far to draw: render/crowd-batch.js
     // decided so last frame) keeps its own place up to date, not its limbs': they are brought up to date the frame it
     // shows again, before anything of it is drawn. (window.__noFreeze323 = true: every frame, live)
@@ -7155,8 +7169,22 @@ function sbMatrices(o, force, self){
     if (cc && c.__cbRig === true) c.__cbChg = SB_FR;   // (v339: render/crowd-batch.js walks a rig again only then)
     if (kids !== 0){ if (cc){ c.__sbQ = 0; c.__sbV = (c.__sbV | 0) + 1; changed = true; } else c.__sbQ = (c.__sbQ | 0) + 1; c.__sbLt = SB_LIGHTS.length > n0 ? SB_LIGHTS.slice(n0) : undefined; }
     else if (cc) changed = true; }
+  if (awake === true) arr.length = w;
   return changed;
 }
+// v340: the awake lists (sbMatrices). A child sleeps when looking at it each frame would only end in "nothing to do":
+const SB_AWK340 = 128;
+function sbAsleep340(c){
+  if (c._visible306 === false || c._camHide308 === true) return c.__sbStale === true;   // hidden, its batches already told
+  if (c.children.length !== 0) return false;
+  if (c.__sbL === true) return true;   // a batched leaf: sbLeafCheck sees it move, and sbRelease wakes it
+  return c.matrixAutoUpdate === false && c.matrixWorldNeedsUpdate === false && c.__sbS === undefined && c.isLight !== true; }
+// (__awkIn340 is the group whose list the child is in, or null)
+function sbAwakeBuild340(o){ const L = []; for (const c of o.children){ if (sbAsleep340(c)){ if (c.__awkIn340 === o) c.__awkIn340 = null; } else { c.__awkIn340 = o; L.push(c); } } o.__awk340 = L; o.__awkI340 = 0; return L; }
+function sbWake340(c){ const p = c.parent; if (p !== null && p !== undefined && p.__awk340 !== undefined && c.__awkIn340 !== p){ if (SW339.awake !== true){ p.__awk340 = undefined; return; } c.__awkIn340 = p; p.__awk340.push(c); } }   // (lists off: dropped, made again when they're back on)
+function sbAwakeSweep340(o){ const ch = o.children, n = ch.length; if (n === 0) return; let i = o.__awkI340 | 0; const m = Math.ceil(n/16);
+  for (let k = 0; k < m; k++){ if (i >= n) i = 0; const c = ch[i++]; if (c.__awkIn340 !== o && !sbAsleep340(c)){ c.__awkIn340 = o; o.__awk340.push(c); } }
+  o.__awkI340 = i; }
 
 // Batched meshes without children (most of them) aren't walked every frame. Hiding one is seen at once (its visible
 // becomes a watched property); a move, a new material or geometry, a changed parent are checked for a quarter of them a
@@ -7174,9 +7202,12 @@ function sbUnleaf(o){
   o.__sbL = false;
   const i = o.__sbI, last = SB_LEAVES.pop(); if (last !== o){ SB_LEAVES[i] = last; last.__sbI = i; }
 }
+// v340: only the leaves within the camera's reach (as sbCheck's): in Paree two thirds of them were New Yolk's, 2.8 km off.
+// A batched leaf can't have moved (it would have left), so where it was batched (its record's matrix) is where it is; one
+// that comes within reach is looked at within four frames, still at the edge of the view. (window.__noLeafFar340: all, live)
 function sbLeafCheck(frame){
-  const L = SB_LEAVES, out = [];
-  for (let i = frame & 3; i < L.length; i += 4){ const o = L[i], s = o.__sbS, p = o.position, q = o.quaternion, sc = o.scale, t = o.__sbT;
+  const L = SB_LEAVES, out = [], cx = camera.position.x, cz = camera.position.z, rr = window.__noLeafFar340 === true ? Infinity : (Math.max(camera.far, 600) + 60)**2;
+  for (let i = frame & 3; i < L.length; i += 4){ const o = L[i], s = o.__sbS, dx = s.wx - cx, dz = s.wz - cz; if (dx*dx + dz*dz > rr) continue; const p = o.position, q = o.quaternion, sc = o.scale, t = o.__sbT;   // (where it was batched: the record's own numbers, not its matrix's array)
     if (o.material !== s.mat || o.geometry !== s.geo || o.matrixWorldNeedsUpdate === true || o.parent === null || o.children.length !== 0 ||
       (o.matrixAutoUpdate && (t === undefined || t[0] !== p.x || t[1] !== p.y || t[2] !== p.z || t[3] !== q.x || t[4] !== q.y || t[5] !== q.z || t[6] !== q.w || t[7] !== sc.x || t[8] !== sc.y || t[9] !== sc.z))) out.push(o); }
   for (const o of out) sbRelease(o, true);
@@ -7311,7 +7342,7 @@ function sbAdd(o, root){
   const shadow = o.castShadow && !ms.some(m => m.alphaTest > 0), pkey = shadow ? sbOpen(B.proxies, root.uuid + '#' + cell + '#shadow') : null;
   if (shadow){ let p = B.proxies.get(pkey); if (!p){ p = {key: pkey, root, members: new Set(), mesh: null, proxy: true}; B.proxies.set(pkey, p); } if (!p.members.has(o)) p.verts = (p.verts || 0) + g.attributes.position.count; p.members.add(o); B.rebuild.add(pkey); }
   // the mesh goes on drawing itself until every batch it joins has been built (sbBuild hands it over)
-  const s = {o, root, parts, pkey, e: o.matrixWorld.elements.slice(), mat: o.material, geo: o.geometry, anc: [], wait: new Set(shadow ? [...parts, pkey] : parts)};
+  const s = {o, root, parts, pkey, e: o.matrixWorld.elements.slice(), wx: o.matrixWorld.elements[12], wz: o.matrixWorld.elements[14], mat: o.material, geo: o.geometry, anc: [], wait: new Set(shadow ? [...parts, pkey] : parts)};
   B.src.set(o, s);
   for (let p = o.parent; p && p !== scene && p !== root; p = p.parent){ let set = B.anc.get(p); if (!set){ set = new Set(); B.anc.set(p, set); } set.add(o); s.anc.push(p); }
 }
@@ -7341,7 +7372,7 @@ function sbFlush(budget = 3){
 
 // a batched mesh changed: it draws itself again at once (its triangles in the batch collapse), the batch is rebuilt later
 function sbRelease(o, moved){
-  const B = SBATCH, s = B.src.get(o); if (!s) return; B.src.delete(o); o.__sbS = undefined;
+  const B = SBATCH, s = B.src.get(o); if (!s) return; B.src.delete(o); o.__sbS = undefined; sbWake340(o);
   for (let q = o.parent; q; q = q.parent) q.__sbV = (q.__sbV | 0) + 1;   // v321: it draws itself again: its groups' spheres (sbGroupSphere321) are made again
   if (o.__sbL === true) sbUnleaf(o);
   for (const p of s.anc){ const set = B.anc.get(p); if (set) set.delete(o); }
@@ -7362,11 +7393,20 @@ function sbRelease(o, moved){
 // that differs from it (or whose colour changed) takes its meshes out
 const sbGlowMoved = (bm, r) => Math.abs(bm.emissiveIntensity - r.emissiveIntensity) > 0.015*Math.max(1, r.emissiveIntensity) ||
   (r.emissive && bm.emissive && (Math.abs(bm.emissive.r - r.emissive.r) > 0.01 || Math.abs(bm.emissive.g - r.emissive.g) > 0.01 || Math.abs(bm.emissive.b - r.emissive.b) > 0.01));
+// v340: a batch beyond the camera's reach (its sphere past the far plane, with room for High quality's deeper view) isn't
+// looked at: it can't be seen, and the frame it comes within reach it catches up (its glow at once, a member's new colour
+// within four frames). In Paree that was New Yolk's 790 batches, 2.8 km off, every frame. (window.__noFarCk340: all, live)
+const _sbCk = new THREE.Vector3();
 function sbCheck(){
   const B = SBATCH; if (!B) return; B.frame++;
   if (SPLIT323.list.size) splitCheck323();
-  const out = [];
+  const out = [], cp = camera.position, fc = window.__noFarCk340 !== true, reach = Math.max(camera.far, 600) + 60; let k = 0;
+  // (a jump, a trip to another city: all of them at once)
+  const jump = B.cx340 === undefined || (cp.x - B.cx340)**2 + (cp.z - B.cz340)**2 > 900; B.cx340 = cp.x; B.cz340 = cp.z;
   for (const [, b] of B.buckets){ if (!b.mesh || !b.root.visible) continue; const r = b.rep, bm = b.mesh.material;
+    // (whether it's within reach, worked out for an eighth of them a frame, in turn: the camera moves 60 m in 8 frames only
+    // at a jet's speed, and a sphere's maths for every batch every frame cost New Yolk, all of it in reach, half a millisecond)
+    if (fc){ if (jump || ((k++ + B.frame) & 7) === 0 || b.far340 === undefined){ const S = b.mesh.geometry.boundingSphere; if (S === null) b.far340 = false; else { _sbCk.copy(S.center); if (b.root !== scene) _sbCk.applyMatrix4(b.root.matrixWorld); b.far340 = _sbCk.distanceTo(cp) - S.radius > reach; } } if (b.far340 === true) continue; }
     // the glow follows the representative, but a drift too small to see (the evening light creeping up a little every
     // frame) waits until it adds up, so a bundle isn't recorded again every frame for it
     if (sbGlowMoved(bm, r) || bm.visible !== r.visible || bm.opacity !== r.opacity){ const bmVis = bm.visible;
@@ -7627,6 +7667,63 @@ function makePost(hd, o = {}){   // o: the post object to (re)fill, so a rebuild
       // drawn, from inside the recording) put its own objects in that bundle: the bundle then refreshed them every frame
       // it was replayed, and they took its static flag, so a moving caster's shadow would have stayed where it was. A
       // pass inside another records into no bundle
+      // v340: three's routine refresh (SHARED: once a render, every object) brings up to date the uniforms its shader
+      // shares with every other object drawn with the same shader (the camera's, the frame's), but did it again for each
+      // object: walking the shader's nodes and bindings a hundred times to find nothing new after the first. Now once per
+      // shader per pass; the same numbers reach the GPU. The pass is told apart by a count that moves whenever any render
+      // starts or ends, so a pass drawn inside another (a shadow cascade) makes the outer one look again.
+      // Objects that moved (FULL) are untouched. (window.__noShared340 = true: three's own, live)
+      { const R = renderer, base = R._renderObjectDirect, RS = window.__RS340 = {gen: 1};
+        R._renderObjectDirect = function(object, material, scene0, camera0, lightsNode, group, clippingContext, passId){
+          if (this._currentRenderBundle !== null || window.__noShared340 === true) return base.apply(this, arguments);
+          const nodes = this._nodes, ro = this._objects.get(object, material, scene0, camera0, lightsNode, this._currentRenderContext, clippingContext, passId);
+          ro.drawRange = object.geometry.drawRange; ro.group = group;
+          const refresh = nodes.needsRefresh(ro);
+          if (refresh === 2){ nodes.updateBefore(ro); this._geometries.updateForRender(ro); nodes.updateForRender(ro); this._bindings.updateForRender(ro); shDone340(ro.getNodeBuilderState(), RS.gen); }
+          else if (refresh === 1){ nodes.updateBefore(ro); const st = ro.getNodeBuilderState(); if (!shCur340(st, RS.gen)){ nodes.updateForRender(ro); this._bindings.updateSharedForRender(ro); shDone340(st, RS.gen); } }
+          this._pipelines.updateForRender(ro);
+          if (this._pipelines.isReady(ro)){ this.backend.draw(ro, this.info); if (refresh !== 0) nodes.updateAfter(ro); } };
+        const rsc = R._renderScene; R._renderScene = function(){ RS.gen++; try { return rsc.apply(this, arguments); } finally { RS.gen++; } };
+        // (a shader's shared groups: up to date in this pass once any shader using them was; with none, once per shader)
+        const shG340 = st => st.__sg340 || (st.__sg340 = st.bindings.filter(G => G.bindings.length !== 0 && G.bindings[0].groupNode && G.bindings[0].groupNode.shared === true));
+        const shCur340 = (st, gen) => { if (st.__shr340 === gen) return true; const L = shG340(st); if (L.length === 0) return false; for (let i = 0; i < L.length; i++) if (L[i].__shr340 !== gen) return false; return true; };
+        const shDone340 = (st, gen) => { st.__shr340 = gen; const L = shG340(st); for (let i = 0; i < L.length; i++) L[i].__shr340 = gen; };
+        // v340: and the shared uniforms themselves. Each instanced mesh is a shader of its own to three (its instances are
+        // its own buffer), and every shader had its own copy of the camera's and the lights' uniforms, the shadow's settings
+        // among them (made again for every shader: the same light's bias, the same cascades): 226 instanced draws in Paree
+        // brought theirs up to date, 24 µs each, every pass. A shader whose shared uniforms are the same as an earlier
+        // one's (the same nodes, or copies made from the same light's shadow and setting) now uses that one's group, and
+        // keeps that group's copies up to date in place of its own; the same numbers reach the GPU. A shadow pass's group is
+        // never shared with the main pass's (one is drawn inside the other). (?alias340=0: each its own, as before)
+        { const NO = R._nodes, cns = NO._createNodeBuilderState, A = window.__AL340 = {map: new Map(), on: !/[?&]alias340=0/.test(location.search), ids: new WeakMap(), nid: 1, shared: 0, own: 0};
+          const RN = THREE.ReferenceNode, RBN = THREE.ReferenceBaseNode, isRef = n => (RN !== undefined && n instanceof RN) || (RBN !== undefined && n instanceof RBN);
+          const idOf = o => { let i = A.ids.get(o); if (i === undefined){ i = A.nid++; A.ids.set(o, i); } return i; };
+          const alias = (st, nb) => {
+            // (a uniform made by a reference node is known by what it reads: the object and the property)
+            const own = new Map(); for (const n of st.updateNodes) if (isRef(n) && n.node) own.set(n.node, n);
+            const tok = n => { const o = own.get(n); if (o !== undefined) return o.object != null ? 'r' + idOf(o.object) + '.' + o.property + ':' + o.uniformType + ':' + o.count : '#' + n.id;
+              return n.name === 'shadowFar' ? 'far' : '#' + n.id; };   // (CSMShadowNode's, a plain uniform made for each shader from the one camera)
+            const pass = (nb.material && nb.material.isShadowPassMaterial === true) || (nb.camera && nb.camera.userData && nb.camera.userData.sbShadow === true) ? 'S' : 'M';
+            let remap = null;
+            for (let i = 0; i < st.bindings.length; i++){ const G = st.bindings[i], b0 = G.bindings[0]; if (!b0 || !b0.groupNode || b0.groupNode.shared !== true) continue;
+              let key = pass + G.name; const ns = [];
+              for (const b of G.bindings){ key += '|' + (b.isNodeUniformsGroup ? 'g' : 'b') + b.visibility;
+                if (b.isNodeUniformsGroup){ for (const u of b.uniforms){ const nu = u.nodeUniform, n = nu && nu.node; if (!n){ key = null; break; } key += ',' + nu.type + tok(n); ns.push(n); } }
+                else if (b.isNodeUniformBuffer){ const nu = b.nodeUniform, n = nu && (nu.isNode === true ? nu : nu.node); if (!n) key = null; else { key += ',' + tok(n); ns.push(n); } }   // (a buffer's is the buffer node itself: the cascades)
+                else key = null;   // (textures, samplers, storage: as three made them)
+                if (key === null) break; }
+              if (key === null) continue;
+              const E = A.map.get(key);
+              if (E === undefined){ A.map.set(key, {G, ns, own}); G.__alKey340 = key; A.own++; continue; }
+              if (E.G === G) continue;
+              remap = remap || new Map();
+              for (let k = 0; k < ns.length; k++){ const a = E.ns[k], b = ns[k]; if (a === b) continue; remap.set(b, a); const oa = E.own.get(a), ob = own.get(b); if (oa !== undefined && ob !== undefined) remap.set(ob, oa); }
+              st.bindings[i] = E.G; A.shared++; }
+            if (remap !== null) st.updateNodes = st.updateNodes.map(n => remap.get(n) || n); };
+          NO._createNodeBuilderState = function(nb){ const st = cns.call(this, nb); if (A.on === true) try { alias(st, nb); } catch (e){ A.err = String(e); } return st; };
+          // (a group freed, drawn with by nothing any more, is never handed out again)
+          const BI = R._bindings, db = BI._destroyBindings; BI._destroyBindings = function(bindings){ const r = db.call(this, bindings);
+            for (const G of bindings) if (G.__alKey340 !== undefined && !this.has(G)){ const E = A.map.get(G.__alKey340); if (E !== undefined && E.G === G) A.map.delete(G.__alKey340); G.__alKey340 = undefined; } return r; }; } }
       { const rs = renderer._renderScene; renderer._renderScene = function(){ const b = this._currentRenderBundle; if (window.__noFull321 !== true) this._currentRenderBundle = null; try { return rs.apply(this, arguments); } finally { this._currentRenderBundle = b; } }; }
       // the shadow material: its colour is never seen (the maps are depth only), so it isn't written either, and a
       // see-through double-sided caster is drawn once, not front and back (the same depth either way)
@@ -7837,7 +7934,14 @@ function waterLook278(m){
   m.emissiveNode = T.vec3(T.step(0.985, h).mul(tw).mul(T.float(1).sub(N)).mul(0.55));
   m.needsUpdate = true;
 }
-function mapAvg278(t){ const k = t.userData.avg278; if (k === null || (k && k.isColor)) return k;   /* a cloned texture brings a plain copy: measure again */ let out = null; try { const img = t.image; if (img && img.width){ const cv = document.createElement('canvas'); cv.width = cv.height = 8; const g = cv.getContext('2d'); g.drawImage(img, 0, 0, 8, 8); const d = g.getImageData(0, 0, 8, 8).data; let r = 0, gg = 0, b = 0; for (let i = 0; i < d.length; i += 4){ r += d[i]; gg += d[i + 1]; b += d[i + 2]; } out = new THREE.Color(r/64/255, gg/64/255, b/64/255); } } catch (e){} t.userData.avg278 = out; return out; }
+// v340: measured once per picture, not per texture: clones and copies of a texture share their picture, and Paree has
+// thousands of meshes on a few dozen pictures (each measure read a canvas back from the GPU: 3.3 ms a frame there, for
+// minutes, the water queue crawling 3 ms a scan). One small canvas kept for reading, not a new one each time.
+const AVG340 = new WeakMap(); let AVGCV340 = null;
+function mapAvg278(t){ const img = t.image; if (!img || typeof img !== 'object') return null; if (AVG340.has(img)) return AVG340.get(img);
+  let out = null; try { if (img.width){ if (!AVGCV340){ const cv = document.createElement('canvas'); cv.width = cv.height = 8; AVGCV340 = cv.getContext('2d', {willReadFrequently: true}); }
+    const g = AVGCV340; g.clearRect(0, 0, 8, 8); g.drawImage(img, 0, 0, 8, 8); const d = g.getImageData(0, 0, 8, 8).data; let r = 0, gg = 0, b = 0; for (let i = 0; i < d.length; i += 4){ r += d[i]; gg += d[i + 1]; b += d[i + 2]; } out = new THREE.Color(r/64/255, gg/64/255, b/64/255); } } catch (e){}
+  AVG340.set(img, out); return out; }
 function markWater(){ PIPE.waterUntil = Infinity; scene.traverseVisible(waterOne312); }
 // v312: one mesh at a time, from sbScan's walk. Each scan spends at most 3 ms on the bounding boxes of meshes it hasn't
 // seen (a new district coming into view took 17-50 ms in one frame); the rest wait for the next scan
@@ -9659,6 +9763,25 @@ const CROWD323 = {rigs: new Set(), batches: new Map(), plain: new WeakMap(), loo
 CROWD323.cars = new Set(); CROWD323.carsOn = true;
 function cbCar(g){ if (!g || CROWD323.cars.has(g)) return; CROWD323.cars.add(g); g.__cbRig = true; g.traverse(o => { const m = o.material; if (m && !Array.isArray(m) && m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0) o.userData.noBatch338 = true; }); if (CROWD323.carsOn) CROWD323.rigs.add(g); }
 { const cg = ckCarGroup; ckCarGroup = function(...a){ const g = cg(...a); cbCar(g); return g; }; }
+// v340: and Paree's own traffic (world/paree: la-rue's cars, vans and scooters, the taxis, scooters, buses and police of
+// the traffic, the bikes), which was none of it: each vehicle with what rides on it is one rig, its rider and the kit car
+// it's built round going in as parts of it (not as rigs of their own: walked twice); the police lights, which flash by
+// swapping material, are drawn by themselves. 80 parts a frame drew one by one in Paree, many of them 100 m off.
+// (window.__noVeh340 = true: as before, live)
+CROWD323.veh = new Map(); CROWD323.vehOn = true;
+function cbVehicle340(g){ const C = CROWD323; if (!g || C.veh.has(g)) return; const inner = [];
+  // (its own lit parts are drawn by themselves, as a car's: cbCar; a rider's are its own business)
+  const walk = o => { if (o !== g && o.__cbRig === true && (C.rigs.has(o) || C.cars.has(o))){ inner.push({o, car: C.cars.has(o)}); return; }
+    const m = o.material; if (m && !Array.isArray(m) && m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0) o.userData.noBatch338 = true; for (const c of o.children) walk(c); };
+  walk(g); C.veh.set(g, inner); if (C.vehOn) cbVehOn340(g, true); }
+function cbVehOn340(g, on){ const C = CROWD323, inner = C.veh.get(g);
+  if (on){ for (const e of inner){ C.rigs.delete(e.o); C.cars.delete(e.o); cbThaw340(e.o); } g.__cbRig = true; C.rigs.add(g); }
+  else { C.rigs.delete(g); cbThaw340(g); for (const e of inner){ if (e.car){ C.cars.add(e.o); if (C.carsOn) C.rigs.add(e.o); } else C.rigs.add(e.o); } } }
+const cbThaw340 = g => { if (g.__cbFrozen === true){ g.__cbFrozen = false; sbMatrices(g, true); } };
+function cbVehicles340(){
+  if (typeof COPS172 !== 'undefined' && COPS172 && !CROWD323.veh.has(COPS172.g)) for (const b of [COPS172.b1, COPS172.b2]) if (b) b.userData.noBatch338 = true;
+  for (const L of [typeof CARS132 !== 'undefined' && CARS132, typeof BUS172 !== 'undefined' && BUS172, typeof BIKES175 !== 'undefined' && BIKES175]) if (L) for (const v of L) if (v && v.g) cbVehicle340(v.g);
+  if (typeof COPS172 !== 'undefined' && COPS172) cbVehicle340(COPS172.g); }
 
 const CB_MIRROR = new THREE.Matrix4().makeScale(-1, 1, 1), _cbM = new THREE.Matrix4();
 // a part that can go in (kept per material until the material is updated)
@@ -9783,7 +9906,8 @@ function crowdBatch323(){
   // passes run inside the main one, and a batch's list for one pass could have been drawn in the other)
   // (the rigs by the top-level group they're in, made again every 30 frames: a city that's away isn't looked through)
   { const on = window.__noCars338 !== true; if (on !== C.carsOn){ C.carsOn = on; for (const g of C.cars){ if (on) C.rigs.add(g); else { C.rigs.delete(g); if (g.__cbFrozen === true){ g.__cbFrozen = false; sbMatrices(g, true); } } } C.at = -99; } }
-  if (SB_FR - C.at >= 30){ if (typeof cars !== 'undefined') for (const v of cars) if (v && v.g) cbCar(v.g);
+  { const on = window.__noVeh340 !== true; if (on !== C.vehOn){ C.vehOn = on; for (const g of C.veh.keys()) cbVehOn340(g, on); C.at = -99; } }
+  if (SB_FR - C.at >= 30){ if (typeof cars !== 'undefined') for (const v of cars) if (v && v.g) cbCar(v.g); cbVehicles340();
     C.at = SB_FR; C.tops.clear(); for (const g of C.rigs){ if (g.parent === null) continue; let t = g; while (t.parent && t.parent !== scene) t = t.parent; if (t.parent !== scene) continue; let L = C.tops.get(t); if (!L){ L = []; C.tops.set(t, L); } L.push(g); } }
   if (!off){ cbViews();
     for (const [top, L] of C.tops){ if (top.visible === false || top.parent !== scene) continue;
@@ -12324,7 +12448,15 @@ for (const c of cyclists){ const road = c.fixed - c.dir*3.3; if (c.axis === 'z' 
 // renderPortrait answers a placeholder at once (a see-through pixel, tagged) and PORTRAITS hands out the finished picture
 // for it once it is in, wherever the placeholder was copied to.
 const PORTRAIT_DONE = new Map();
-const PORTRAITS = new Proxy({}, {get: (o, k) => { const v = o[k]; return PORTRAIT_DONE.get(v) ?? v; }});
+// v340: on WebGPU a portrait is drawn the first time it is asked for (a dialogue, the album, the talk prompt as Pidge
+// walks up), not all of them after every load: 129 of them at one every 200 ms took a slice of every frame for the
+// first minute and more, and most are never seen in a session. Until it is in, the placeholder shows (see-through);
+// the picture replaces it wherever it is on screen. (?portraits=eager: all at load, as before)
+const PORTRAIT_JOBS = new Map(), PORTRAIT_LAZY340 = !/[?&]portraits=eager/.test(location.search);
+function portraitWant340(tag){ const job = PORTRAIT_JOBS.get(tag); if (!job) return; PORTRAIT_JOBS.delete(tag); PORTRAIT_Q.unshift(job); portraitNext(); }
+const PORTRAITS = new Proxy({}, {get: (o, k) => { const v = o[k]; const d = PORTRAIT_DONE.get(v); if (d !== undefined) return d; if (PORTRAIT_JOBS.size !== 0 && PORTRAIT_JOBS.has(v)) portraitWant340(v); return v; }});
+// a finished picture takes the placeholder's place on screen (the dialogue box, the album)
+function portraitShow340(tag, url){ for (const img of document.querySelectorAll('img')) if (img.src === tag) img.src = url; }
 const PORTRAIT_BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 let portraitN = 0;
 // one at a time: dozens are asked for while a city loads, and all at once they held up the screen for seconds
@@ -12332,7 +12464,8 @@ const PORTRAIT_Q = [];
 let portraitBusy = false;
 // v317: one every 200 ms, not back to back: building a city queues a couple of hundred, and drawing, reading back and
 // encoding them in a row took a tenth of every frame for the next minute (a dialogue before its portrait shows none yet)
-function portraitNext(){ if (portraitBusy || !PORTRAIT_Q.length) return; portraitBusy = true; PORTRAIT_Q.shift()().catch(() => {}).finally(() => { setTimeout(() => { portraitBusy = false; portraitNext(); }, 200); }); }
+// (v340: back to back while the game is paused, the journal open on its album: nothing moves there to stutter)
+function portraitNext(){ if (portraitBusy || !PORTRAIT_Q.length) return; portraitBusy = true; PORTRAIT_Q.shift()().catch(() => {}).finally(() => { setTimeout(() => { portraitBusy = false; portraitNext(); }, PAUSE315.has(state) ? 0 : 200); }); }
 const portraitWait = (ok, ms) => new Promise(done => { const t0 = performance.now(), f = () => ok() || performance.now() - t0 > ms ? done() : setTimeout(f, 30); f(); });
 
 // rows of N RGBA pixels (WebGL's bottom first, WebGPU's top first and padded to 256 bytes) into a data URL
@@ -12367,7 +12500,7 @@ function renderPortrait(obj, camPos, look){
       // original back in the world first
       let copy = obj; try { copy = obj.clone(); } catch(e) {}   // (clone copies userData as JSON, which can fail)
       const tag = PORTRAIT_BLANK + '#portrait' + (++portraitN), r = rt, cp = camPos.clone(), lk = look.clone(); rt = null;
-      PORTRAIT_Q.push(async () => {
+      const job = async () => {
         const {ps, pc} = portraitScene321(); pc.position.copy(cp); pc.lookAt(lk); pc.updateMatrixWorld(); ps.add(copy);
         const draw = () => { try { renderer.setRenderTarget(r); renderer.render(ps, pc); } finally { renderer.setRenderTarget(null); if (post && post.prime) post.prime(); } };
         try {
@@ -12377,10 +12510,11 @@ function renderPortrait(obj, camPos, look){
           draw();
           const asked = P ? P.pending + P.done - asked0 : 0;
           if (asked > 0){ await portraitWait(() => P.done - done0 >= asked, 3000); draw(); }
-          PORTRAIT_DONE.set(tag, await portraitURL(await renderer.readRenderTargetPixelsAsync(r, 0, 0, N, N), N, false, true));
+          const url = await portraitURL(await renderer.readRenderTargetPixelsAsync(r, 0, 0, N, N), N, false, true);
+          PORTRAIT_DONE.set(tag, url); portraitShow340(tag, url);
         } finally { ps.remove(copy); r.dispose(); }
-      });
-      portraitNext();
+      };
+      if (PORTRAIT_LAZY340) PORTRAIT_JOBS.set(tag, job); else { PORTRAIT_Q.push(job); portraitNext(); }
       return tag;
     }
     const ps = new THREE.Scene(); ps.background = new THREE.Color(0xf3cf8e);
@@ -17263,8 +17397,8 @@ let camHidden = [];
 const ownVis308 = o => o.__sbL === true || Object.prototype.hasOwnProperty.call(o, 'visible');   // (v336: batched leaves are marked __sbL, the visible is Object3D's)
 // (v336: shown again the way it was hidden: a batched mesh hidden leaves its batch, so it was no longer one when shown, and
 // static scenery the camera had faded out of its way stayed hidden for good)
-function camHide308(o){ if (ownVis308(o)){ o.visible = false; o.__chOwn336 = true; } else o._camHide308 = true; }
-function camShow308(o){ o._camHide308 = false; if (o.__chOwn336 === true){ o.__chOwn336 = false; o.visible = true; } }
+function camHide308(o){ if (ownVis308(o)){ o.visible = false; o.__chOwn336 = true; } else { o._camHide308 = true; if (typeof sbWake340 === 'function') sbWake340(o); } }
+function camShow308(o){ o._camHide308 = false; if (typeof sbWake340 === 'function') sbWake340(o); if (o.__chOwn336 === true){ o.__chOwn336 = false; o.visible = true; } }
 
 const _chv = new THREE.Vector3();
 
@@ -27213,8 +27347,11 @@ function updateV23(dt){
     lodT = 0.35; const cp = camera.position;
     // faces by distance (v271): the eyes stay on to 40 m, the small parts (nose, mouth, brows, cheeks) to 18 m;
     // v316: 28 m and 12 m (each part is a draw of its own, for every person in view, in every pass)
-    for (const H of ALLH){ if (!H.det || !H.g.parent) continue; let d; if (H.g.parent === scene) d = Math.hypot(H.g.position.x - cp.x, H.g.position.z - cp.z); else { H.g.getWorldPosition(_v293); d = Math.hypot(_v293.x - cp.x, _v293.z - cp.z); } const far = d > 28 ? 2 : d > 12 ? 1 : 0; if (far !== H.farLod){ H.farLod = far; H.det.forEach((m, i) => { m.visible = far === 0 || (far === 1 && i < 2); }); } shadowLod316(H, d > 20); }   // v293: world distance for every rig (Tokyoo's drones live in groups)
-    for (const P of (window.__pLOD293 || [])){ P.g.getWorldPosition(_v293); const far = Math.hypot(_v293.x - cp.x, _v293.z - cp.z) > 20 ? 1 : 0; if (far !== P.far){ P.far = far; for (const m of P.det) m.visible = !far; } }   // v293: flock pigeons' beak, eyes and legs
+    // (v340: from the parent's world matrix as the matrix pass left it last frame, not getWorldPosition: that worked out
+    // every parent's matrix again for each person and pigeon, about 0.4 ms a frame in Paree, where they all hang under the
+    // city's group; the parent's, as cast/lod.js)
+    for (const H of ALLH){ if (!H.det || !H.g.parent) continue; let d; if (H.g.parent === scene) d = Math.hypot(H.g.position.x - cp.x, H.g.position.z - cp.z); else { _v293.copy(H.g.position).applyMatrix4(H.g.parent.matrixWorld); d = Math.hypot(_v293.x - cp.x, _v293.z - cp.z); } const far = d > 28 ? 2 : d > 12 ? 1 : 0; if (far !== H.farLod){ H.farLod = far; H.det.forEach((m, i) => { m.visible = far === 0 || (far === 1 && i < 2); }); } shadowLod316(H, d > 20); }   // v293: world distance for every rig (Tokyoo's drones live in groups)
+    for (const P of (window.__pLOD293 || [])){ if (!P.g.parent) continue; _v293.copy(P.g.position).applyMatrix4(P.g.parent.matrixWorld); const far = Math.hypot(_v293.x - cp.x, _v293.z - cp.z) > 20 ? 1 : 0; if (far !== P.far){ P.far = far; for (const m of P.det) m.visible = !far; } }   // v293: flock pigeons' beak, eyes and legs
   }
 }
 
@@ -47689,7 +47826,10 @@ function updateLOD102(dt){ const L = LOD102, all = window.__allhPre; if (!all ||
   // (window.__lodAll: the old way, all at once every 0.4 s, for tools/perf.mjs)
   if (window.__lodAll){ if ((L.t -= dt) > 0) return; L.t = 0.4; per = all.length; cap = Infinity; }
   for (let k = 0; k < per && k < all.length; k++){ const H = all[L.i = (L.i + 1) % all.length]; if (!H || !H.g || !H.g.parent) continue;
-    const w = H.g.parent === scene ? H.g.position : H.g.getWorldPosition(L.wp), d2 = w.distanceToSquared(L.cp);
+    // (v340: from its parent's world matrix as the matrix pass left it last frame: getWorldPosition worked out every
+    // parent's matrix again, a third of a millisecond a frame in Paree. The parent's, not its own: a rider inside a vehicle
+    // that's frozen out of view, render/crowd-batch.js, keeps its own matrix as it was, the vehicle's goes on)
+    const w = H.g.parent === scene ? H.g.position : L.wp.copy(H.g.position).applyMatrix4(H.g.parent.matrixWorld), d2 = w.distanceToSquared(L.cp);
     let st = d2 > lim*lim ? 2 : d2 > mid*mid ? 1 : 0;
     if (st === 1 && H.far317 === undefined && ++builds > cap) continue;   // (its body next time round)
     setLOD317(H, st); if (st === 2) L.far.add(H); else L.far.delete(H); } }
@@ -56788,6 +56928,13 @@ GAME_VER.name = 'Smooth Operator';
 WHATS_NEW.unshift(['339 · Smooth Operator', 'The little stutter the big cities had once a second is about a third of what it was, and every frame does a bit less: crowds that stand still, cars looking for the car ahead, signs that glow, things that turn. Nothing looks different, except that a pond or a fountain that never got its water shimmer now does.']);
 // v339.1
 WHATS_NEW.unshift(['339.1 · Jukebox, Side B', 'The Jukebox is a proper record player now: what is playing and where you hear it in the game, a visualiser, pause, skip, play all or shuffle, and the volume. Every tune plays straight away, with nothing to load, and five early tunes the game no longer plays are back as B-sides. Open it from the pause menu (Play) and your pick keeps playing as you fly about, until you choose the game\'s music again. Chases and boss fights still bring their own.']);
+/* =====================================================================
+   v340 · CITY OF LIGHT: shaders share their camera and light uniforms; Paree's traffic batched; the far world left be
+   ===================================================================== */
+// v340
+GAME_VER.n = 340;
+GAME_VER.name = 'City of Light';
+WHATS_NEW.unshift(['340 · City of Light', 'Every city draws a lot more frames a second, about a quarter more in New Yolk and over a third more in Paree and Bangcluck, and nothing looks different. Things that share a look now share one copy of the camera and the lights, the game keeps its tens of thousands of street pieces in the shape the browser reads fastest, Paree\'s scooters, bikes and buses are drawn together like its crowds, and the cities you aren\'t in are left alone. Portraits are drawn when someone first needs one, so the first minute after a load is smoother.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -57907,6 +58054,7 @@ function updateHUDBase(){
   let p = '';
   if (!dlg){
     const it = nearestInteractable();
+    if (it && it.who) PORTRAITS[it.who];   // v340: whoever Pidge is about to talk to gets a portrait ready (ui/portraits.js)
     if (nearGull()) p = '<kbd>E</kbd>Peck the seagull';
     else if (nearCart()) p = qid() === 'hotdog' ? '<kbd>E</kbd>Grab the hot dog' : '<kbd>E</kbd>Eye up the cart';
     else if (it) p = '<kbd>E</kbd>' + it.label();
