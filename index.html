@@ -11134,6 +11134,10 @@ let music, mrand;
 // (023-audio)
 let actx = null, master = null, musicBus = null, sfxBus = null, musicFilter = null, muted = false;
 
+// v341.2: the title screen (and the jukebox on it) hears only the music. The world behind it keeps running, and its
+// sounds went on under the title and through a paused tune: the kids' ball game, Kevin's camera, the rain, take-offs.
+const sfxLevel341 = () => state === 'title' ? 0 : settings.sfx;
+
 function ac(){
   if (!actx && performance.now() < (ac.failT || 0)) return null;   /* v304: a failed AudioContext isn't retried on every sound */
   if (!actx){
@@ -11141,7 +11145,7 @@ function ac(){
       actx = new (window.AudioContext || window.webkitAudioContext)();
       master = actx.createGain(); master.gain.value = muted ? 0 : 1; { const comp = actx.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.25; master.connect(comp); comp.connect(actx.destination); }
       musicBus = actx.createGain(); musicBus.gain.value = settings.music*0.55; musicFilter = actx.createBiquadFilter(); musicFilter.type = 'lowpass'; musicFilter.frequency.value = 18000; musicBus.connect(musicFilter); musicFilter.connect(master);
-      sfxBus = actx.createGain(); sfxBus.gain.value = settings.sfx; sfxBus.connect(master);
+      sfxBus = actx.createGain(); sfxBus.gain.value = sfxLevel341(); sfxBus.connect(master);
     } catch(e) { actx = null; ac.failT = performance.now() + 3000; }
   }
   if (actx && actx.state === 'suspended' && !document.hidden){ const t = performance.now(); if (!(t < (ac.next || 0))){ ac.next = t + 500; actx.resume().catch(()=>{}); } }   /* v304: not on every sound before the first click (hundreds of pending resumes at load) */
@@ -11174,7 +11178,9 @@ function noiseBase(dur, freq, vol=0.05, delay=0){
   const t0 = a.currentTime + delay;
   const s = a.createBufferSource(); s.buffer = getWhite(a);
   const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = 0.8;
-  const g = a.createGain(); g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  // v341.2: silent until its start: a burst whose start lands on the edge of a sample let its first sample of noise through
+  // at full volume (the gain's default 1, one sample before its setValueAtTime), a click up to 500x the burst's own volume
+  const g = a.createGain(); g.gain.value = 0; g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   s.connect(f); f.connect(g); g.connect(sfxBus); s.start(t0, Math.random()); s.stop(t0 + dur);
 }
 
@@ -11270,7 +11276,9 @@ function schedMusic(){ return callHooked('schedMusic', schedMusicBase, []); }
 
 function schedMusicBase(){
   const a = actx; if (!a || a.state !== 'running') return;
-  if (music.next < a.currentTime - 0.3) music.next = a.currentTime + 0.05;
+  // v341.2: woken late (a long frame), it picks up from now; before, up to 0.3 s of missed notes all started at once,
+  // in the past and without their attacks (a crackle)
+  if (music.next < a.currentTime + 0.01) music.next = a.currentTime + 0.05;
   const T = TRACK.def || TRACKS.city;
   while (music.next < a.currentTime + 0.25){
     const s = music.step % 64, bar = Math.floor(s/8), p = s % 8;
@@ -11290,7 +11298,11 @@ function startAmbience(){ startMusic(); }
 
 let chirpT = 4;
 
-function updateAudio(dt){ return callHooked('updateAudio', updateAudioBase, [dt]); }
+let sfxQuiet341 = null;
+
+function quietTitle341(){ if (!sfxBus || !actx) return; const q = state === 'title'; if (q === sfxQuiet341) return; sfxQuiet341 = q; sfxBus.gain.setTargetAtTime(sfxLevel341(), actx.currentTime, q ? 0.03 : 0.3); }
+
+function updateAudio(dt){ quietTitle341(); return callHooked('updateAudio', updateAudioBase, [dt]); }
 
 function updateAudioBase(dt){
   if (!actx || state === 'title') return;
@@ -18568,14 +18580,16 @@ const extraCyclists = [];
 function updateLife18(dt, time){
   const P = player;
   for (const d of dogs){ const v = d.owner.H.g.visible; d.D.g.visible = v; d.leash.visible = v; }
+  // v341.2: each pass takes its own time (0.9-1.7 s, not 1.2 s like a metronome), and the kick is a duller thump that
+  // fades out within 12 m (it played at full volume out to 15 m)
   for (const b of ballGames){
     const near = dist2(P.pos, b.sp) < 60; for (const k of b.kids) k.g.visible = near; b.ball.visible = near; if (!near) continue;
     if (b.free) continue;
-    b.t += dt/1.2; const A = b.kids[b.from].g.position, B = b.kids[b.to].g.position, f = Math.min(1, b.t);
+    b.t += dt/(b.dur || 1.2); const A = b.kids[b.from].g.position, B = b.kids[b.to].g.position, f = Math.min(1, b.t);
     b.ball.position.set(lerp(A.x, B.x, f), b.y0 + 0.18 + Math.sin(f*PI)*1.6, lerp(A.z, B.z, f)); b.ball.rotation.x += dt*8;
     const kicker = b.kids[b.from]; kicker.legs[1].rotation.x = f < 0.15 ? -1.0 : 0;
     for (const k of b.kids) k.g.rotation.y = angLerp(k.g.rotation.y, Math.atan2(b.ball.position.x - k.g.position.x, b.ball.position.z - k.g.position.z), Math.min(1, dt*5));
-    if (f >= 1){ b.from = b.to; b.to = (b.to + 1 + Math.floor(Math.random()*2)) % 3; if (b.to === b.from) b.to = (b.to + 1) % 3; b.t = 0; if (dist2(P.pos, b.sp) < 15) noise(0.05, 900, 0.03); }
+    if (f >= 1){ b.from = b.to; b.to = (b.to + 1 + Math.floor(Math.random()*2)) % 3; if (b.to === b.from) b.to = (b.to + 1) % 3; b.t = 0; b.dur = 0.9 + Math.random()*0.8; const kd = dist2(P.pos, b.sp); if (kd < 12) noise(0.06, 450, 0.016*(1 - kd/12)**2); }
   }
   const d = _sd18;
   for (const s of starlings){
@@ -21253,7 +21267,7 @@ function mvoiceBase(kind, m, t){
     lp.frequency.value = 2600;
     const o = osc('sine', f*2 > 1400 ? f : f*2), lfo = osc('sine', 5.2), lg = a.createGain(); lg.gain.value = f*0.012; lfo.connect(lg); lg.connect(o.frequency);
     const d = music.e8*1.7;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.04, t + 0.07); g.gain.setValueAtTime(0.036, t + d*0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.25);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.04, t + 0.07); g.gain.setValueAtTime(0.04, t + d*0.7 - 0.02); g.gain.linearRampToValueAtTime(0.036, t + d*0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.25);
     o.connect(g); o.start(t); lfo.start(t); o.stop(t + d + 0.3); lfo.stop(t + d + 0.3);
   } else if (kind === 'box'){ // a music box
     lp.frequency.value = 5000;
@@ -21276,7 +21290,8 @@ function mvoiceBase(kind, m, t){
 function mnoise(t, dur, freq, vol, type = 'bandpass'){
   const a = actx, s = a.createBufferSource(); s.buffer = getWhite(a);
   const f = a.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = 0.7;
-  const g = a.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  // v341.2: silent until its start (audio/audio.js noiseBase): on the beat, 1 drum hit in 10-20 began with a full-volume click
+  const g = a.createGain(); g.gain.value = 0; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   s.connect(f); f.connect(g); g.connect(musicBus); s.start(t, Math.random()); s.stop(t + dur + 0.02);
 }
 
@@ -21298,11 +21313,14 @@ const _a27 = new THREE.Vector3();
 const bs_audioMusic_2 = () => {
 /* ---------- more music: a sea shanty, boom bap, swing, a park tune and a rainy-day piano ---------- */
 // (167-more-music-a-sea-shanty-boom-bap-swing-a)
+// v341.2: the vibes' tremolo scales the note (0.03 ± 0.012 at its peak, as before) instead of being added to it, so it dies away
+// with the note: added, it left every note warbling at a third of its peak until it was cut off with a click. The
+// flute's and the accordion's step down to their sustain takes 20 ms instead of none (a click on every long note).
 answerHook('mvoice', function(kind, m, t){ const a = actx, f = mtof(m);
   if (kind === 'accordion' || kind === 'vibes' || kind === 'guitar'){
     const g = a.createGain(), lp = a.createBiquadFilter(); lp.type = 'lowpass'; g.connect(lp); mOut(lp);
-    if (kind === 'accordion'){ lp.frequency.value = 1800; const d = music.e8*1.6; for (const det of [-8, 8]){ const o = a.createOscillator(); o.type = 'square'; o.frequency.value = f; o.detune.value = det; o.connect(g); o.start(t); o.stop(t + d + 0.1); } g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.022, t + 0.04); g.gain.setValueAtTime(0.02, t + d*0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.05); }
-    else if (kind === 'vibes'){ lp.frequency.value = 4000; const o = a.createOscillator(), trem = a.createOscillator(), tg = a.createGain(); o.type = 'sine'; o.frequency.value = f*2; trem.frequency.value = 5.5; tg.gain.value = 0.012; trem.connect(tg); tg.connect(g.gain); o.connect(g); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.03, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6); o.start(t); trem.start(t); o.stop(t + 1.7); trem.stop(t + 1.7); }
+    if (kind === 'accordion'){ lp.frequency.value = 1800; const d = music.e8*1.6; for (const det of [-8, 8]){ const o = a.createOscillator(); o.type = 'square'; o.frequency.value = f; o.detune.value = det; o.connect(g); o.start(t); o.stop(t + d + 0.1); } g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.022, t + 0.04); g.gain.setValueAtTime(0.022, t + d*0.8 - 0.02); g.gain.linearRampToValueAtTime(0.02, t + d*0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.05); }
+    else if (kind === 'vibes'){ lp.frequency.value = 4000; const o = a.createOscillator(), trem = a.createOscillator(), tg = a.createGain(), tr = a.createGain(); o.type = 'sine'; o.frequency.value = f*2; trem.frequency.value = 5.5; tg.gain.value = 0.4; trem.connect(tg); tg.connect(tr.gain); o.connect(tr); tr.connect(g); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.03, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6); o.start(t); trem.start(t); o.stop(t + 1.7); trem.stop(t + 1.7); }
     else { lp.frequency.value = 2400; const o = a.createOscillator(), o2 = a.createOscillator(); o.type = 'sawtooth'; o2.type = 'triangle'; o.frequency.value = f; o2.frequency.value = f*2; const g2 = a.createGain(); g2.gain.value = 0.3; o.connect(g); o2.connect(g2); g2.connect(g); lp.frequency.setValueAtTime(3000, t); lp.frequency.exponentialRampToValueAtTime(600, t + 0.4); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.03, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9); o.start(t); o2.start(t); o.stop(t + 1); o2.stop(t + 1); }
     return {answer: undefined};
   } });
@@ -27032,7 +27050,10 @@ function updateV33(dt, time){
   if (htG.visible){ FAB.anim.t += dt; animatePigeon(FAB.P, 'idle', FAB.anim, dt); if ((FAB.snip || 0) > 0){ FAB.snip -= dt; FAB.sc.rotation.z = Math.sin(time*30)*0.4; } }
   if (FORT.t > 0){ FORT.t -= dt; if (FORT.t <= 0){ gearCache = null; toast('Your fortune fades. Madame Plume would say it was always going to.', '', 2600); } }
   if (PLUME.g.position.distanceTo(player.pos) < 60){ PLUME.anim.t += dt; animatePigeon(PLUME.P, 'idle', PLUME.anim, dt); const gl = (PLUME.glow = Math.max(0, (PLUME.glow || 0) - dt)); PLUME.ball.material.emissiveIntensity = 0.5 + Math.sin(time*2)*0.2 + gl; }
-  if (KEVIN.P.g.position.distanceTo(player.pos) < 60){ KEVIN.anim.t += dt; animatePigeon(KEVIN.P, 'idle', KEVIN.anim, dt); if (Math.random() < dt*0.15) { tone(1800, 0.04, 'square', 0.01); } }
+  // v341.2: Kevin's camera is a soft shutter you hear within 18 m, fading with distance (it was a square-wave beep out to
+  // 60 m, a tinny click under every tune)
+  const kd = KEVIN.P.g.position.distanceTo(player.pos);
+  if (kd < 60){ KEVIN.anim.t += dt; animatePigeon(KEVIN.P, 'idle', KEVIN.anim, dt); if (kd < 18 && Math.random() < dt*0.15){ const v = 0.006*(1 - kd/18)**2; noise(0.02, 2000, v); noise(0.03, 1300, v*0.7, 0.07); } }
 }
 
 const bs_corePerFrame_1 = () => {
@@ -29302,17 +29323,20 @@ aroundHook('storyBegin', function(next, fromSave){ if (!fromSave) S.tree = {a: [
 settings.amb = settings.amb ?? 0.8;
 settings.titles = settings.titles ?? true;
 /* ---------- new instruments ---------- */
+// v341.2: no clicks. The whistle's and the strings' step down to their sustain takes 20 ms instead of none, and the
+// glockenspiel's overtone fades out over 20 ms before it stops instead of being cut off. The soaring harp takes the steps'
+// own times, as the scheduler may have caught up to now first (audio/audio.js).
 answerHook('mvoice', function(kind, m, t){ const a = actx; if (!a) return {answer: undefined}; const f = mtof(m);
   const osc = (type, fr) => { const o = a.createOscillator(); o.type = type; o.frequency.value = fr; return o; };
   if (kind === 'harp'){ const g = a.createGain(), lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200; g.connect(lp); mOut(lp); const o = osc('triangle', f), o2 = osc('sine', f*2), g2 = a.createGain(); g2.gain.value = 0.3;
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.03, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6); o.connect(g); o2.connect(g2); g2.connect(g); o.start(t); o2.start(t); o.stop(t + 1.7); o2.stop(t + 1.7); return {answer: undefined}; }
   if (kind === 'glock'){ const g = a.createGain(); mOut(g); const o = osc('sine', f*2), o2 = osc('sine', f*5.4), g2 = a.createGain(); g2.gain.value = 0.18;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.026, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1); o.connect(g); o2.connect(g2); g2.connect(g); o.start(t); o2.start(t); o.stop(t + 1.2); o2.stop(t + 0.5); return {answer: undefined}; }
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.026, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1); g2.gain.setValueAtTime(0.18, t + 0.48); g2.gain.linearRampToValueAtTime(0.0001, t + 0.5); o.connect(g); o2.connect(g2); g2.connect(g); o.start(t); o2.start(t); o.stop(t + 1.2); o2.stop(t + 0.5); return {answer: undefined}; }
   if (kind === 'whistle'){ const g = a.createGain(); mOut(g); const o = osc('sine', f*2), lfo = osc('sine', 6), lg = a.createGain(); lg.gain.value = f*0.018; lfo.connect(lg); lg.connect(o.frequency); const d = music.e8*1.6;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.024, t + 0.03); g.gain.setValueAtTime(0.02, t + d*0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.15); o.connect(g); o.start(t); lfo.start(t); o.stop(t + d + 0.2); lfo.stop(t + d + 0.2); return {answer: undefined}; }
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.024, t + 0.03); g.gain.setValueAtTime(0.024, t + d*0.7 - 0.02); g.gain.linearRampToValueAtTime(0.02, t + d*0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.15); o.connect(g); o.start(t); lfo.start(t); o.stop(t + d + 0.2); lfo.stop(t + d + 0.2); return {answer: undefined}; }
   if (kind === 'strings'){ const g = a.createGain(), lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400; g.connect(lp); mOut(lp); const d = music.e8*3;
     for (const dt of [-7, 7]){ const o = osc('sawtooth', f); o.detune.value = dt; o.connect(g); o.start(t); o.stop(t + d + 0.6); }
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.012, t + 0.25); g.gain.setValueAtTime(0.011, t + d); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.5); return {answer: undefined}; } });
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.012, t + 0.25); g.gain.setValueAtTime(0.012, t + d - 0.02); g.gain.linearRampToValueAtTime(0.011, t + d); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.5); return {answer: undefined}; } });
 Object.assign(TRACKS, {
   citytheme: {title: 'The Pecking Order', bpm: 104, prog: [[48, 52, 55], [45, 48, 52], [41, 45, 48], [43, 47, 50], [48, 52, 55], [45, 48, 52], [50, 53, 57], [43, 47, 50]], melVoice: 'pluck', altVoice: 'glock', drums: 'brush', pad: true,
     mel: [72, _, 76, 79, 76, _, 74, 72,  69, _, 72, 76, 74, _, 72, _,  69, 72, 77, _, 76, 74, 72, _,  74, _, 71, 74, 79, _, _, 0,
@@ -29343,12 +29367,12 @@ aroundHook('pickTrack', function(next){ const t = next();
   if (t === 'city'){ if (time - ricoT41 < 240) return 'city'; if (curDistrict === 'harbour' || curDistrict === 'bay') return 'harbourwaltz'; return 'citytheme'; }
   return t; });
 aroundHook('schedMusic', function(next){ const a = actx; if (!a || a.state !== 'running') return next();
-  const s0 = music.step, n0 = music.next; next();
+  const s0 = music.step; next();
   const soaring = !player.grounded && player.pos.y > 14 && !roomAt(player.pos) && state === 'play';
   SOAR41.k = lerp(SOAR41.k, soaring ? 1 : 0, 0.2);
   if (SOAR41.k < 0.5 || music.step === s0) return;
   const T = TRACK.def || TRACKS.city, prog = T.prog || music.prog, BL = T.barLen || 8, N = T.mel ? T.mel.length : 64;
-  for (let k = s0; k < music.step; k++){ const t = n0 + (k - s0)*music.e8, s = k % N, ch = prog[Math.floor(s/BL) % prog.length]; if (!ch) continue; const p = s % BL; if (p % 2) continue; const note = ch[(p/2) % ch.length] + 24; mvoice('harp', note, t); } });
+  for (let k = s0; k < music.step; k++){ const t = music.next - (music.step - k)*music.e8, s = k % N, ch = prog[Math.floor(s/BL) % prog.length]; if (!ch) continue; const p = s % BL; if (p % 2) continue; const note = ch[(p/2) % ch.length] + 24; mvoice('harp', note, t); } });
 // a little label with the name of the tune, when it changes
 {
   const st = document.createElement('style'); st.textContent = '#now41{position:fixed;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 62px);font:700 14px var(--px);color:#fff6dc;text-shadow:2px 2px 0 var(--wood-dark);opacity:0;transition:opacity .8s;pointer-events:none;z-index:30} #now41.on{opacity:.92}'; document.head.appendChild(st);
@@ -39795,7 +39819,8 @@ const SND106 = {t: {}, bed: null, hour: -1};
 function ab106(freq, dur, type = "sine", vol = 0.03, slide, delay = 0, pan = 0){ vol = Math.max(vol, 0.0002); if (!actx || muted || !AMB41.ok) return; const a = actx, t0 = a.currentTime + delay, o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.setValueAtTime(freq, t0); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
   g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + Math.min(0.02, dur*0.2)); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); let out = g; if (a.createStereoPanner){ const p = a.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); g.connect(p); out = p; } o.connect(g); out.connect(AMB41.bus); o.start(t0); o.stop(t0 + dur + 0.05); }
 
-function nz106(dur, freq, vol = 0.02, delay = 0, pan = 0, q = 0.8){ vol = Math.max(vol, 0.0002); if (!actx || muted || !AMB41.ok) return; const a = actx, t0 = a.currentTime + delay, s = a.createBufferSource(); s.buffer = getWhite(a); const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q; const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + Math.min(0.05, dur*0.3)); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+// v341.2: silent until its start (audio/audio.js noiseBase), so its first sample can't come through at full volume
+function nz106(dur, freq, vol = 0.02, delay = 0, pan = 0, q = 0.8){ vol = Math.max(vol, 0.0002); if (!actx || muted || !AMB41.ok) return; const a = actx, t0 = a.currentTime + delay, s = a.createBufferSource(); s.buffer = getWhite(a); const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q; const g = a.createGain(); g.gain.value = 0; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + Math.min(0.05, dur*0.3)); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   let out = g; if (a.createStereoPanner){ const p = a.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); g.connect(p); out = p; } s.connect(f); f.connect(g); out.connect(AMB41.bus); s.start(t0, Math.random()); s.stop(t0 + dur + 0.05); }
 
 const rp106 = () => rr(-0.8, 0.8);
@@ -47052,7 +47077,7 @@ Object.assign(TRACKS, {
 });
 aroundHook('schedMusic', function(next){ const T = TRACK.def || TRACKS.city; if (!T.mel) return next();
   const a = actx; if (!a || a.state !== 'running') return;
-  if (music.next < a.currentTime - 0.3) music.next = a.currentTime + 0.05;
+  if (music.next < a.currentTime + 0.01) music.next = a.currentTime + 0.05;
   const BL = T.barLen || 8, N = T.mel.length;
   while (music.next < a.currentTime + 0.25){
     const s = music.step % N, bar = Math.floor(s/BL), p = s % BL, t = music.next, chord = T.prog[bar % T.prog.length], half = Math.floor(music.step/N) % 2;
@@ -53878,7 +53903,8 @@ const near239 = (pos, R = 30) => pos ? clamp(1 - camera.position.distanceTo(pos)
 
 function toneAt(pos, freq, dur, type = 'sine', vol = 0.05, slide, delay = 0, R = 30){ const a = ac(); if (!a) return; const g0 = vol*near239(pos, R); if (g0 < 0.002) return; const t0 = a.currentTime + delay, o = a.createOscillator(), g = a.createGain(), p = a.createStereoPanner(); o.type = type; o.frequency.setValueAtTime(freq, t0); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(g0, t0 + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); p.pan.value = pan239(pos); o.connect(g); g.connect(p); p.connect(sfxBus); o.start(t0); o.stop(t0 + dur + 0.05); }
 
-function noiseAt(pos, dur, freq, vol = 0.03, delay = 0, R = 30, q = 0.8){ const a = ac(); if (!a) return; const g0 = vol*near239(pos, R); if (g0 < 0.002) return; const t0 = a.currentTime + delay, s = a.createBufferSource(); s.buffer = getWhite(a); const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q; const g = a.createGain(), p = a.createStereoPanner(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(g0, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); p.pan.value = pan239(pos); s.connect(f); f.connect(g); g.connect(p); p.connect(sfxBus); s.start(t0, Math.random()); s.stop(t0 + dur + 0.05); }
+// v341.2: silent until its start (audio/audio.js noiseBase), so its first sample can't come through at full volume
+function noiseAt(pos, dur, freq, vol = 0.03, delay = 0, R = 30, q = 0.8){ const a = ac(); if (!a) return; const g0 = vol*near239(pos, R); if (g0 < 0.002) return; const t0 = a.currentTime + delay, s = a.createBufferSource(); s.buffer = getWhite(a); const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q; const g = a.createGain(), p = a.createStereoPanner(); g.gain.value = 0; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(g0, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); p.pan.value = pan239(pos); s.connect(f); f.connect(g); g.connect(p); p.connect(sfxBus); s.start(t0, Math.random()); s.stop(t0 + dur + 0.05); }
 
 // ---- continuous beds: built once the audio context exists ----
 function bed239(name, build){ if (SND239.beds[name]) return SND239.beds[name]; const a = ac(); if (!a) return null; const g = a.createGain(); g.gain.value = 0; build(a, g); g.connect(sfxBus); return SND239.beds[name] = {g, v: 0}; }
@@ -56988,6 +57014,8 @@ GAME_VER.name = 'Bare Bones';
 WHATS_NEW.unshift(['341 · Bare Bones', 'Paree runs about five percent faster again, the same to look at. People in the middle distance, who are drawn as one simple figure, now only move that figure\'s bones instead of every hidden piece of them, and things that move far beyond what you can see (New Yolk\'s, from Paree) are looked at a couple of times a second instead of every frame.']);
 // v341.1
 WHATS_NEW.unshift(['341.1 · Rally Round', 'Two story fixes. In Claws Out, Rally the Family can be finished again: pecking a wiseguy on a Market Lane lamp post gave you small talk instead of rallying him, so the count never went past 0. And in the Shellfish\'s Moving Day, the marker no longer sends you back to the tin can Shelly already turned down: it points at the next thing to try.']);
+// v341.2
+WHATS_NEW.unshift(['341.2 · Clean Cut', 'The crackle in the music is gone. Every drum hit, vinyl crackle and rustle is a little burst of noise, and about one in fifteen of them started with a loud click, louder than the drums themselves. They start clean now, and the tunes are otherwise just as they were. The title screen and the jukebox are quiet apart from the music (the kids\' ball game, Kevin\'s camera and the rain went on behind them), the kids\' kicks are softer and no longer tick like a clock, and Kevin\'s camera is a soft shutter you only hear near him. The vibraphone\'s notes die away properly, and the flute, whistle, accordion, strings and glockenspiel no longer click partway through a note.']);
 };
 /* ---------- boot: detail ---------- */
 // The detail pass (v261 on): set dressing for every city, after the rest of the world has loaded. Each step has a
@@ -58286,7 +58314,7 @@ $('setSteer').value = settings.steer; $('setSteer').addEventListener('change', e
 $('setInvert').addEventListener('change', e => { settings.invertY = e.target.checked; saveSettings(); });
 $('setMusic').value = settings.music; $('setSfx').value = settings.sfx;
 $('setMusic').addEventListener('input', e => { settings.music = +e.target.value; saveSettings(); if (musicBus) musicBus.gain.setTargetAtTime(settings.music*0.55, actx.currentTime, 0.05); });
-$('setSfx').addEventListener('input', e => { settings.sfx = +e.target.value; saveSettings(); if (sfxBus){ sfxBus.gain.setTargetAtTime(settings.sfx, actx.currentTime, 0.05); sfx.eat(); } });
+$('setSfx').addEventListener('input', e => { settings.sfx = +e.target.value; saveSettings(); if (sfxBus){ sfxBus.gain.setTargetAtTime(sfxLevel341(), actx.currentTime, 0.05); sfx.eat(); } });
 
 const saved = load();
 if (saved && (saved.qi > 0 || saved.xp > 0)){
