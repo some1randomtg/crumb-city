@@ -5771,18 +5771,26 @@ if (nodeHost) {
 window.__THREE_READY = (async () => {
   const q = new URLSearchParams(location.search);
   // v337: a phone starts on the classic WebGL renderer (an iPhone's Safari closed the page while the WebGPU one started:
-  // its shaders, cascaded shadows and effects are a laptop's load), unless ?webgpu. And a start that never got going (the
-  // page died: a crash, out of memory) has the next one start on it too, in safe mode (core/loop.js clears the mark once
-  // the game has run a while). ?webgl: the classic renderer anywhere
-  let safe = false; try { const b = localStorage.getItem('cc.boot337'); safe = b !== null && Date.now() - +b < 30*60*1000; localStorage.setItem('cc.boot337', String(Date.now())); } catch (e){}
-  const phone = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 700;
-  window.__SAFE = safe && !q.has('webgpu'); window.__PHONE = phone;
-  let gpu = false; try { gpu = !q.has('webgl') && !window.__SAFE && (!phone || q.has('webgpu')) && !!navigator.gpu && !!(await navigator.gpu.requestAdapter()); } catch (e){}
-  if (!gpu){ window.THREE = Object.assign({}, await import('https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.min.js')); window.__GPU = null; return; }
+  // its shaders, cascaded shadows and effects are a laptop's load), unless ?webgpu. And a WebGPU start that never got going
+  // (the page died: a crash, out of memory; or the GPU device was lost) has the next one start on WebGL, in safe mode. The
+  // mark (cc.boot337) is left by a WebGPU start only and cleared once the game has run a while (core/loop.js) or when the
+  // page is left normally: a reload or a closed tab before that (during the load, or on the title, whose first 300 frames
+  // take 20-40 s on a laptop) is not a start that died, and sent the next start to WebGL (v344.1). A safe start leaves no
+  // mark, so the one after it tries WebGPU again. ?webgl: the classic renderer anywhere
+  let safe = false; try { const b = localStorage.getItem('cc.boot337'); safe = b !== null && Date.now() - +b < 30*60*1000 && !document.wasDiscarded; } catch (e){}
+  const phone = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 700, want = !q.has('webgl') && (!phone || q.has('webgpu'));
+  window.__SAFE = want && safe && !q.has('webgpu'); window.__PHONE = phone;
+  const mark = on => { try { if (on) localStorage.setItem('cc.boot337', String(Date.now())); else localStorage.removeItem('cc.boot337'); } catch (e){} };
+  let gpu = false; try { gpu = want && !window.__SAFE && !!navigator.gpu && !!(await navigator.gpu.requestAdapter()); } catch (e){}
+  mark(gpu);
+  if (!gpu){ if (want) console.warn(window.__SAFE ? 'The Pecking Order: safe mode, on the classic WebGL renderer (the last start didn\x27t get going); the next start tries WebGPU again' : 'The Pecking Order: no WebGPU adapter, so the classic WebGL renderer');
+    window.THREE = Object.assign({}, await import('https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.min.js')); window.__GPU = null; return; }
+  let lost = false; addEventListener('pagehide', () => { if (!lost) mark(false); });   // left normally (lost: set below)
   const [T, TSL, csm, gtao, ssr, bloom, blur, smaa] = await Promise.all(['three/webgpu', 'three/tsl', 'three/addons/csm/CSMShadowNode.js', 'three/addons/tsl/display/GTAONode.js', 'three/addons/tsl/display/SSRNode.js', 'three/addons/tsl/display/BloomNode.js', 'three/addons/tsl/display/GaussianBlurNode.js', 'three/addons/tsl/display/SMAANode.js'].map(m => import(m)));
   window.THREE = Object.assign({}, T, {TSL, ADDONS: {CSMShadowNode: csm.CSMShadowNode, ao: gtao.ao, ssr: ssr.ssr, bloom: bloom.bloom, gaussianBlur: blur.gaussianBlur, smaa: smaa.smaa}, WebGLRenderTarget: T.RenderTarget});
   window.__GPU = new T.WebGPURenderer({canvas: document.getElementById('game'), antialias: false, alpha: false, powerPreference: 'high-performance',   /* v299: the fast GPU on a two-GPU laptop */ trackTimestamp: q.has('ts') || q.has('perf')});   // alpha: false: an opaque canvas (the post pass's output carries no alpha, and a see-through canvas showed nothing in Chrome)   // ?ts=1 (or ?perf=1, ui/perf-overlay.js): GPU timings, for tests
   await window.__GPU.init();
+  { const D = window.__GPU.backend.device; if (D) D.lost.then(i => { if (i.reason !== 'destroyed') lost = true; }); }   // a lost device keeps the mark: the next start is a safe one
   // every render pipeline compiles in the background (createRenderPipelineAsync): on a real GPU the ~300 shaders took
   // minutes to compile one after another and froze the page with nothing drawn. An object now simply appears a moment
   // later, once its shader is ready (three skips objects whose pipeline isn't ready yet)
