@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v360 (right of way: cars turn at the crossings on a curve and give way, Paree's traffic stops driving through itself, Bangcluck's turn round corners, Tokyoo's turn at the grid's edge, St. Petersbird's stop for you, and people walk at a walking pace and keep right; on top of v363: a lift up Tokyoo Tower, a Zombie Boris you can lose to, side quests on the tracker, and everything since v344.1)
+Current version: v366 (mind the gap: Tokyoo's cars stop for people crossing, New Yolk's dogs stay out of the newsboxes, Little Pecking's villagers walk at a walking stride, and nobody is swapped elsewhere while you watch; on top of v360: cars that turn and give way, people who walk at a walking pace, and everything since v344.1)
