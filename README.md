@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v366 (mind the gap: Tokyoo's cars stop for people crossing, New Yolk's dogs stay out of the newsboxes, Little Pecking's villagers walk at a walking stride, and nobody is swapped elsewhere while you watch; on top of v360: cars that turn and give way, people who walk at a walking pace, and everything since v344.1)
+Current version: v367 (room to pass: the tram brakes for cars, cars wait for people crossing, walkers keep right and stop walking through each other and through President Pootin's bear, and pigeons land clear of each other; on top of v366 and v360: cars that turn and give way, people who walk at a walking pace, and everything since v344.1)
