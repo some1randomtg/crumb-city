@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v359 (every poster in the world has its own design: parody film one-sheets, gig bills, lost-pet flyers with tear-off tabs, Bangcluck's ballots, St. Petersbird's propaganda, Paree's Belle Époque bills and a Lautrec at the Moulin Rouge; on top of v358: Tokyoo's Pidgemon; v357: Pigeon Park's joggers and New Yolk's traffic keeping right; v356.1: Plume waiting at the nest; v356: nearly two thousand small touches all over the world, and everything since v344.1)
+Current version: v362 (the game is ready sooner: Start works about five seconds earlier, the city fades in whole, an honest load bar, and later cities built during cut-scenes; Little Pecking's hobbit hole and other round things made round; pigeons that give each other room, solid bench backrests and people sitting on the seat; on top of v359: every poster in the world has its own design, and everything since v344.1)
