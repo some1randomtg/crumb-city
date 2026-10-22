@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v371 (hold on: Bangcluck's scooter passengers hold on at the sides, its buses stand on wheels you can see, and Paree's walkers go one behind the other; on top of v370 and the movement releases before it: traffic that turns and gives way, people who walk at a walking pace and keep right, and everything since v344.1)
+Current version: v365 (smooth: no stall on arrival, a tutorial that teaches braking, settings and a Journal that work, phone fixes and distant shadows; on top of v371 and everything since v344.1)
