@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v368 (wide berth: Bangcluck's traffic slows early instead of stopping dead, Nevsky's cars keep clear of the tram, and people step aside for President Pootin's bear; on top of v367, v366 and v360: cars that turn and give way, people who walk at a walking pace and keep right, and everything since v344.1)
+Current version: v364 (clean: Polish 2's city-by-city clean-up, with phone minigames that take taps again, no slipping through walls, Pidge's outline when she's hidden, cheaper retries, the moon's Earthrise back and dozens of fixes per city; on top of v368, v367 and v366: traffic and people that move properly, and everything since v344.1)
