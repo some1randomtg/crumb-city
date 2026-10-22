@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v372 (mind the crowd: Paree's passers-by and walkers stop passing through each other, and New Yolk's cars stop slamming on their brakes at blocked junctions; on top of v365's smoother frames and v371 and the movement releases before it: traffic that turns and gives way, people who walk at a walking pace and keep right, and everything since v344.1)
+Current version: v373 (clear ahead: pigeons stop walking through each other on narrow ledges, and Bangcluck's traffic stops ending up inside itself at the corners; on top of v372, v365's smoother frames and the movement releases before them: traffic that turns and gives way, people who walk at a walking pace and keep right, and everything since v344.1)
