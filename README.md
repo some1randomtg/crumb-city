@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v364 (clean: Polish 2's city-by-city clean-up, with phone minigames that take taps again, no slipping through walls, Pidge's outline when she's hidden, cheaper retries, the moon's Earthrise back and dozens of fixes per city; on top of v368, v367 and v366: traffic and people that move properly, and everything since v344.1)
+Current version: v369 (make way: Paree's dogs stay out of building corners, the balloon kids stop to point at you, and Bangcluck's scooters stop riding through each other; on top of v364's clean-up and v368, v367, v366 and v360: traffic that turns and gives way, people who walk at a walking pace and keep right, and everything since v344.1)
