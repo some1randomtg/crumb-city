@@ -1,0 +1,2 @@
+# the riddle checker is fetched and checked byte for byte (its sizes are in index.html): no line-ending conversion
+models/** -text
