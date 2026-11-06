@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v437 (light work: a steadier frame rate with the same picture, New Yolk a little faster and no more short hitch once a second in the first minutes of a city)
+Current version: v438 (paper round: a new HUD with Pidge perched on the Menu, a dial that points the way, a round plum map, the quest in Pidge's words when you stop, and one simple Menu)
