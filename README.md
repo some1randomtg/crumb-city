@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v438.1 (cut to size: the new HUD is smaller on a laptop and fits a phone, with the dial beside the map and the Menu under it)
+Current version: v439 (perchance: Pidge can sit on nearly anything in all eight cities, a bench's arm, a rope, a twig, a swing, and anything that moves carries her along)
