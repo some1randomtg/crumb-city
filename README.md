@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v439 (perchance: Pidge can sit on nearly anything in all eight cities, a bench's arm, a rope, a twig, a swing, and anything that moves carries her along)
+Current version: v440 (Starstruck: Countess Octavia rises gigantic over Tokyoo, an ancient astronomer lends Pidge his robe and hat, and a fifteen-sky marble run steers an asteroid onto her).
