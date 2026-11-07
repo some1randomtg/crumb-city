@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v440 (Starstruck: Countess Octavia rises gigantic over Tokyoo, an ancient astronomer lends Pidge his robe and hat, and a fifteen-sky marble run steers an asteroid onto her).
+Current version: v440.1 (firm footing: the Sky Perch dome, stones and low steps hold Pidge as they're drawn, and the moon stops bouncing her between flagpoles).
