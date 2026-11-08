@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v440.1 (firm footing: the Sky Perch dome, stones and low steps hold Pidge as they're drawn, and the moon stops bouncing her between flagpoles).
+Current version: v441 (all squared: umbrellas held over heads, no grey ring round the characters, Wild Acres and the subway posters fixed, Pidge stands on what is drawn in every city, and the phone menus fit).
