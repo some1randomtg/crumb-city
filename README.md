@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v441 (all squared: umbrellas held over heads, no grey ring round the characters, Wild Acres and the subway posters fixed, Pidge stands on what is drawn in every city, and the phone menus fit).
+Current version: v442 (mopping up: Pidge stands on Bavaria's hillsides as drawn, the Fun House camera and phone controls fixed, Blast Off's crowd out of the Tower, a fan trap and two crashes gone).
