@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v445 (swim harder: Dam and Pok act, the trawler reads in the storm, Flush Hour gets an overflow vault, a jade Om, a neon soi with The Coop, and a pedal-boat swan; before that v443, something fishy: Red Herring, the fish sauce that gives you fins, replaces Red Bawk; a trawler in a storm, a toilet, and Flush Hour, a ride down the pipes into the Chao Fryer).
+Current version: v445.1 (lily pads: the Om pond has its lily pads back; before that v445, swim harder: Dam and Pok act, the trawler reads in the storm, Flush Hour gets an overflow vault, a jade Om, a neon soi with The Coop, and a pedal-boat swan; before that v443, something fishy: Red Herring, the fish sauce that gives you fins, replaces Red Bawk; a trawler in a storm, a toilet, and Flush Hour, a ride down the pipes into the Chao Fryer).
