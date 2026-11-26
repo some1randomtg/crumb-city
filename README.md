@@ -6,4 +6,4 @@ Fly across seven cities and a little bit of the moon, make friends, run errands 
 
 Works in any modern browser on a computer, tablet or phone. Browsers with WebGPU get the new renderer; others keep the classic look. Progress is saved in your browser.
 
-Current version: v497 (off the beaten track: New Yolk's edges rebuilt, a Featherland theme park with ten rideable rides, a zoo with feeding shows and animals to ride, and less memory while you play; before that v496, spot checks: a short pass of fixes: in Paree you can land on Marianne's cap and the Galeries' cupola spikes again and the street lamps hold you, and the Sit-Down's reveal shows Stella whole)
+Current version: v499 (bits and bobs: New Yolk's small games reworked, riddle plaques and roof bells, the Bridge Dash with Speedy racing you, kids' football with real goals, people who react when you ride their heads, the Gull Gang on their beach and the bagel boy's cart; before that v497, off the beaten track: New Yolk's edges rebuilt, a Featherland theme park with ten rideable rides, a zoo with feeding shows and animals to ride, and less memory while you play)
